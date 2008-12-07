@@ -1,0 +1,47 @@
+#include <sys/syscall.h>
+/* Linux system call interface for x86 via int 0x80
+ * Arguments:
+ * %eax System call number.
+ * %ebx Arg1
+ * %ecx Arg2
+ * %edx Arg3
+ * %esi Arg4
+ * %edi Arg5
+ * %ebp Arg6    [note: not saved in the stack frame, should not be touched]
+ *
+ * Notes:
+ * All registers except %eax must be saved (but ptrace may violate that)
+ */                      
+#define SYSCALL1(name,arg1)						\
+  ({									\
+    register unsigned int resultvar;					\
+    __asm__ __volatile__ (						\
+			  "pushl %%ebx\n\t"				\
+			  "movl %2, %%ebx\n\t"				\
+			  "movl %1, %%eax\n\t"				\
+			  "int $0x80\n\t"				\
+			  "popl %%ebx\n\t"				\
+			  : "=a" (resultvar)				\
+			  : "i" (__NR_##name) , "acdSD" (arg1) : "memory", "cc"); \
+    (int) resultvar;							\
+  })
+#define SYSCALL3(name,arg1,arg2,arg3)					\
+  ({									\
+    register unsigned int resultvar;					\
+    __asm__ __volatile__ (						\
+			  "pushl %%ebx\n\t"				\
+			  "movl %2, %%ebx\n\t"				\
+			  "pushl %%ecx\n\t"				\
+			  "movl %3, %%ecx\n\t"				\
+			  "pushl %%edx\n\t"				\
+			  "movl %4, %%edx\n\t"				\
+			  "movl %1, %%eax\n\t"				\
+			  "int $0x80\n\t"				\
+			  "popl %%edx\n\t"				\
+			  "popl %%ecx\n\t"				\
+			  "popl %%ebx\n\t"				\
+			  : "=a" (resultvar)				\
+			  : "i" (__NR_##name) , "aSD" (arg1),		\
+			    "c" (arg2), "d" (arg3) : "memory", "cc"); \
+    (int) resultvar;							\
+  })
