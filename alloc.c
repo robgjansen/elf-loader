@@ -14,24 +14,28 @@ void alloc_initialize (struct Alloc *alloc)
 }
 void alloc_destroy (struct Alloc *alloc)
 {
-  struct AllocMmapChunk *tmp;
-  for (tmp = alloc->chunks; tmp != 0; tmp = tmp->next)
+  struct AllocMmapChunk *tmp, *next;
+  for (tmp = alloc->chunks; tmp != 0; tmp = next)
     {
+      next = tmp->next;
       system_munmap (tmp->buffer, tmp->size);
-      tmp->buffer = 0;
-      tmp->size = 0;
     }
   alloc->chunks = 0;
 }
 
+static uint32_t round_to (uint32_t v, uint32_t to)
+{
+  return (v + (to - (v % to)));
+}
+
 static uint32_t chunk_overhead (void)
 {
-  // round to upper 16 bytes.
-  return sizeof (struct AllocMmapChunk) | 0xf;
+  return round_to (sizeof (struct AllocMmapChunk), 16);
 }
 
 static void alloc_chunk (struct Alloc *alloc, uint32_t size)
 {
+  size = round_to (size, 4096);
   uint8_t *map = system_mmap_anon (size);
   struct AllocMmapChunk *chunk = (struct AllocMmapChunk*) (map);
   chunk->buffer = map;
@@ -93,7 +97,7 @@ uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size)
     }
   else
     {
-      alloc_chunk (alloc, size);
+      alloc_chunk (alloc, size + chunk_overhead ());
       return alloc_brk (alloc, size);
     }
 }
