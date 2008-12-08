@@ -15,36 +15,72 @@
 
 extern int g_test;
 
-static uint8_t *
-get_interpreter_load_base (unsigned long *args)
+struct OsArgs
 {
   uint8_t *interpreter_load_base;
+  int (*program_entry) (int, char *[]);
+  int program_argc;
+  char **program_argv;
+  char **program_envp;
+  int program_fd;
+  ElfW(Phdr) *program_phdr;
+  uint32_t program_phent;
+  uint32_t program_phnum;
+};
+
+static struct OsArgs
+get_os_args (unsigned long *args)
+{
+  struct OsArgs os_args;
   unsigned long tmp;
-  int argc;
+
   ElfW(auxv_t) *auxvt, *auxvt_tmp;
   tmp = (unsigned long)(args-1);
-  argc = READ_INT (tmp); // skip argc
-  tmp += sizeof(char *)*(argc+1); // skip argv
+  os_args.program_argc = READ_INT (tmp); // skip argc
+  os_args.program_argv = (char **)tmp;
+  tmp += sizeof(char *)*(os_args.program_argc+1); // skip argv
+  os_args.program_envp = (char **)tmp;
   while (READ_POINTER (tmp) != 0) {} // skip envp
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
   // search interpreter load base
-  interpreter_load_base = 0;
+  os_args.interpreter_load_base = 0;
   auxvt_tmp = auxvt;
   while (auxvt_tmp->a_type != AT_NULL)
     {
       if (auxvt_tmp->a_type == AT_BASE)
-	  {
-	    interpreter_load_base = (uint8_t *)auxvt_tmp->a_un.a_val;
-	    break;
-	  }
+	{
+	  os_args.interpreter_load_base = (uint8_t *)auxvt_tmp->a_un.a_val;
+	  break;
+	}
+      else if (auxvt_tmp->a_type == AT_EXECFD)
+	{
+	  os_args.program_fd = auxvt_tmp->a_un.a_val;
+	  break;
+	}
+      else if (auxvt_tmp->a_type == AT_PHDR)
+	{
+	  os_args.program_phdr = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
+	}
+      else if (auxvt_tmp->a_type == AT_PHENT)
+	{
+	  os_args.program_phent = auxvt_tmp->a_un.a_val;
+	}
+      else if (auxvt_tmp->a_type == AT_PHNUM)
+	{
+	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
+	}
+      else if (auxvt_tmp->a_type == AT_ENTRY)
+	{
+	  os_args.program_entry = (int (*)(int,char**))auxvt_tmp->a_un.a_val;
+	}
       auxvt_tmp++;
     }
-  DPRINTF ("interpreter load base: 0x%x\n", interpreter_load_base);
-  if (interpreter_load_base == 0)
+  DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
+  if (os_args.interpreter_load_base == 0)
     {
       SYSCALL1 (exit, -3);
     }
-  return interpreter_load_base;
+  return os_args;
 }
 
 static ElfW(Dyn) *
@@ -122,12 +158,12 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, uint8_t *load_base)
 
 void _dl_start(unsigned long args)
 {
-  uint8_t *interpreter_load_base;
+  struct OsArgs os_args;
   ElfW(Dyn) *dynamic;
 
-  interpreter_load_base = get_interpreter_load_base (&args);
-  dynamic = get_pt_dynamic (interpreter_load_base);
-  relocate_dt_rel (dynamic, interpreter_load_base);
+  os_args = get_os_args (&args);
+  dynamic = get_pt_dynamic (os_args.interpreter_load_base);
+  relocate_dt_rel (dynamic, os_args.interpreter_load_base);
 
   SYSCALL1 (exit, -6);
 }
