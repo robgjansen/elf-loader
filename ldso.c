@@ -52,13 +52,13 @@ get_os_args (unsigned long *args)
       else if (auxvt_tmp->a_type == AT_PHDR)
 	{
 	  ElfW(Phdr) *program = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
+	  DPRINTF ("program load base=%x, vaddr=%x\n", program, program->p_vaddr);
 	  os_args.program_load_base = (uint8_t *)(auxvt_tmp->a_un.a_val - program->p_vaddr);
 	}
       auxvt_tmp++;
     }
   DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
-  if (os_args.interpreter_load_base == 0 ||
-      os_args.program_load_base == 0)
+  if (os_args.interpreter_load_base == 0)
     {
       SYSCALL1 (exit, -3);
     }
