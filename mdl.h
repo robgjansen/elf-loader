@@ -2,6 +2,7 @@
 #define MDL_H
 
 #include <stdint.h>
+#include <sys/types.h>
 #include "alloc.h"
 
 struct MappedFile
@@ -43,7 +44,11 @@ extern struct Mdl g_mdl;
 
 void mdl_initialize (uint8_t *interpreter_load_base);
 struct MappedFile *mdl_load_file (const char *filename);
-uint8_t *mdl_malloc (uint32_t size);
-void mdl_free (uint8_t *buffer, uint32_t size);
+void *mdl_malloc (size_t size);
+void mdl_free (void *buffer, size_t size);
+int mdl_strisequal (const char *a, const char *b);
+int mdl_strlen (const char *str);
+char *mdl_strdup (const char *str);
+void mdl_memcpy (void *dst, const void *src, size_t len);
 
 #endif /* MDL_H */

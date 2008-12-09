@@ -24,12 +24,56 @@ void mdl_initialize (uint8_t *interpreter_load_base)
   alloc_initialize (&(mdl->alloc));
 }
 
-uint8_t *mdl_malloc (uint32_t size)
+void *mdl_malloc (size_t size)
 {
-  return alloc_malloc (&g_mdl.alloc, size);
+  return (void*)alloc_malloc (&g_mdl.alloc, size);
 }
-void mdl_free (uint8_t *buffer, uint32_t size)
+void mdl_free (void *buffer, size_t size)
 {
-  alloc_free (&g_mdl.alloc, buffer, size);
+  alloc_free (&g_mdl.alloc, (uint8_t *)buffer, size);
 }
+int mdl_strisequal (const char *a, const char *b)
+{
+  while (*a != 0 && *b != 0)
+    {
+      if (*a != *b)
+	{
+	  return 0;
+	}
+      a++;
+      b++;
+    }
+  return 1;
+}
+int mdl_strlen (const char *str)
+{
+  const char *tmp = str;
+  int len = 0;
+  while (*tmp != 0)
+    {
+      len++;
+    }
+  return len;
+}
+char *mdl_strdup (const char *str)
+{
+  int len = mdl_strlen (str);
+  char *retval = mdl_malloc (len+1);
+  mdl_memcpy (retval, str, len+1);
+  return retval;
+}
+void mdl_memcpy (void *d, const void *s, size_t len)
+{
+  int tmp = len;
+  char *dst = d;
+  const char *src = s;
+  while (tmp > 0)
+    {
+      *dst = *src;
+      dst++;
+      src++;
+      tmp--;
+    }
+}
+
 
