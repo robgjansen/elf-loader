@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "dprintf.h"
+#include "mdl.h"
 #include <elf.h>
 #include <link.h>
 
@@ -18,14 +19,10 @@ extern int g_test;
 struct OsArgs
 {
   uint8_t *interpreter_load_base;
-  int (*program_entry) (int, char *[]);
+  uint8_t *program_load_base;
   int program_argc;
   char **program_argv;
   char **program_envp;
-  int program_fd;
-  ElfW(Phdr) *program_phdr;
-  uint32_t program_phent;
-  uint32_t program_phnum;
 };
 
 static struct OsArgs
@@ -44,39 +41,24 @@ get_os_args (unsigned long *args)
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
   // search interpreter load base
   os_args.interpreter_load_base = 0;
+  os_args.program_load_base = 0;
   auxvt_tmp = auxvt;
   while (auxvt_tmp->a_type != AT_NULL)
     {
       if (auxvt_tmp->a_type == AT_BASE)
 	{
 	  os_args.interpreter_load_base = (uint8_t *)auxvt_tmp->a_un.a_val;
-	  break;
-	}
-      else if (auxvt_tmp->a_type == AT_EXECFD)
-	{
-	  os_args.program_fd = auxvt_tmp->a_un.a_val;
-	  break;
 	}
       else if (auxvt_tmp->a_type == AT_PHDR)
 	{
-	  os_args.program_phdr = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_PHENT)
-	{
-	  os_args.program_phent = auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_PHNUM)
-	{
-	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_ENTRY)
-	{
-	  os_args.program_entry = (int (*)(int,char**))auxvt_tmp->a_un.a_val;
+	  ElfW(Phdr) *program = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
+	  os_args.program_load_base = (uint8_t *)(auxvt_tmp->a_un.a_val - program->p_vaddr);
 	}
       auxvt_tmp++;
     }
   DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
-  if (os_args.interpreter_load_base == 0)
+  if (os_args.interpreter_load_base == 0 ||
+      os_args.program_load_base == 0)
     {
       SYSCALL1 (exit, -3);
     }
@@ -156,7 +138,42 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, uint8_t *load_base)
     }
 }
 
-void _dl_start(unsigned long args)
+
+void stage1 (unsigned long args);
+
+static void stage2 (struct OsArgs args)
+{
+  mdl_initialize (args.interpreter_load_base);
+
+  struct MappedFile *main_file = (struct MappedFile *) mdl_malloc (sizeof (struct MappedFile));
+  if (args.program_argv[0])
+    {
+      // the interpreter is run as a normal program. We behave like the libc
+      // interpreter and assume that this means that the name of the program
+      // to run is the first argument in the argv.
+      // To do this, we need to do the work the kernel did, that is, map the
+      // program in memory 
+
+      // XXX: ensure that args is initialized correctly.
+    }
+  else
+    {
+      main_file->load_base = args.program_load_base;
+      main_file->filename = args.program_argv[0];
+      main_file->dynamic = (uint8_t *)get_pt_dynamic (main_file->load_base);
+      main_file->next = 0;
+      main_file->prev = 0;
+      main_file->count = 1;
+      main_file->context = 0;
+      // XXX
+    }
+  
+  g_mdl.link_map = main_file;
+
+  SYSCALL1 (exit, -6);
+}
+
+void stage1 (unsigned long args)
 {
   struct OsArgs os_args;
   ElfW(Dyn) *dynamic;
@@ -165,5 +182,5 @@ void _dl_start(unsigned long args)
   dynamic = get_pt_dynamic (os_args.interpreter_load_base);
   relocate_dt_rel (dynamic, os_args.interpreter_load_base);
 
-  SYSCALL1 (exit, -6);
+  stage2 (os_args);
 }

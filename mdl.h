@@ -1,5 +1,5 @@
-#ifndef LOADER_H
-#define LOADER_H
+#ifndef MDL_H
+#define MDL_H
 
 #include <stdint.h>
 #include "alloc.h"
@@ -22,27 +22,28 @@ struct MappedFile
   uint32_t rw_map_size;
 };
 
-struct Loader
+struct Mdl
 {
   // the following fields are part of the ABI. Don't touch them.
   int version; // always 1
   struct MappedFile *link_map;
   int (*breakpoint)(void);
   enum {
-    LOADER_CONSISTENT,
-    LOADER_ADD,
-    LOADER_DELETE
+    MDL_CONSISTENT,
+    MDL_ADD,
+    MDL_DELETE
   } state;
   uint8_t *interpreter_load_base;
   // the following fields are not part of the ABI
   uint32_t next_context;
   struct Alloc alloc;
-  char *(*lookup_filename) (const char *filename);
-  char *(*lookup_symbol) (const char *symbol);
 };
 
-extern struct Loader *g_loader;
+extern struct Mdl g_mdl;
 
-void loader_initialize (void);
+void mdl_initialize (uint8_t *interpreter_load_base);
+struct MappedFile *mdl_load_file (const char *filename);
+uint8_t *mdl_malloc (uint32_t size);
+void mdl_free (uint8_t *buffer, uint32_t size);
 
-#endif /* LOADER_H */
+#endif /* MDL_H */
