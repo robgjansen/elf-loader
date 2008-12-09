@@ -142,10 +142,9 @@ static void stage2 (struct OsArgs args)
     }
   else
     {
-      ElfW(Phdr) *phdr = mdl_elf_search_phdr (args.program_phdr, 
-					      args.program_phnum,
-					      PT_PHDR);
-      main_file->load_base = ((uint8_t*) args.program_phdr) - phdr->p_vaddr;
+      // The load base of the main program is easy to calculate as the difference
+      // between the PT_PHDR vaddr and its real address in memory.
+      main_file->load_base = ((uint8_t*) args.program_phdr) - args.program_phdr->p_vaddr;
       main_file->filename = mdl_strdup (args.program_argv[0]);
       main_file->dynamic = (uint8_t *) mdl_elf_search_phdr (args.program_phdr, 
 							   args.program_phnum,
