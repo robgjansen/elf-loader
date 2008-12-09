@@ -21,8 +21,8 @@ struct OsArgs
   uint8_t *interpreter_load_base;
   uint8_t *program_load_base;
   int program_argc;
-  char **program_argv;
-  char **program_envp;
+  const char **program_argv;
+  const char **program_envp;
 };
 
 static struct OsArgs
@@ -34,9 +34,9 @@ get_os_args (unsigned long *args)
   ElfW(auxv_t) *auxvt, *auxvt_tmp;
   tmp = (unsigned long)(args-1);
   os_args.program_argc = READ_INT (tmp); // skip argc
-  os_args.program_argv = (char **)tmp;
+  os_args.program_argv = (const char **)tmp;
   tmp += sizeof(char *)*(os_args.program_argc+1); // skip argv
-  os_args.program_envp = (char **)tmp;
+  os_args.program_envp = (const char **)tmp;
   while (READ_POINTER (tmp) != 0) {} // skip envp
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
   // search interpreter load base
@@ -145,8 +145,12 @@ static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
-  struct MappedFile *main_file = (struct MappedFile *) mdl_malloc (sizeof (struct MappedFile));
-  if (args.program_argv[0])
+  const char *ld_debug = mdl_getenv (args.program_envp, "LD_DEBUG");
+  mdl_set_logging (ld_debug);
+
+
+  struct MappedFile *main_file = mdl_new (struct MappedFile);
+  if (mdl_strisequal (args.program_argv[0], "ldso"))
     {
       // the interpreter is run as a normal program. We behave like the libc
       // interpreter and assume that this means that the name of the program
@@ -159,7 +163,7 @@ static void stage2 (struct OsArgs args)
   else
     {
       main_file->load_base = args.program_load_base;
-      main_file->filename = args.program_argv[0];
+      main_file->filename = mdl_strdup (args.program_argv[0]);
       main_file->dynamic = (uint8_t *)get_pt_dynamic (main_file->load_base);
       main_file->next = 0;
       main_file->prev = 0;
@@ -167,7 +171,16 @@ static void stage2 (struct OsArgs args)
       main_file->context = 0;
       // XXX
     }
-  
+
+  const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
+  DPRINTF ("LD_LIBRARY_PATH=%s\n", ld_lib_path);
+  struct StringList *list = mdl_strsplit (ld_lib_path, ':');
+  struct StringList *tmp;
+  for (tmp = list; tmp != 0; tmp = tmp->next)
+    {
+      DPRINTF ("item=%s\n", tmp->str);
+    }
+
   g_mdl.link_map = main_file;
 
   SYSCALL1 (exit, -6);

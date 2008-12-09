@@ -18,3 +18,7 @@ void system_munmap (uint8_t *start, size_t size)
 {
   SYSCALL2 (munmap, start, size);
 }
+void system_write (int fd, const void *buf, size_t size)
+{
+  SYSCALL3(write,fd,buf,size);
+}
