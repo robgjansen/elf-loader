@@ -8,9 +8,9 @@
 struct MappedFile
 {
   // The following fields are part of the ABI. Don't change them
-  uint8_t *load_base;
+  unsigned long load_base;
   char *filename;
-  uint8_t *dynamic;
+  unsigned long dynamic;
   struct MappedFile *next;
   struct MappedFile *prev;
 
