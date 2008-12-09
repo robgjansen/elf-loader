@@ -62,27 +62,36 @@ struct MappedFile *mdl_load_file (const char *filename);
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
 
+// allocate/free memory
 void *mdl_malloc (size_t size);
 void mdl_free (void *buffer, size_t size);
-int mdl_strisequal (const char *a, const char *b);
-int mdl_strlen (const char *str);
-char *mdl_strdup (const char *str);
-void mdl_memcpy (void *dst, const void *src, size_t len);
-const char *mdl_getenv (const char **envp, const char *value);
-struct StringList *mdl_strsplit (const char *value, char separator);
-void mdl_str_list_free (struct StringList *list);
-void mdl_log_printf (enum MdlLog log, const char *str, ...);
-
-
 #define mdl_new(type) \
   (type *) mdl_malloc (sizeof (type))
 #define mdl_delete(v) \
   mdl_free (v, sizeof(*v))
 
+// string manipulation functions
+int mdl_strisequal (const char *a, const char *b);
+int mdl_strlen (const char *str);
+char *mdl_strdup (const char *str);
+void mdl_memcpy (void *dst, const void *src, size_t len);
+const char *mdl_getenv (const char **envp, const char *value);
 
+// manipulate string lists.
+struct StringList *mdl_strsplit (const char *value, char separator);
+void mdl_str_list_free (struct StringList *list);
+struct StringList *mdl_str_list_reverse (struct StringList *list);
+struct StringList * mdl_str_list_append (struct StringList *start, struct StringList *end);
+
+// logging
+void mdl_log_printf (enum MdlLog log, const char *str, ...);
 #define MDL_LOG_FUNCTION \
   mdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s\n", __FILE__, __LINE__, __FUNCTION__)
 #define MDL_LOG_DEBUG(str,...) \
   mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__);
+
+
+
+
 
 #endif /* MDL_H */

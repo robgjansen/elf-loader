@@ -145,8 +145,14 @@ static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
+  // setup logging
   const char *ld_debug = mdl_getenv (args.program_envp, "LD_DEBUG");
   mdl_set_logging (ld_debug);
+
+  // populate search_dirs from LD_LIBRARY_PATH
+  const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
+  struct StringList *list = mdl_strsplit (ld_lib_path, ':');
+  g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
 
 
   struct MappedFile *main_file = mdl_new (struct MappedFile);
@@ -170,15 +176,6 @@ static void stage2 (struct OsArgs args)
       main_file->count = 1;
       main_file->context = 0;
       // XXX
-    }
-
-  const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
-  DPRINTF ("LD_LIBRARY_PATH=%s\n", ld_lib_path);
-  struct StringList *list = mdl_strsplit (ld_lib_path, ':');
-  struct StringList *tmp;
-  for (tmp = list; tmp != 0; tmp = tmp->next)
-    {
-      DPRINTF ("item=%s\n", tmp->str);
     }
 
   g_mdl.link_map = main_file;

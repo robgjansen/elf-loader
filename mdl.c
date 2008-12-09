@@ -23,10 +23,25 @@ void mdl_initialize (uint8_t *interpreter_load_base)
   mdl->breakpoint = mdl_breakpoint;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = 0;
+  mdl->logging = MDL_LOG_DBG;
   mdl->search_dirs = 0;
   mdl->next_context = 0;
   alloc_initialize (&(mdl->alloc));
+
+  {
+    const char *dirs[] = {"/lib", "/lib64", "/lib32",
+			  "/usr/lib", "/usr/lib64", "/usr/lib32"};
+    struct StringList *list = 0;
+    int i;
+    for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
+      {
+	struct StringList *tmp = mdl_new (struct StringList);
+	tmp->str = mdl_strdup (dirs[i]);
+	tmp->next = list;
+	list = tmp;
+      }
+    mdl->search_dirs = mdl_str_list_reverse (list);
+  }
 }
 void mdl_set_logging (const char *debug_str)
 {
@@ -179,7 +194,7 @@ struct StringList *mdl_strsplit (const char *value, char separator)
       cur++;
       prev = cur;
     }
-  return list;
+  return mdl_str_list_reverse (list);
 }
 void mdl_str_list_free (struct StringList *list)
 {
@@ -190,5 +205,33 @@ void mdl_str_list_free (struct StringList *list)
       next = cur->next;
       mdl_delete (cur);
     }
+}
+struct StringList *mdl_str_list_append (struct StringList *start, struct StringList *end)
+{
+  struct StringList *cur, *prev;
+  for (cur = start, prev = 0; cur != 0; cur = cur->next)
+    {
+      prev = cur;
+    }
+  if (prev == 0)
+    {
+      return end;
+    }
+  else
+    {
+      prev->next = end;
+      return start;
+    }
+}
+struct StringList *mdl_str_list_reverse (struct StringList *list)
+{
+  struct StringList *ret = 0, *cur, *next;
+  for (cur = list; cur != 0; cur = next)
+    {
+      next = cur->next;
+      cur->next = ret;
+      ret = cur;
+    }
+  return ret;
 }
 
