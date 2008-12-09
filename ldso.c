@@ -15,8 +15,6 @@
     p+=sizeof(char*);				\
     v;})
 
-extern int g_test;
-
 struct OsArgs
 {
   uint8_t *interpreter_load_base;
