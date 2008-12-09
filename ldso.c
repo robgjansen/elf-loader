@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include "dprintf.h"
 #include "mdl.h"
+#include "mdl-elf.h"
 #include <elf.h>
 #include <link.h>
 
@@ -19,7 +20,8 @@ extern int g_test;
 struct OsArgs
 {
   uint8_t *interpreter_load_base;
-  uint8_t *program_load_base;
+  ElfW(Phdr) *program_phdr;
+  uint32_t program_phnum;
   int program_argc;
   const char **program_argv;
   const char **program_envp;
@@ -41,7 +43,8 @@ get_os_args (unsigned long *args)
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
   // search interpreter load base
   os_args.interpreter_load_base = 0;
-  os_args.program_load_base = 0;
+  os_args.program_phdr = 0;
+  os_args.program_phnum = 0;
   auxvt_tmp = auxvt;
   while (auxvt_tmp->a_type != AT_NULL)
     {
@@ -51,53 +54,25 @@ get_os_args (unsigned long *args)
 	}
       else if (auxvt_tmp->a_type == AT_PHDR)
 	{
-	  ElfW(Phdr) *program = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
-	  DPRINTF ("program load base=%x, vaddr=%x\n", program, program->p_vaddr);
-	  os_args.program_load_base = (uint8_t *)(auxvt_tmp->a_un.a_val - program->p_vaddr);
+	  os_args.program_phdr = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
+	}
+      else if (auxvt_tmp->a_type == AT_PHNUM)
+	{
+	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
 	}
       auxvt_tmp++;
     }
   DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
-  if (os_args.interpreter_load_base == 0)
+  if (os_args.interpreter_load_base == 0 ||
+      os_args.program_phdr == 0 ||
+      os_args.program_phnum == 0)
     {
       SYSCALL1 (exit, -3);
     }
   return os_args;
 }
 
-static ElfW(Dyn) *
-get_pt_dynamic (uint8_t *load_base)
-{
-  ElfW(Half) i;
-  ElfW(Dyn) *dynamic = 0;
-  ElfW(Ehdr) *header = (ElfW(Ehdr) *)load_base;
-  DPRINTF ("program headers n=%d, off=0x%x\n", 
-	   header->e_phnum, 
-	   header->e_phoff);
-  for (i = 0; i < header->e_phnum; i++)
-    {
-      ElfW(Phdr) *program_header = (ElfW(Phdr) *) 
-	(load_base + 
-	 header->e_phoff + 
-	 header->e_phentsize * i);
-      //DPRINTF ("type=0x%x\n", program_header->p_type)
-      if (program_header->p_type == PT_DYNAMIC)
-	{
-	  //DPRINTF ("off=0x%x\n", program_header->p_offset);
-	  dynamic = (ElfW(Dyn)*)(load_base + program_header->p_offset);
-	  break;
-	}
-    }
-  if (dynamic == 0)
-    {
-      SYSCALL1 (exit, -4);
-    }
-  // we found PT_DYNAMIC
-  DPRINTF("dynamic=0x%x\n", dynamic);
-  return dynamic;
-}
-
-  // relocate entries in DT_REL
+// relocate entries in DT_REL
 static void
 relocate_dt_rel (ElfW(Dyn) *dynamic, uint8_t *load_base)
 {
@@ -154,7 +129,6 @@ static void stage2 (struct OsArgs args)
   struct StringList *list = mdl_strsplit (ld_lib_path, ':');
   g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
 
-
   struct MappedFile *main_file = mdl_new (struct MappedFile);
   if (mdl_strisequal (args.program_argv[0], "ldso"))
     {
@@ -168,9 +142,14 @@ static void stage2 (struct OsArgs args)
     }
   else
     {
-      main_file->load_base = args.program_load_base;
+      ElfW(Phdr) *phdr = mdl_elf_search_phdr (args.program_phdr, 
+					      args.program_phnum,
+					      PT_PHDR);
+      main_file->load_base = ((uint8_t*) args.program_phdr) - phdr->p_vaddr;
       main_file->filename = mdl_strdup (args.program_argv[0]);
-      main_file->dynamic = (uint8_t *)get_pt_dynamic (main_file->load_base);
+      main_file->dynamic = (uint8_t *) mdl_elf_search_phdr (args.program_phdr, 
+							   args.program_phnum,
+							   PT_DYNAMIC);
       main_file->next = 0;
       main_file->prev = 0;
       main_file->count = 1;
@@ -186,10 +165,13 @@ static void stage2 (struct OsArgs args)
 void stage1 (unsigned long args)
 {
   struct OsArgs os_args;
-  ElfW(Dyn) *dynamic;
 
   os_args = get_os_args (&args);
-  dynamic = get_pt_dynamic (os_args.interpreter_load_base);
+  // The linker defines the symbol _DYNAMIC to point to the start of the 
+  // PT_DYNAMIC area which has been mapped by the OS loader as part of the
+  // rw PT_LOAD segment.
+  void *dynamic = _DYNAMIC;
+  dynamic += (unsigned long)os_args.interpreter_load_base;
   relocate_dt_rel (dynamic, os_args.interpreter_load_base);
 
   stage2 (os_args);

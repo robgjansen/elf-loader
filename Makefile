@@ -7,7 +7,7 @@ all: ldso hello
 %.o:%.c
 	$(CC) $(CFLAGS) -fpie -o $@ -c $<
 ldso.o: syscall.h
-ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o
+ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o
 	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib --dynamic-linker=ldso -o $@ $^ $(LIBGCC)
 
 hello: hello.o
