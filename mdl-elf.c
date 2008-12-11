@@ -196,8 +196,8 @@ struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
 
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
   unsigned long requested_map_start = ALIGN_DOWN (ro->p_vaddr, ro->p_align);
-  map_size = ALIGN_UP (rw->p_vaddr+rw->p_memsz-ro->p_vaddr, ro->p_align);
   unsigned long map_offset = ALIGN_DOWN(ro->p_offset, ro->p_align);
+  map_size = ALIGN_UP (rw->p_vaddr+rw->p_memsz-ro->p_vaddr, ro->p_align);
   map_start = (unsigned long) system_mmap ((void*)requested_map_start,
 					   map_size,
 					   PROT_READ, MAP_PRIVATE | fixed, fd, 
@@ -208,33 +208,34 @@ struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
       goto error;
     }
   // calculate the offset between the start address we asked for and the one we got
-  unsigned long offset = map_start - requested_map_start;
-  if (fixed && offset != 0)
+  unsigned long load_base = map_start - requested_map_start;
+  if (fixed && load_base != 0)
     {
       MDL_LOG_ERROR ("We need a fixed address and we did not get it in %s\n", filename);
       goto error;
     }
 
   // make the rw map actually writable.
-  if (system_mprotect (((void*)(ALIGN_DOWN (rw->p_vaddr, rw->p_align) + offset)), 
+  if (system_mprotect (((void*)(ALIGN_DOWN (rw->p_vaddr, rw->p_align) + load_base)), 
 		       ALIGN_UP (rw->p_memsz, rw->p_align), PROT_READ | PROT_WRITE) == -1)
     {
       MDL_LOG_ERROR ("Unable to add w flag to rw mapping for file=%s 0x%x:0x%x\n", 
-		     filename, ALIGN_DOWN (rw->p_vaddr, rw->p_align) + offset,
+		     filename, ALIGN_DOWN (rw->p_vaddr, rw->p_align) + load_base,
 		     ALIGN_UP (rw->p_memsz, rw->p_align));
       goto error;
     }
 
+  // Now that we are done perfoming the mapping, store all the values somewhere
   struct MappedFile *file = mdl_new (struct MappedFile);
-  file->load_base = offset;
+  file->load_base = load_base;
   file->filename = mdl_strdup (name);
-  file->dynamic = dynamic->p_vaddr + offset;
+  file->dynamic = dynamic->p_vaddr + load_base;
   file->next = 0;
   file->prev = 0;
   file->count = 1;
   file->ro_map = (void*)map_start;
   file->ro_map_size = ALIGN_UP (ro->p_memsz, ro->p_align);
-  file->rw_map = (void*)ALIGN_DOWN (rw->p_vaddr, rw->p_align) + offset;
+  file->rw_map = (void*)ALIGN_DOWN (rw->p_vaddr, rw->p_align) + load_base;
   file->rw_map_size = ALIGN_UP (rw->p_memsz, rw->p_align);
   file->init_called = 0;
   file->fini_called = 0;
@@ -245,7 +246,6 @@ struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
   
   mdl_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
-  mdl_free (filename, mdl_strlen (filename)+1);
   return file;
 error:
   if (fd >= 0)
