@@ -154,10 +154,28 @@ static void stage2 (struct OsArgs args)
       main_file->context = 0;
       // XXX
 
-      mdl_elf_get_dt_needed (main_file->load_base, (void*)main_file->dynamic);
     }
 
   g_mdl.link_map = main_file;
+
+  struct StringList *dt_needed = mdl_elf_get_dt_needed (main_file->load_base, 
+							(void*)main_file->dynamic);
+  struct StringList *cur;
+  for (cur = dt_needed; cur != 0; cur = cur->next)
+    {
+      char *filename = mdl_elf_search_file (cur->str);
+      if (filename == 0)
+	{
+	  MDL_LOG_ERROR ("Could not find %s\n", cur->str);
+	  //XXX
+	}
+      struct MappedFile *mapped;
+      mapped = mdl_elf_load_single (filename, cur->str);
+      mdl_free (filename, mdl_strlen (filename)+1);
+      // XXX: will need to accumulate mapped files and reverse the list once done.
+    }
+  mdl_str_list_free (dt_needed);
+
 
   SYSCALL1 (exit, -6);
 }

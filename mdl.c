@@ -23,7 +23,7 @@ void mdl_initialize (uint8_t *interpreter_load_base)
   mdl->breakpoint = mdl_breakpoint;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = MDL_LOG_DBG;
+  mdl->logging = MDL_LOG_ERR;
   mdl->search_dirs = 0;
   mdl->next_context = 0;
   alloc_initialize (&(mdl->alloc));
@@ -64,7 +64,7 @@ void mdl_set_logging (const char *debug_str)
 	  logging |= MDL_LOG_FUNC;
 	}
     }
-  g_mdl.logging = logging;
+  g_mdl.logging |= logging;
   mdl_str_list_free (list);
 }
 
@@ -124,6 +124,49 @@ void mdl_memcpy (void *d, const void *s, size_t len)
       src++;
       tmp--;
     }
+}
+char *mdl_strconcat (const char *str, ...)
+{
+  MDL_LOG_FUNCTION;
+  va_list l1, l2;
+  uint32_t size;
+  char *cur, *retval, *tmp;
+  size = mdl_strlen (str);
+  va_start (l1, str);
+  va_copy (l2, l1);
+  // calculate size of final string
+  cur = va_arg (l1, char *);
+  while (cur != 0)
+    {
+      size += mdl_strlen (cur);
+      cur = va_arg (l1, char *);
+    }
+  va_end (l1);
+  retval = mdl_malloc (size + 1);
+  // copy first string
+  tmp = retval;
+  mdl_memcpy (tmp, str, mdl_strlen (str));
+  tmp += mdl_strlen (str);
+  // concatenate the other strings.
+  cur = va_arg (l2, char *);
+  while (cur != 0)
+    {
+      mdl_memcpy (tmp, cur, mdl_strlen (cur));
+      tmp += mdl_strlen(cur);
+      cur = va_arg (l2, char *);
+    }
+  // append final 0
+  *tmp = 0;
+  va_end (l2);
+  return retval;
+}
+int mdl_exists (const char *filename)
+{
+  MDL_LOG_FUNCTION;
+  struct stat buf;
+  int status = system_fstat (filename, &buf);
+  MDL_LOG_DEBUG ("stat file=%s result=%x\n", filename, status);
+  return status == 0;
 }
 static void avprintf_callback (char c, void *context)
 {

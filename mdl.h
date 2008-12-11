@@ -5,6 +5,12 @@
 #include <sys/types.h>
 #include "alloc.h"
 
+struct Dependency 
+{
+  struct MappedFile *dep;
+  struct Dependency *next;
+};
+
 struct MappedFile
 {
   // The following fields are part of the ABI. Don't change them
@@ -17,10 +23,13 @@ struct MappedFile
   // The following fields are not part of the ABI
   uint32_t count;
   uint32_t context;
-  uint8_t *ro_map;
+  void *ro_map;
   uint32_t ro_map_size;
-  uint8_t *rw_map;
+  void *rw_map;
   uint32_t rw_map_size;
+  uint32_t init_called : 1;
+  uint32_t fini_called : 1;
+  struct Dependency *deps;
 };
 
 struct StringList
@@ -35,7 +44,8 @@ enum MdlState {
 };
 enum MdlLog {
   MDL_LOG_FUNC   = (1<<0),
-  MDL_LOG_DBG    = (1<<1)
+  MDL_LOG_DBG    = (1<<1),
+  MDL_LOG_ERR    = (1<<2)
 };
 
 
@@ -75,7 +85,11 @@ int mdl_strisequal (const char *a, const char *b);
 int mdl_strlen (const char *str);
 char *mdl_strdup (const char *str);
 void mdl_memcpy (void *dst, const void *src, size_t len);
+char *mdl_strconcat (const char *str, ...);
 const char *mdl_getenv (const char **envp, const char *value);
+
+// convenience function
+int mdl_exists (const char *filename);
 
 // manipulate string lists.
 struct StringList *mdl_strsplit (const char *value, char separator);
@@ -89,6 +103,8 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s\n", __FILE__, __LINE__, __FUNCTION__)
 #define MDL_LOG_DEBUG(str,...) \
   mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__);
+#define MDL_LOG_ERROR(str,...) \
+  mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__);
 
 
 
