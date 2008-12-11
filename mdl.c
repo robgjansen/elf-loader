@@ -172,6 +172,11 @@ struct StringList *mdl_strsplit (const char *value, char separator)
   struct StringList *list = 0;
   const char *prev = value;
   const char *cur = value;
+
+  if (value == 0)
+    {
+      return 0;
+    }
   while (1)
     {
       struct StringList *next;
@@ -198,6 +203,7 @@ struct StringList *mdl_strsplit (const char *value, char separator)
 }
 void mdl_str_list_free (struct StringList *list)
 {
+  MDL_LOG_FUNCTION;
   struct StringList *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
@@ -208,6 +214,7 @@ void mdl_str_list_free (struct StringList *list)
 }
 struct StringList *mdl_str_list_append (struct StringList *start, struct StringList *end)
 {
+  MDL_LOG_FUNCTION;
   struct StringList *cur, *prev;
   for (cur = start, prev = 0; cur != 0; cur = cur->next)
     {
@@ -225,6 +232,7 @@ struct StringList *mdl_str_list_append (struct StringList *start, struct StringL
 }
 struct StringList *mdl_str_list_reverse (struct StringList *list)
 {
+  MDL_LOG_FUNCTION;
   struct StringList *ret = 0, *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
