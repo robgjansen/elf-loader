@@ -6,7 +6,7 @@
 
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
   ElfW(Phdr) *cur;
   int i;
   for (cur = phdr, i = 0; i < phnum; cur++, i++)
@@ -21,7 +21,7 @@ ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
 
 struct StringList *mdl_elf_get_dt_needed (unsigned long load_base, ElfW(Dyn) *dynamic)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("load_base=%ld, dynamic=%p", load_base, dynamic);
   ElfW(Dyn) *cur;
   unsigned long dt_strtab = 0;
   struct StringList *ret = 0;
@@ -53,12 +53,11 @@ struct StringList *mdl_elf_get_dt_needed (unsigned long load_base, ElfW(Dyn) *dy
 }
 char *mdl_elf_search_file (const char *name)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("name=%s", name);
   struct StringList *cur;
   for (cur = g_mdl.search_dirs; cur != 0; cur = cur->next)
     {
       char *fullname = mdl_strconcat (cur->str, "/", name, 0);
-      MDL_LOG_DEBUG ("test file=%s\n", fullname);
       if (mdl_exists (fullname))
 	{
 	  return fullname;
@@ -73,16 +72,16 @@ char *mdl_elf_search_file (const char *name)
 }
 #define ALIGN_DOWN(v,align) ((v)-((v)%align))
 #define ALIGN_UP(v,align) ((v)+(align-((v)%align)))
-struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
+struct MappedFile *mdl_elf_map_single (uint32_t context, const char *filename, const char *name)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("contex=%d, filename=%s, name=%s", context, filename, name);
   ElfW(Ehdr) header;
   ElfW(Phdr) *phdr = 0;
-  int i;
   size_t bytes_read;
   int fd = -1;
   unsigned long map_start = -1;
   unsigned long map_size = 0;
+  struct FileInfo info;
 
   fd = system_open_ro (filename);
   if (fd == -1)
@@ -123,70 +122,12 @@ struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
       goto error;
     }
 
-  ElfW(Phdr) *ro = 0;
-  ElfW(Phdr) *rw = 0;
-  ElfW(Phdr) *pt_phdr = 0;
-  ElfW(Phdr) *dynamic = 0;
-  for (i = 0; i != header.e_phnum; i++)
+  if (!mdl_elf_file_get_info (header.e_phnum, phdr, &info))
     {
-      ElfW(Phdr) *tmp = &(phdr[i]);
-      if (tmp->p_type == PT_LOAD)
-	{
-	  if (tmp->p_flags & PF_W)
-	    {
-	      if (rw != 0)
-		{
-		  MDL_LOG_ERROR ("More than one rw header in %s\n", filename);
-		  goto error;
-		}
-	      rw = tmp;
-	    }
-	  else
-	    {
-	      if (rw != 0)
-		{
-		  MDL_LOG_ERROR ("More than one ro header in %s\n", filename);
-		  goto error;
-		}
-	      ro = tmp;
-	    }
-	} 
-      else if (tmp->p_type == PT_PHDR)
-	{
-	  pt_phdr = tmp;
-	}
-      else if (tmp->p_type == PT_DYNAMIC)
-	{
-	  dynamic = tmp;
-	}
-    }
-  if (ro == 0 || rw == 0 || dynamic == 0 || pt_phdr == 0)
-    {
-      MDL_LOG_ERROR ("missing program entries in %s\n", filename);
+      MDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
-  if (ro->p_align != rw->p_align)
-    {
-      MDL_LOG_ERROR ("something is fishy about the alignment constraints in %s\n", filename);
-      goto error;
-    }
-  if (ro->p_offset + ro->p_filesz > rw->p_offset ||
-      ALIGN_UP (ro->p_vaddr+ro->p_memsz, ro->p_align) != ALIGN_DOWN (rw->p_vaddr, rw->p_align))
-    {
-      // ro must be located exactly before rw.
-      MDL_LOG_ERROR ("rw/ro error in %s\n", filename);
-      goto error;
-    }
-  if (pt_phdr->p_offset < ro->p_offset || pt_phdr->p_filesz > ro->p_filesz)
-    {
-      MDL_LOG_ERROR ("phdr not included in ro load in %s\n", filename);
-      goto error;
-    }
-  if (dynamic->p_offset < rw->p_offset || dynamic->p_filesz > rw->p_filesz)
-    {
-      MDL_LOG_ERROR ("dynamic not included in rw load in %s\n", filename);
-      goto error;
-    }
+
   // we do a single mmap for both ro and rw entries as ro, and, then
   // use mprotect to give the 'w' power to the second entry. This is needed
   // to ensure that the relative position of both entries is preserved for
@@ -195,20 +136,18 @@ struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
   // MAP_FIXED flag.
 
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
-  unsigned long requested_map_start = ALIGN_DOWN (ro->p_vaddr, ro->p_align);
-  unsigned long map_offset = ALIGN_DOWN(ro->p_offset, ro->p_align);
-  map_size = ALIGN_UP (rw->p_vaddr+rw->p_memsz-ro->p_vaddr, ro->p_align);
-  map_start = (unsigned long) system_mmap ((void*)requested_map_start,
-					   map_size,
+  map_size = info.ro_size + info.rw_size;
+  map_start = (unsigned long) system_mmap ((void*)info.ro_start,
+					   info.ro_size + info.rw_size,
 					   PROT_READ, MAP_PRIVATE | fixed, fd, 
-					   map_offset);
+					   info.ro_file_offset);
   if (map_start == -1)
     {
       MDL_LOG_ERROR ("Unable to perform mapping for %s\n", filename);
       goto error;
     }
   // calculate the offset between the start address we asked for and the one we got
-  unsigned long load_base = map_start - requested_map_start;
+  unsigned long load_base = map_start - info.ro_start;
   if (fixed && load_base != 0)
     {
       MDL_LOG_ERROR ("We need a fixed address and we did not get it in %s\n", filename);
@@ -216,33 +155,26 @@ struct MappedFile *mdl_elf_load_single (const char *filename, const char *name)
     }
 
   // make the rw map actually writable.
-  if (system_mprotect (((void*)(ALIGN_DOWN (rw->p_vaddr, rw->p_align) + load_base)), 
-		       ALIGN_UP (rw->p_memsz, rw->p_align), PROT_READ | PROT_WRITE) == -1)
+  if (system_mprotect ((void*)(info.ro_start + info.ro_size + load_base), 
+		       info.rw_size, PROT_READ | PROT_WRITE) == -1)
     {
       MDL_LOG_ERROR ("Unable to add w flag to rw mapping for file=%s 0x%x:0x%x\n", 
-		     filename, ALIGN_DOWN (rw->p_vaddr, rw->p_align) + load_base,
-		     ALIGN_UP (rw->p_memsz, rw->p_align));
+		     filename, info.ro_start + info.ro_size + load_base, info.rw_size);
       goto error;
     }
 
-  // Now that we are done perfoming the mapping, store all the values somewhere
-  struct MappedFile *file = mdl_new (struct MappedFile);
-  file->load_base = load_base;
-  file->filename = mdl_strdup (name);
-  file->dynamic = dynamic->p_vaddr + load_base;
-  file->next = 0;
-  file->prev = 0;
-  file->count = 1;
-  file->ro_map = (void*)map_start;
-  file->ro_map_size = ALIGN_UP (ro->p_memsz, ro->p_align);
-  file->rw_map = (void*)ALIGN_DOWN (rw->p_vaddr, rw->p_align) + load_base;
-  file->rw_map_size = ALIGN_UP (rw->p_memsz, rw->p_align);
-  file->init_called = 0;
-  file->fini_called = 0;
+  struct stat st_buf;
+  if (system_fstat (filename, &st_buf) == -1)
+    {
+      MDL_LOG_ERROR ("Unable to stat file %s\n", filename);
+      goto error;
+    }
 
+  struct MappedFile *file = mdl_elf_file_new (load_base, &info, 
+					      filename);
   MDL_LOG_DEBUG ("mapped file %s ro=0x%x:0x%x, rw=0x%x:0x%x\n", filename,
-		 file->ro_map, file->ro_map_size, 
-		 file->rw_map, file->rw_map_size);
+		 file->ro_start, file->ro_size, 
+		 file->ro_start + file->ro_size, file->rw_size);
   
   mdl_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
@@ -261,4 +193,214 @@ error:
       system_munmap ((void*)map_start, map_size);
     }
   return 0;
+}
+
+static int 
+is_already_mapped (uint32_t context, 
+		   dev_t dev, ino_t ino,
+		   const struct MappedFile *first)
+{
+  const struct MappedFile *cur;
+  for (cur = first; cur != 0; cur = cur->next)
+    {
+      if (cur->context == context &&
+	  cur->st_dev == dev &&
+	  cur->st_ino == ino)
+	{
+	  return 1;
+	}
+    }
+  return 0;
+}
+
+static void
+append_file (struct MappedFile *first, struct MappedFile *item)
+{
+  MDL_LOG_FUNCTION ("first=%p, item=%p", first, item);
+  if (first == 0)
+    {
+      // internal error.
+      MDL_LOG_ERROR ("We should never have a zero list head\n", 1);
+      return;
+    }
+  struct MappedFile *cur = first;
+  while (cur->next != 0)
+    {
+      cur = cur->next;
+    }
+  cur->next = item;
+  item->prev = cur;
+  item->next = 0;
+}
+
+int mdl_elf_map_recursive (uint32_t context, struct MappedFile *first, struct MappedFile *last)
+{
+  MDL_LOG_FUNCTION ("context=%d, first=%p, last=%p", context, first, last);
+  struct StringList *dt_needed = mdl_elf_get_dt_needed (last->load_base, 
+							(void*)last->dynamic);
+  struct StringList *cur;
+  for (cur = dt_needed; cur != 0; cur = cur->next)
+    {
+      MDL_LOG_DEBUG ("needed=%s\n", cur->str);
+      char *filename = mdl_elf_search_file (cur->str);
+      if (filename == 0)
+	{
+	  MDL_LOG_ERROR ("Could not find %s\n", cur->str);
+	  goto error;
+	}
+      MDL_LOG_DEBUG ("found %s\n", filename);
+      struct stat buf;
+      if (system_fstat (filename, &buf) == -1)
+	{
+	  MDL_LOG_ERROR ("Cannot stat %s\n", filename);
+	  mdl_free (filename, mdl_strlen (filename)+1);
+	  goto error;
+	}
+      if (is_already_mapped (context, buf.st_dev, buf.st_ino, first) ||
+	  is_already_mapped (context, buf.st_dev, buf.st_ino, g_mdl.link_map))
+	{
+	  //XXX Check for interpreter here.
+	  goto next;
+	}
+      struct MappedFile *mapped = mdl_elf_map_single (context, filename, cur->str);
+      append_file (first, mapped);
+      if (!mdl_elf_map_recursive (context, first, mapped))
+	{
+	  mdl_free (filename, mdl_strlen (filename)+1);
+	  goto error;
+	}
+      
+    next:
+      mdl_free (filename, mdl_strlen (filename)+1);
+    }
+  mdl_str_list_free (dt_needed);
+
+  return 1;
+ error:
+  mdl_str_list_free (dt_needed);
+  return 0;
+}
+int mdl_elf_file_get_info (uint32_t phnum,
+			   ElfW(Phdr) *phdr,
+			   struct FileInfo *info)
+{
+  MDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
+  ElfW(Phdr) *ro = 0, *rw = 0, *interp = 0, *dynamic = 0, *pt_phdr = 0, *cur;
+  int i;
+  for (i = 0, cur = phdr; i < phnum; i++, cur++)
+    {
+      if (cur->p_type == PT_LOAD)
+	{
+	  if (cur->p_flags & PF_W)
+	    {
+	      if (rw != 0)
+		{
+		  MDL_LOG_ERROR ("file has more than one RW PT_LOAD\n", 1);
+		  goto error;
+		}
+	      rw = cur;
+	    }
+	  else
+	    {
+	      if (ro != 0)
+		{
+		  MDL_LOG_ERROR ("file has more than one RO PT_LOAD\n", 1);
+		  goto error;
+		}
+	      ro = cur;
+	    }
+	}
+      else if (cur->p_type == PT_INTERP)
+	{
+	  interp = cur;
+	}
+      else if (cur->p_type == PT_DYNAMIC)
+	{
+	  dynamic = cur;
+	}
+      else if (cur->p_type == PT_PHDR)
+	{
+	  pt_phdr = cur;
+	}
+    }
+  if (ro == 0 || rw == 0 || interp == 0 || dynamic == 0 || pt_phdr == 0)
+    {
+      MDL_LOG_ERROR ("file is missing a critical program header "
+		     "ro=0x%x, rw=0x%x, interp=0x%x, dynamic=0x%x, pt_phdr=0x%x\n", 
+		     ro, rw, interp, dynamic, pt_phdr);
+      goto error;
+    }
+  if (ro->p_memsz != ro->p_filesz)
+    {
+      MDL_LOG_ERROR ("file and memory size should be equal: 0x%x != 0x%x\n",
+		     ro->p_memsz, ro->p_filesz);
+      goto error;
+    }
+  if (ro->p_align != rw->p_align)
+    {
+      MDL_LOG_ERROR ("something is fishy about the alignment constraints "
+		     "ro_align=0x%x, rw_align=0x%x\n", ro->p_align, rw->p_align);
+      goto error;
+    }
+  if (pt_phdr->p_offset < ro->p_offset || pt_phdr->p_offset + pt_phdr->p_filesz > ro->p_filesz)
+    {
+      MDL_LOG_ERROR ("phdr not included in ro load\n", 1);
+      goto error;
+    }
+  if (dynamic->p_offset < rw->p_offset || dynamic->p_filesz > rw->p_filesz)
+    {
+      MDL_LOG_ERROR ("dynamic not included in rw load\n", 1);
+      goto error;
+    }
+
+
+  unsigned long ro_start = ALIGN_DOWN (ro->p_vaddr, ro->p_align);
+  unsigned long ro_size = ALIGN_UP (ro->p_memsz, ro->p_align);
+  unsigned long rw_start = ALIGN_DOWN (rw->p_vaddr, rw->p_align);
+  unsigned long rw_size = ALIGN_UP (rw->p_memsz, rw->p_align);
+  unsigned long ro_file_offset = ALIGN_DOWN (ro->p_offset, ro->p_align);
+  if (ro_start + ro_size != rw_start)
+    {
+      MDL_LOG_ERROR ("ro and rw maps must be adjacent\n", 1);
+      goto error;
+    }
+
+  info->dynamic = dynamic->p_vaddr;
+  info->interpreter_name = interp->p_vaddr;
+  info->ro_start = ro_start;
+  info->ro_size = ro_size;
+  info->rw_size = rw_size;
+  info->ro_file_offset = ro_file_offset;;
+
+  return 1;
+ error:
+  return 0;
+}
+
+struct MappedFile *mdl_elf_file_new (unsigned long load_base,
+				     const struct FileInfo *info,
+				     const char *filename)
+{
+  struct MappedFile *file = mdl_new (struct MappedFile);
+
+  file->load_base = load_base;
+  file->filename = mdl_strdup (filename);
+  file->dynamic = info->dynamic + load_base;
+  file->next = 0;
+  file->prev = 0;
+  file->count = 1;
+  file->context = 0;
+  file->st_dev = 0;
+  file->st_ino = 0;
+  file->ro_start = info->ro_start + load_base;
+  file->ro_size = info->ro_size;
+  file->rw_size = info->rw_size;
+  file->ro_file_offset = info->ro_file_offset;
+  file->init_called = 0;
+  file->fini_called = 0;
+  file->local_scope = 0;
+  file->interpreter_name = mdl_strdup ((char *)(info->interpreter_name + load_base));
+  MDL_LOG_DEBUG ("interp=%p\n", file->interpreter_name);
+
+  return file;
 }

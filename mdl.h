@@ -5,10 +5,20 @@
 #include <sys/types.h>
 #include "alloc.h"
 
-struct Dependency 
+struct MappedFileItem
 {
   struct MappedFile *dep;
-  struct Dependency *next;
+  struct MappedFileItem *next;
+};
+
+enum LookupType
+{
+  // indicates that lookups within this object should be performed
+  // using the global scope only and that local scope should be ignored.
+  LOOKUP_GLOBAL_ONLY,
+  LOOKUP_GLOBAL_LOCAL,
+  LOOKUP_LOCAL_GLOBAL,
+  LOOKUP_LOCAL_ONLY,
 };
 
 struct MappedFile
@@ -23,13 +33,17 @@ struct MappedFile
   // The following fields are not part of the ABI
   uint32_t count;
   uint32_t context;
-  void *ro_map;
-  uint32_t ro_map_size;
-  void *rw_map;
-  uint32_t rw_map_size;
+  dev_t st_dev;
+  ino_t st_ino;
+  unsigned long ro_start;
+  unsigned long ro_file_offset;
+  uint32_t ro_size;
+  uint32_t rw_size;
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
-  struct Dependency *deps;
+  enum LookupType lookup_type;
+  struct MappedFileItem *local_scope;
+  char *interpreter_name;
 };
 
 struct StringList
@@ -56,10 +70,11 @@ struct Mdl
   struct MappedFile *link_map;
   int (*breakpoint)(void);
   enum MdlState state;
-  uint8_t *interpreter_load_base;
+  unsigned long interpreter_load_base;
   // the following fields are not part of the ABI
   uint32_t logging;
   struct StringList *search_dirs;
+  struct MappedFileItem *global_scope;
   uint32_t next_context;
   struct Alloc alloc;
 };
@@ -67,7 +82,7 @@ struct Mdl
 
 extern struct Mdl g_mdl;
 
-void mdl_initialize (uint8_t *interpreter_load_base);
+void mdl_initialize (unsigned long interpreter_load_base);
 struct MappedFile *mdl_load_file (const char *filename);
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
@@ -99,8 +114,9 @@ struct StringList * mdl_str_list_append (struct StringList *start, struct String
 
 // logging
 void mdl_log_printf (enum MdlLog log, const char *str, ...);
-#define MDL_LOG_FUNCTION \
-  mdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s\n", __FILE__, __LINE__, __FUNCTION__)
+#define MDL_LOG_FUNCTION(str,...)					\
+  mdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
+		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define MDL_LOG_DEBUG(str,...) \
   mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__);
 #define MDL_LOG_ERROR(str,...) \

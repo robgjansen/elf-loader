@@ -17,9 +17,10 @@
 
 struct OsArgs
 {
-  uint8_t *interpreter_load_base;
+  unsigned long interpreter_load_base;
   ElfW(Phdr) *program_phdr;
   uint32_t program_phnum;
+  void *program_entry;
   int program_argc;
   const char **program_argv;
   const char **program_envp;
@@ -43,12 +44,13 @@ get_os_args (unsigned long *args)
   os_args.interpreter_load_base = 0;
   os_args.program_phdr = 0;
   os_args.program_phnum = 0;
+  os_args.program_entry = 0;
   auxvt_tmp = auxvt;
   while (auxvt_tmp->a_type != AT_NULL)
     {
       if (auxvt_tmp->a_type == AT_BASE)
 	{
-	  os_args.interpreter_load_base = (uint8_t *)auxvt_tmp->a_un.a_val;
+	  os_args.interpreter_load_base = auxvt_tmp->a_un.a_val;
 	}
       else if (auxvt_tmp->a_type == AT_PHDR)
 	{
@@ -57,6 +59,10 @@ get_os_args (unsigned long *args)
       else if (auxvt_tmp->a_type == AT_PHNUM)
 	{
 	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
+	}
+      else if (auxvt_tmp->a_type == AT_ENTRY)
+	{
+	  os_args.program_entry = (void*)auxvt_tmp->a_un.a_val;
 	}
       auxvt_tmp++;
     }
@@ -72,7 +78,7 @@ get_os_args (unsigned long *args)
 
 // relocate entries in DT_REL
 static void
-relocate_dt_rel (ElfW(Dyn) *dynamic, uint8_t *load_base)
+relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 {
   ElfW(Dyn) *tmp = dynamic;
   ElfW(Rel) *dt_rel = 0;
@@ -111,6 +117,34 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, uint8_t *load_base)
     }
 }
 
+static struct MappedFile *
+get_interpreter (unsigned long load_base)
+{
+  /* We make many assumptions here:
+   *   - The loader is an ET_DYN
+   *   - The loader has been compile-time linked at base address 0
+   *   - The first PT_LOAD map of the interpreter contains the elf header 
+   *     and program headers.
+   *   
+   * Consequently, we can infer that the load_base in fact points to
+   * the first PT_LOAD map of the interpreter which means that load_base
+   * in fact points to the elf header itself.
+   */
+  ElfW(Ehdr) *header = (ElfW(Ehdr) *)load_base;
+  ElfW(Phdr) *phdr = (ElfW(Phdr) *) (header->e_phoff + load_base);
+  struct FileInfo info;
+  if (!mdl_elf_file_get_info (header->e_phnum, phdr, &info))
+    {
+      MDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
+      goto error;
+    }
+  struct MappedFile *file = mdl_elf_file_new (load_base, &info, 
+					      (char*)(info.interpreter_name + load_base));
+  return file;
+ error:
+  return 0;
+}
+
 
 void stage1 (unsigned long args);
 
@@ -118,65 +152,72 @@ static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
-  // setup logging
-  const char *ld_debug = mdl_getenv (args.program_envp, "LD_DEBUG");
-  mdl_set_logging (ld_debug);
-
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
   struct StringList *list = mdl_strsplit (ld_lib_path, ':');
   g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
 
-  struct MappedFile *main_file = mdl_new (struct MappedFile);
-  if (mdl_strisequal (args.program_argv[0], "ldso"))
+  // setup logging from LD_DEBUG
+  const char *ld_debug = mdl_getenv (args.program_envp, "LD_DEBUG");
+  mdl_set_logging (ld_debug);
+
+  // add the interpreter itself to the link map to ensure that it is
+  // recorded somewhere.
+  g_mdl.link_map = get_interpreter (args.interpreter_load_base);
+  
+  struct MappedFile *main_file;
+  if (args.program_entry == stage1)
     {
       // the interpreter is run as a normal program. We behave like the libc
       // interpreter and assume that this means that the name of the program
       // to run is the first argument in the argv.
-      // To do this, we need to do the work the kernel did, that is, map the
-      // program in memory 
+      if (args.program_argc < 2)
+	{
+	  MDL_LOG_ERROR ("Not enough arguments to run loader, argc=%d\n", args.program_argc);
+	  goto error;
+	}
 
-      // XXX: ensure that args is initialized correctly.
+      // We need to do what the kernel usually does for us, that is,
+      // search the file, and map it in memory
+      char *filename = mdl_elf_search_file (args.program_argv[1]);
+      if (filename == 0)
+	{
+	  MDL_LOG_ERROR ("Could not find %s\n", filename);
+	  goto error;
+	}
+      main_file = mdl_elf_map_single (0, filename, args.program_argv[1]);
     }
   else
     {
+      // here, the file is already mapped so, we just create the 
+      // right data structure
+      struct FileInfo info;
+      if (!mdl_elf_file_get_info (args.program_phnum,
+				  args.program_phdr,
+				  &info))
+	{
+	  MDL_LOG_ERROR ("Unable to obtain information about main program\n", 1);
+	  goto error;
+	}
+
       // The load base of the main program is easy to calculate as the difference
       // between the PT_PHDR vaddr and its real address in memory.
-      main_file->load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
-      main_file->filename = mdl_strdup (args.program_argv[0]);
-      ElfW(Phdr) *dyn_program = mdl_elf_search_phdr (args.program_phdr, 
-						     args.program_phnum,
-						     PT_DYNAMIC);
-      main_file->dynamic = main_file->load_base + dyn_program->p_vaddr;
-      main_file->next = 0;
-      main_file->prev = 0;
-      main_file->count = 1;
-      main_file->context = 0;
-      // XXX
+      unsigned long load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
 
+      main_file = mdl_elf_file_new (load_base,
+				    &info,
+				    args.program_argv[0]);
     }
 
-  g_mdl.link_map = main_file;
-
-  struct StringList *dt_needed = mdl_elf_get_dt_needed (main_file->load_base, 
-							(void*)main_file->dynamic);
-  struct StringList *cur;
-  for (cur = dt_needed; cur != 0; cur = cur->next)
+  if (!mdl_elf_map_recursive (0, main_file, main_file))
     {
-      char *filename = mdl_elf_search_file (cur->str);
-      if (filename == 0)
-	{
-	  MDL_LOG_ERROR ("Could not find %s\n", cur->str);
-	  //XXX
-	}
-      struct MappedFile *mapped;
-      mapped = mdl_elf_load_single (filename, cur->str);
-      mdl_free (filename, mdl_strlen (filename)+1);
-      // XXX: will need to accumulate mapped files and reverse the list once done.
+      MDL_LOG_ERROR ("Unable to map main file and dependencies\n", 1);
+      //XXX: mdl_elf_unmap_recursive (main_file);
+      goto error;
     }
-  mdl_str_list_free (dt_needed);
 
-
+  SYSCALL1 (exit, 0);
+error:
   SYSCALL1 (exit, -6);
 }
 
@@ -189,7 +230,7 @@ void stage1 (unsigned long args)
   // PT_DYNAMIC area which has been mapped by the OS loader as part of the
   // rw PT_LOAD segment.
   void *dynamic = _DYNAMIC;
-  dynamic += (unsigned long)os_args.interpreter_load_base;
+  dynamic += os_args.interpreter_load_base;
   relocate_dt_rel (dynamic, os_args.interpreter_load_base);
 
   stage2 (os_args);

@@ -15,7 +15,26 @@ static int mdl_breakpoint (void)
   return 1;
 }
 
-void mdl_initialize (uint8_t *interpreter_load_base)
+static struct StringList *
+get_system_search_dirs (void)
+{
+  const char *dirs[] = {"/lib", "/lib64", "/lib32",
+			"/usr/lib", "/usr/lib64", "/usr/lib32"};
+  struct StringList *list = 0;
+  int i;
+  for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
+    {
+      struct StringList *tmp = mdl_new (struct StringList);
+      tmp->str = mdl_strdup (dirs[i]);
+      tmp->next = list;
+      list = tmp;
+    }
+  list = mdl_str_list_reverse (list);
+  return list;
+}
+
+
+void mdl_initialize (unsigned long interpreter_load_base)
 {
   struct Mdl *mdl = &g_mdl;
   mdl->version = 1;
@@ -27,25 +46,15 @@ void mdl_initialize (uint8_t *interpreter_load_base)
   mdl->search_dirs = 0;
   mdl->next_context = 0;
   alloc_initialize (&(mdl->alloc));
+  mdl->search_dirs = 0;
 
-  {
-    const char *dirs[] = {"/lib", "/lib64", "/lib32",
-			  "/usr/lib", "/usr/lib64", "/usr/lib32"};
-    struct StringList *list = 0;
-    int i;
-    for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
-      {
-	struct StringList *tmp = mdl_new (struct StringList);
-	tmp->str = mdl_strdup (dirs[i]);
-	tmp->next = list;
-	list = tmp;
-      }
-    mdl->search_dirs = mdl_str_list_reverse (list);
-  }
+  // populate search dirs from system directories
+  mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
+					  get_system_search_dirs ());
 }
 void mdl_set_logging (const char *debug_str)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("debug=%s", debug_str);
   if (debug_str == 0)
     {
       return;
@@ -71,17 +80,17 @@ void mdl_set_logging (const char *debug_str)
 
 void *mdl_malloc (size_t size)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("size=%d", size);
   return (void*)alloc_malloc (&g_mdl.alloc, size);
 }
 void mdl_free (void *buffer, size_t size)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
   alloc_free (&g_mdl.alloc, (uint8_t *)buffer, size);
 }
 int mdl_strisequal (const char *a, const char *b)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
   while (*a != 0 && *b != 0)
     {
       if (*a != *b)
@@ -95,7 +104,7 @@ int mdl_strisequal (const char *a, const char *b)
 }
 int mdl_strlen (const char *str)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("str=%s", str);
   int len = 0;
   while (str[len] != 0)
     {
@@ -105,7 +114,7 @@ int mdl_strlen (const char *str)
 }
 char *mdl_strdup (const char *str)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("str=%s", str);
   int len = mdl_strlen (str);
   char *retval = mdl_malloc (len+1);
   mdl_memcpy (retval, str, len+1);
@@ -113,7 +122,7 @@ char *mdl_strdup (const char *str)
 }
 void mdl_memcpy (void *d, const void *s, size_t len)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
   int tmp = len;
   char *dst = d;
   const char *src = s;
@@ -127,7 +136,7 @@ void mdl_memcpy (void *d, const void *s, size_t len)
 }
 char *mdl_strconcat (const char *str, ...)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("str=%s", str);
   va_list l1, l2;
   uint32_t size;
   char *cur, *retval, *tmp;
@@ -162,10 +171,9 @@ char *mdl_strconcat (const char *str, ...)
 }
 int mdl_exists (const char *filename)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("filename=%s", filename);
   struct stat buf;
   int status = system_fstat (filename, &buf);
-  MDL_LOG_DEBUG ("stat file=%s result=%x\n", filename, status);
   return status == 0;
 }
 static void avprintf_callback (char c, void *context)
@@ -184,7 +192,7 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...)
 }
 const char *mdl_getenv (const char **envp, const char *value)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("envp=%p, value=%s", envp, value);
   while (*envp != 0)
     {
       const char *env = *envp;
@@ -211,7 +219,7 @@ const char *mdl_getenv (const char **envp, const char *value)
 }
 struct StringList *mdl_strsplit (const char *value, char separator)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
   struct StringList *list = 0;
   const char *prev = value;
   const char *cur = value;
@@ -246,7 +254,7 @@ struct StringList *mdl_strsplit (const char *value, char separator)
 }
 void mdl_str_list_free (struct StringList *list)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("list=%p", list);
   struct StringList *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
@@ -257,7 +265,7 @@ void mdl_str_list_free (struct StringList *list)
 }
 struct StringList *mdl_str_list_append (struct StringList *start, struct StringList *end)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("start=%p, end=%p", start, end);
   struct StringList *cur, *prev;
   for (cur = start, prev = 0; cur != 0; cur = cur->next)
     {
@@ -275,7 +283,7 @@ struct StringList *mdl_str_list_append (struct StringList *start, struct StringL
 }
 struct StringList *mdl_str_list_reverse (struct StringList *list)
 {
-  MDL_LOG_FUNCTION;
+  MDL_LOG_FUNCTION ("list=%p", list);
   struct StringList *ret = 0, *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
