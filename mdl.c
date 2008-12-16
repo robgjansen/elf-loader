@@ -302,8 +302,34 @@ void mdl_file_unref (struct MappedFile *file)
   file->count--;
   if (file->count == 0)
     {
+      mdl_file_list_free (file->deps);
+      // remove file from global link map
+      // and count number of files in the same context
+      uint32_t context_count = 0;
+      struct MappedFile *cur;
+      for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+	{
+	  if (cur->context == file->context)
+	    {
+	      context_count++;
+	    }
+	  if (cur == file)
+	    {
+	      cur->prev->next = cur->next;
+	      cur->next->prev = cur->prev;
+	      cur->next = 0;
+	      cur->prev = 0;
+	    }
+	}
+      // If we have less than one file in this context,
+      // it means that we have only one user of the global
+      // scope associated to this context, so, we can get rid
+      // of it.
+      if (context_count <= 1)
+	{
+	  mdl_file_list_free (file->global_scope);
+	}
       mdl_delete (file);
-      // XXX: should go through dep 
     }
 }
 

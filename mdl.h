@@ -65,7 +65,6 @@ enum MdlLog {
   MDL_LOG_ERR    = (1<<2)
 };
 
-
 struct Mdl
 {
   // the following fields are part of the ABI. Don't touch them.
@@ -76,9 +75,19 @@ struct Mdl
   unsigned long interpreter_load_base;
   // the following fields are not part of the ABI
   uint32_t logging;
+  // The list of directories to search for binaries
+  // in DT_NEEDED entries.
   struct StringList *search_dirs;
-  struct MappedFileList *global_scope;
+  // a list of global scopes, one for each context.
+  // multiple files reference the same global scope
+  // if they are within the same context.
+  struct GlobalScope *global_scopes;
+  // The next time we have to create a context,
+  // we take this value and increment it afterwards.
   uint32_t next_context;
+  // the data structure used by the memory allocator
+  // all heap memory allocations through mdl_alloc
+  // and mdl_free end up here.
   struct Alloc alloc;
 };
 
