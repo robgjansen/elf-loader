@@ -78,10 +78,6 @@ struct Mdl
   // The list of directories to search for binaries
   // in DT_NEEDED entries.
   struct StringList *search_dirs;
-  // a list of global scopes, one for each context.
-  // multiple files reference the same global scope
-  // if they are within the same context.
-  struct GlobalScope *global_scopes;
   // The next time we have to create a context,
   // we take this value and increment it afterwards.
   uint32_t next_context;

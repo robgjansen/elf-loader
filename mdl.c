@@ -305,13 +305,15 @@ void mdl_file_unref (struct MappedFile *file)
       mdl_file_list_free (file->deps);
       // remove file from global link map
       // and count number of files in the same context
-      uint32_t context_count = 0;
+      // which share the same global scope.
+      uint32_t scope_count = 0;
       struct MappedFile *cur;
       for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
 	{
-	  if (cur->context == file->context)
+	  if (cur->context == file->context &&
+	      cur->global_scope == file->global_scope)
 	    {
-	      context_count++;
+	      scope_count++;
 	    }
 	  if (cur == file)
 	    {
@@ -321,11 +323,7 @@ void mdl_file_unref (struct MappedFile *file)
 	      cur->prev = 0;
 	    }
 	}
-      // If we have less than one file in this context,
-      // it means that we have only one user of the global
-      // scope associated to this context, so, we can get rid
-      // of it.
-      if (context_count <= 1)
+      if (scope_count <= 1)
 	{
 	  mdl_file_list_free (file->global_scope);
 	}

@@ -153,6 +153,8 @@ static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
+  struct MappedFileList *global_scope = 0;
+
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
   struct StringList *list = mdl_strsplit (ld_lib_path, ':');
@@ -172,6 +174,7 @@ static void stage2 (struct OsArgs args)
   // that is, that symbols are resolved first within the 
   // LD_PRELOAD binary, before everything else.
   const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
+  struct MappedFile *ld_preload_file = 0;
   if (ld_preload != 0)
     {
       char *ld_preload_filename = mdl_elf_search_file (ld_preload);
@@ -180,13 +183,17 @@ static void stage2 (struct OsArgs args)
       MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
       goto error;
 	}
-      struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, ld_preload);
+      ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, ld_preload);
       if (ld_preload_file == 0)
 	{
 	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
 	  goto error;
 	}
-      g_mdl.global_scope = mdl_file_list_append_one (g_mdl.global_scope, ld_preload_file);
+      global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
+      // Note: this piece of code is a bit magic: it relies on the fact that 
+      // value of the pointer global_scope will not change, even, after we append
+      // items to the global scope list.
+      ld_preload_file->global_scope = global_scope;
     }
   
   
@@ -242,9 +249,15 @@ static void stage2 (struct OsArgs args)
       goto error;
     }
 
-  // Now, we must calculate the scope of each binary mapped in memory.
-  struct MappedFileList *global_scope = mdl_elf_gather_all_deps_breadth_first (main_file);
-  g_mdl.global_scope = mdl_file_list_append (g_mdl.global_scope, global_scope);
+  // The global scope is defined as being made of the main binary
+  // and all its dependencies, breadth-first.
+  struct MappedFileList *all_deps = mdl_elf_gather_all_deps_breadth_first (main_file);
+  global_scope = mdl_file_list_append (global_scope, all_deps);
+  struct MappedFileList *cur;
+  for (cur = all_deps; cur != 0; cur = cur->next)
+    {
+      cur->item->global_scope = global_scope;
+    }
 
   // Finally, we either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
