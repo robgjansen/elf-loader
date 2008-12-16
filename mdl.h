@@ -5,10 +5,10 @@
 #include <sys/types.h>
 #include "alloc.h"
 
-struct MappedFileItem
+struct MappedFileList
 {
   struct MappedFile *dep;
-  struct MappedFileItem *next;
+  struct MappedFileList *next;
 };
 
 enum LookupType
@@ -42,7 +42,7 @@ struct MappedFile
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
   enum LookupType lookup_type;
-  struct MappedFileItem *local_scope;
+  struct MappedFileList *local_scope;
   char *interpreter_name;
 };
 
@@ -74,7 +74,7 @@ struct Mdl
   // the following fields are not part of the ABI
   uint32_t logging;
   struct StringList *search_dirs;
-  struct MappedFileItem *global_scope;
+  struct MappedFileList *global_scope;
   uint32_t next_context;
   struct Alloc alloc;
 };
