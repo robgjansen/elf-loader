@@ -106,7 +106,9 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 	   dt_rel, dt_relsz, dt_relent);
   if (dt_rel != 0 && dt_relsz != 0 && dt_relent != 0)
     {
-      // relocate entries in dt_rel
+      // relocate entries in dt_rel. We could check the type below
+      // but since we are relocating the dynamic loader itself
+      // here, the entries will always be of type R_386_RELATIVE.
       uint32_t i;
       for (i = 0; i < dt_relsz; i+=dt_relent)
 	{
@@ -146,6 +148,121 @@ interpreter_new (unsigned long load_base)
   return 0;
 }
 
+#if __ELF_NATIVE_CLASS == 32
+#define ELFW_R_SYM ELF32_R_SYM
+#define ELFW_R_TYPE ELF32_R_TYPE
+#else
+#define ELFW_R_SYM ELF64_R_SYM
+#define ELFW_R_TYPE ELF64_R_TYPE
+#endif
+
+static void
+i386_pltrel_callback (struct MappedFile *file,
+		      ElfW(Rel) *rel,
+		      const char *symbol_name)
+{
+  MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x", 
+		    file->name, symbol_name, rel->r_offset);
+  // Here, we expect only entries of type R_386_JMP_SLOT
+  if (ELFW_R_TYPE (rel->r_info) != R_386_JMP_SLOT)
+    {
+      MDL_LOG_ERROR ("Bwaaah: expected R_386_JMP_SLOT, got=%x\n",
+		     ELFW_R_TYPE (rel->r_info));
+      return;
+    }
+  // calculate the hash here to avoid calculating 
+  // it twice in both calls to symbol_lookup
+  unsigned long hash = mdl_elf_hash (symbol_name);
+
+  // lookup the symbol in the global scope first
+  unsigned long addr = mdl_elf_symbol_lookup (symbol_name, hash, file->global_scope);
+  if (addr == 0)
+    {
+      // and in the local scope.
+      addr = mdl_elf_symbol_lookup (symbol_name, hash, file->local_scope);
+      if (addr == 0)
+	{
+	  MDL_LOG_ERROR ("Cannot resolve symbol=%s\n", symbol_name);
+	  return;
+	}
+    }
+
+  // apply the address to the relocation
+  unsigned long offset = file->load_base;
+  offset += rel->r_offset;
+  unsigned long *p = (unsigned long *)offset;
+  *p = addr;
+}
+
+
+static void
+iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *file,
+						    ElfW(Rel) *rel,
+						    const char *name))
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  ElfW(Dyn) *tmp = (ElfW(Dyn)*)file->dynamic;
+  ElfW(Rel) *dt_jmprel = 0;
+  unsigned long dt_pltrel = ~0;
+  unsigned long dt_pltrelsz = ~0;
+  const char *dt_strtab = 0;
+  ElfW(Sym) *dt_symtab = 0;
+  
+  // search DT_PLTREL, DT_PLTRELSZ, DT_JMPREL
+  while (tmp->d_tag != DT_NULL && (dt_pltrel == (~0) || 
+				   dt_pltrelsz == (~0) ||
+				   dt_jmprel == 0 ||
+				   dt_strtab == 0 ||
+				   dt_symtab == 0))
+    {
+      if (tmp->d_tag == DT_JMPREL)
+	{
+	  dt_jmprel = (ElfW(Rel) *) (file->load_base + tmp->d_un.d_ptr);
+	}
+      else if (tmp->d_tag == DT_PLTREL)
+	{
+	  dt_pltrel = tmp->d_un.d_val;
+	}
+      else if (tmp->d_tag == DT_PLTRELSZ)
+	{
+	  dt_pltrelsz = tmp->d_un.d_val;
+	}
+      else if (tmp->d_tag == DT_STRTAB)
+	{
+	  dt_strtab = (char *) (file->load_base + tmp->d_un.d_val);
+	}
+      else if (tmp->d_tag == DT_SYMTAB)
+	{
+	  dt_symtab = (ElfW(Sym)*) (file->load_base + tmp->d_un.d_val);
+	}
+
+      tmp++;
+    }
+  if (dt_pltrel == (~0) || dt_pltrelsz == (~0) || 
+      dt_jmprel == 0 || dt_pltrel != DT_REL ||
+      dt_strtab == 0 || dt_symtab == 0)
+    {
+      return;
+    }
+  int i;
+  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
+    {
+      ElfW(Rel) *rel = &dt_jmprel[i];
+      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+      const char *symbol_name;
+      if (sym->st_name == 0)
+	{
+	  symbol_name = 0;
+	}
+      else
+	{
+	  symbol_name = dt_strtab + sym->st_name;
+	}
+      (*cb) (file, rel, symbol_name);
+    }
+
+}
+
 
 void stage1 (unsigned long args);
 
@@ -173,7 +290,7 @@ static void stage2 (struct OsArgs args)
 
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere. We don't add it to the global scope.
-  struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base);
+  interpreter_new (args.interpreter_load_base);
 
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the main binary to the link map
@@ -269,9 +386,18 @@ static void stage2 (struct OsArgs args)
   // Finally, we either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
 
+  g_mdl.bind_now = 1;
+
   if (g_mdl.bind_now)
     {
-      
+      // We must resolve all symbols and relocate their associated
+      // entries _now_. So, we iterate over all relocation entries
+      // lookup the associated symbol, and perform the relocation.
+      struct MappedFile *cur;
+      for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+	{
+	  iterate_pltrel (cur, i386_pltrel_callback);
+	}
     }
   else
     {
@@ -280,6 +406,11 @@ static void stage2 (struct OsArgs args)
       // Entry 3 is set to the asm trampoline mdl_symbol_lookup_asm
       // which calls mdl_symbol_lookup.
     }
+
+  // Finally, call init functions
+
+  // And, return the user entry point to allow the _dl_start
+  // trampoline to call the executable entry point.
 
   SYSCALL1 (exit, 0);
 error:

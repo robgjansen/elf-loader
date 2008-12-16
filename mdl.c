@@ -377,13 +377,13 @@ struct MappedFileList *mdl_file_list_append (struct MappedFileList *start,
 					     struct MappedFileList *end)
 {
   struct MappedFileList *cur = start;
-  while (cur->next != 0)
-    {
-      cur = cur->next;
-    }
   if (cur == 0)
     {
       return end;
+    }
+  while (cur->next != 0)
+    {
+      cur = cur->next;
     }
   cur->next = end;
   return start;
