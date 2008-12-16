@@ -85,6 +85,7 @@ struct Mdl
   // all heap memory allocations through mdl_alloc
   // and mdl_free end up here.
   struct Alloc alloc;
+  uint32_t bind_now : 1;
 };
 
 

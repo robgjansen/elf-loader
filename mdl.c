@@ -47,6 +47,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->next_context = 0;
   alloc_initialize (&(mdl->alloc));
   mdl->search_dirs = 0;
+  mdl->bind_now = 0; // by default, do lazy binding
 
   // populate search dirs from system directories
   mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 

@@ -164,6 +164,13 @@ static void stage2 (struct OsArgs args)
   const char *ld_debug = mdl_getenv (args.program_envp, "LD_DEBUG");
   mdl_set_logging (ld_debug);
 
+  // setup bind_now from LD_BIND_NOW
+  const char *bind_now = mdl_getenv (args.program_envp, "LD_BIND_NOW");
+  if (bind_now != 0)
+    {
+      g_mdl.bind_now = 1;
+    }
+
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere. We don't add it to the global scope.
   struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base);
@@ -261,6 +268,18 @@ static void stage2 (struct OsArgs args)
 
   // Finally, we either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
+
+  if (g_mdl.bind_now)
+    {
+      
+    }
+  else
+    {
+      // setup lazy binding by setting the GOT entries 2 and 3.
+      // Entry 2 is set to a pointer to the associated MappedFile
+      // Entry 3 is set to the asm trampoline mdl_symbol_lookup_asm
+      // which calls mdl_symbol_lookup.
+    }
 
   SYSCALL1 (exit, 0);
 error:
