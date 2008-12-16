@@ -195,18 +195,51 @@ error:
   return 0;
 }
 
-static int 
-is_already_mapped (uint32_t context, 
-		   dev_t dev, ino_t ino)
+static const char *
+convert_name (const char *name)
 {
-  const struct MappedFile *cur;
+  // these are hardcoded name conversions to ensure that
+  // we can replace the libc loader.
+  const char *hardcoded_names[][2] = 
+    {{"/lib/ld-linux.so.2", "ldso"}};
+  int i; 
+  for (i = 0; i < sizeof (hardcoded_names)/(sizeof (char *)*2); i++)
+    {
+      if (mdl_strisequal (hardcoded_names[i][0], name))
+	{
+	  return hardcoded_names[i][1];
+	}
+    }
+  return name;
+}
+
+static struct MappedFile *
+find_by_name (uint32_t context,
+	      const char *name)
+{
+  name = convert_name (name);
+  struct MappedFile *cur;
+  for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+    {
+      if (mdl_strisequal (cur->name, name))
+	{
+	  return cur;
+	}
+    }
+  return 0;
+}
+static struct MappedFile *
+find_by_dev_ino (uint32_t context, 
+		 dev_t dev, ino_t ino)
+{
+  struct MappedFile *cur;
   for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
     {
       if (cur->context == context &&
 	  cur->st_dev == dev &&
 	  cur->st_ino == ino)
 	{
-	  return 1;
+	  return cur;
 	}
     }
   return 0;
@@ -236,6 +269,7 @@ static void mdl_elf_file_list_free (struct MappedFileList *list)
 }
 static struct MappedFileList *append_item (struct MappedFileList *list, struct MappedFile *item)
 {
+  mdl_elf_file_ref (item);
   if (list == 0)
     {
       list = mdl_new (struct MappedFileList);
@@ -266,6 +300,14 @@ int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
       MDL_LOG_DEBUG ("needed=%s\n", cur->str);
+      struct MappedFile *dep = 0;
+      dep = find_by_name (context, cur->str);
+      if (dep != 0)
+	{
+	  deps = append_item (deps, dep);
+	  continue;
+	}
+      
       char *filename = mdl_elf_search_file (cur->str);
       if (filename == 0)
 	{
@@ -280,15 +322,17 @@ int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  goto error;
 	}
-      if (is_already_mapped (context, buf.st_dev, buf.st_ino))
+      dep = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
+      if (dep != 0)
 	{
-	  //XXX Check for interpreter here.
-	  goto next;
+	  deps = append_item (deps, dep);
+	  mdl_free (filename, mdl_strlen (filename)+1);
+	  continue;
 	}
-      struct MappedFile *dep = mdl_elf_map_single (context, filename, cur->str);
-      deps = append_item (deps, dep);
+      dep = mdl_elf_map_single (context, filename, cur->str);
       
-    next:
+
+      deps = append_item (deps, dep);
       mdl_free (filename, mdl_strlen (filename)+1);
     }
   mdl_str_list_free (dt_needed);

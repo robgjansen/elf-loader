@@ -33,6 +33,7 @@ struct MappedFile
   // The following fields are not part of the ABI
   uint32_t count;
   uint32_t context;
+  char *name;
   dev_t st_dev;
   ino_t st_ino;
   unsigned long ro_start;
