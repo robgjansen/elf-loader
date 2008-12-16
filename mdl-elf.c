@@ -197,11 +197,10 @@ error:
 
 static int 
 is_already_mapped (uint32_t context, 
-		   dev_t dev, ino_t ino,
-		   const struct MappedFile *first)
+		   dev_t dev, ino_t ino)
 {
   const struct MappedFile *cur;
-  for (cur = first; cur != 0; cur = cur->next)
+  for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
     {
       if (cur->context == context &&
 	  cur->st_dev == dev &&
@@ -213,31 +212,11 @@ is_already_mapped (uint32_t context,
   return 0;
 }
 
-static void
-append_file (struct MappedFile *first, struct MappedFile *item)
+int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
 {
-  MDL_LOG_FUNCTION ("first=%p, item=%p", first, item);
-  if (first == 0)
-    {
-      // internal error.
-      MDL_LOG_ERROR ("We should never have a zero list head\n", 1);
-      return;
-    }
-  struct MappedFile *cur = first;
-  while (cur->next != 0)
-    {
-      cur = cur->next;
-    }
-  cur->next = item;
-  item->prev = cur;
-  item->next = 0;
-}
-
-int mdl_elf_map_recursive (uint32_t context, struct MappedFile *first, struct MappedFile *last)
-{
-  MDL_LOG_FUNCTION ("context=%d, first=%p, last=%p", context, first, last);
-  struct StringList *dt_needed = mdl_elf_get_dt_needed (last->load_base, 
-							(void*)last->dynamic);
+  MDL_LOG_FUNCTION ("context=%d, item=%p", context, item);
+  struct StringList *dt_needed = mdl_elf_get_dt_needed (item->load_base, 
+							(void*)item->dynamic);
   struct StringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
@@ -256,15 +235,13 @@ int mdl_elf_map_recursive (uint32_t context, struct MappedFile *first, struct Ma
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  goto error;
 	}
-      if (is_already_mapped (context, buf.st_dev, buf.st_ino, first) ||
-	  is_already_mapped (context, buf.st_dev, buf.st_ino, g_mdl.link_map))
+      if (is_already_mapped (context, buf.st_dev, buf.st_ino))
 	{
 	  //XXX Check for interpreter here.
 	  goto next;
 	}
       struct MappedFile *mapped = mdl_elf_map_single (context, filename, cur->str);
-      append_file (first, mapped);
-      if (!mdl_elf_map_recursive (context, first, mapped))
+      if (!mdl_elf_map_deps (context, mapped))
 	{
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  goto error;
@@ -377,6 +354,26 @@ int mdl_elf_file_get_info (uint32_t phnum,
   return 0;
 }
 
+static void
+append_file (struct MappedFile *item)
+{
+  MDL_LOG_FUNCTION ("item=%p", item);
+  if (g_mdl.link_map == 0)
+    {
+      g_mdl.link_map = item;
+      return;
+    }
+  struct MappedFile *cur = g_mdl.link_map;
+  while (cur->next != 0)
+    {
+      cur = cur->next;
+    }
+  cur->next = item;
+  item->prev = cur;
+  item->next = 0;
+}
+
+
 struct MappedFile *mdl_elf_file_new (unsigned long load_base,
 				     const struct FileInfo *info,
 				     const char *filename)
@@ -401,6 +398,8 @@ struct MappedFile *mdl_elf_file_new (unsigned long load_base,
   file->local_scope = 0;
   file->interpreter_name = mdl_strdup ((char *)(info->interpreter_name + load_base));
   MDL_LOG_DEBUG ("interp=%p\n", file->interpreter_name);
+
+  append_file (file);
 
   return file;
 }

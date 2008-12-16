@@ -118,7 +118,7 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 }
 
 static struct MappedFile *
-get_interpreter (unsigned long load_base)
+interpreter_new (unsigned long load_base)
 {
   /* We make many assumptions here:
    *   - The loader is an ET_DYN
@@ -163,7 +163,7 @@ static void stage2 (struct OsArgs args)
 
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere.
-  g_mdl.link_map = get_interpreter (args.interpreter_load_base);
+  struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base);
   
   struct MappedFile *main_file;
   if (args.program_entry == stage1)
@@ -209,7 +209,7 @@ static void stage2 (struct OsArgs args)
 				    args.program_argv[0]);
     }
 
-  if (!mdl_elf_map_recursive (0, main_file, main_file))
+  if (!mdl_elf_map_deps (0, main_file))
     {
       MDL_LOG_ERROR ("Unable to map main file and dependencies\n", 1);
       //XXX: mdl_elf_unmap_recursive (main_file);
