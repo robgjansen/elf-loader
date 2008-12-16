@@ -25,7 +25,8 @@ int mdl_elf_file_get_info (uint32_t phnum,
 			   struct FileInfo *info);
 struct MappedFile *mdl_elf_file_new (unsigned long load_base,
 				     const struct FileInfo *info,
-				     const char *filename);
+				     const char *filename, 
+				     const char *name);
 
 				     
 

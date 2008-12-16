@@ -139,6 +139,7 @@ interpreter_new (unsigned long load_base)
       goto error;
     }
   struct MappedFile *file = mdl_elf_file_new (load_base, &info, 
+					      (char*)(info.interpreter_name + load_base),
 					      (char*)(info.interpreter_name + load_base));
   return file;
  error:
@@ -206,6 +207,7 @@ static void stage2 (struct OsArgs args)
 
       main_file = mdl_elf_file_new (load_base,
 				    &info,
+				    args.program_argv[0],
 				    args.program_argv[0]);
     }
 

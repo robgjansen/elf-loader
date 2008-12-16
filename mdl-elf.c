@@ -171,7 +171,7 @@ struct MappedFile *mdl_elf_map_single (uint32_t context, const char *filename, c
     }
 
   struct MappedFile *file = mdl_elf_file_new (load_base, &info, 
-					      filename);
+					      filename, name);
   MDL_LOG_DEBUG ("mapped file %s ro=0x%x:0x%x, rw=0x%x:0x%x\n", filename,
 		 file->ro_start, file->ro_size, 
 		 file->ro_start + file->ro_size, file->rw_size);
@@ -198,16 +198,21 @@ error:
 static const char *
 convert_name (const char *name)
 {
+  MDL_LOG_FUNCTION ("name=%s", name);
   // these are hardcoded name conversions to ensure that
   // we can replace the libc loader.
-  const char *hardcoded_names[][2] = 
-    {{"/lib/ld-linux.so.2", "ldso"}};
+  const struct HardcodedName {
+    const char *original;
+    const char *converted;
+  } hardcoded_names [] = 
+      {{"/lib/ld-linux.so.2", "ldso"},
+       {"ld-linux.so.2", "ldso"}};
   int i; 
-  for (i = 0; i < sizeof (hardcoded_names)/(sizeof (char *)*2); i++)
+  for (i = 0; i < (sizeof (hardcoded_names)/sizeof (struct HardcodedName)); i++)
     {
-      if (mdl_strisequal (hardcoded_names[i][0], name))
+      if (mdl_strisequal (hardcoded_names[i].original, name))
 	{
-	  return hardcoded_names[i][1];
+	  return hardcoded_names[i].converted;
 	}
     }
   return name;
@@ -478,7 +483,8 @@ append_file (struct MappedFile *item)
 
 struct MappedFile *mdl_elf_file_new (unsigned long load_base,
 				     const struct FileInfo *info,
-				     const char *filename)
+				     const char *filename, 
+				     const char *name)
 {
   struct MappedFile *file = mdl_new (struct MappedFile);
 
@@ -499,6 +505,7 @@ struct MappedFile *mdl_elf_file_new (unsigned long load_base,
   file->fini_called = 0;
   file->local_scope = 0;
   file->interpreter_name = mdl_strdup ((char *)(info->interpreter_name + load_base));
+  file->name = mdl_strdup (name);
   MDL_LOG_DEBUG ("interp=%p\n", file->interpreter_name);
 
   append_file (file);
