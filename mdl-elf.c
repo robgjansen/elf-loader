@@ -211,12 +211,57 @@ is_already_mapped (uint32_t context,
     }
   return 0;
 }
+static void mdl_elf_file_ref (struct MappedFile *file)
+{
+  file->count++;
+}
+static void mdl_elf_file_unref (struct MappedFile *file)
+{
+  file->count--;
+  if (file->count == 0)
+    {
+      mdl_delete (file);
+      // XXX: should go through dep 
+    }
+}
+
+static void mdl_elf_file_list_free (struct MappedFileList *list)
+{
+  struct MappedFileList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
+    {
+      mdl_elf_file_unref (cur->item);
+      mdl_delete (cur);
+    }
+}
+static struct MappedFileList *append_item (struct MappedFileList *list, struct MappedFile *item)
+{
+  if (list == 0)
+    {
+      list = mdl_new (struct MappedFileList);
+      list->next = 0;
+      list->item = item;
+      return list;
+    }
+  struct MappedFileList *cur = list;
+  while (cur->next != 0)
+    {
+      cur = cur->next;
+    }
+  cur->next = mdl_new (struct MappedFileList);
+  cur->next->item = item;
+  cur->next->next = 0;
+  return list;
+}
 
 int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("context=%d, item=%p", context, item);
+  struct MappedFileList *deps = 0;
   struct StringList *dt_needed = mdl_elf_get_dt_needed (item->load_base, 
 							(void*)item->dynamic);
+
+  // first, map each dep and accumulate them in deps variable
   struct StringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
@@ -240,21 +285,34 @@ int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
 	  //XXX Check for interpreter here.
 	  goto next;
 	}
-      struct MappedFile *mapped = mdl_elf_map_single (context, filename, cur->str);
-      if (!mdl_elf_map_deps (context, mapped))
-	{
-	  mdl_free (filename, mdl_strlen (filename)+1);
-	  goto error;
-	}
+      struct MappedFile *dep = mdl_elf_map_single (context, filename, cur->str);
+      deps = append_item (deps, dep);
       
     next:
       mdl_free (filename, mdl_strlen (filename)+1);
     }
   mdl_str_list_free (dt_needed);
 
+  // then, recursively map the deps of each dep.
+  struct MappedFileList *dep;
+  for (dep = deps; dep != 0; dep = dep->next)
+    {
+      if (!mdl_elf_map_deps (context, dep->item))
+	{
+	  goto error;
+	}
+    }
+
+  // Finally, update the deps
+  item->deps = deps;
+
   return 1;
  error:
   mdl_str_list_free (dt_needed);
+  if (deps != 0)
+    {
+      mdl_elf_file_list_free (deps);
+    }
   return 0;
 }
 int mdl_elf_file_get_info (uint32_t phnum,

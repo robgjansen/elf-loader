@@ -7,7 +7,7 @@
 
 struct MappedFileList
 {
-  struct MappedFile *dep;
+  struct MappedFile *item;
   struct MappedFileList *next;
 };
 
@@ -44,6 +44,7 @@ struct MappedFile
   enum LookupType lookup_type;
   struct MappedFileList *local_scope;
   char *interpreter_name;
+  struct MappedFileList *deps;
 };
 
 struct StringList
