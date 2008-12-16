@@ -40,11 +40,12 @@ struct MappedFile
   unsigned long ro_file_offset;
   uint32_t ro_size;
   uint32_t rw_size;
+  uint32_t scope_set : 1;
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
   enum LookupType lookup_type;
+  struct MappedFileList *global_scope;
   struct MappedFileList *local_scope;
-  char *interpreter_name;
   struct MappedFileList *deps;
 };
 
@@ -85,7 +86,6 @@ struct Mdl
 extern struct Mdl g_mdl;
 
 void mdl_initialize (unsigned long interpreter_load_base);
-struct MappedFile *mdl_load_file (const char *filename);
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
 
@@ -125,6 +125,14 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__);
 
 
+void mdl_file_ref (struct MappedFile *file);
+void mdl_file_unref (struct MappedFile *file);
+void mdl_file_list_free (struct MappedFileList *list);
+struct MappedFileList *mdl_file_list_copy (struct MappedFileList *list);
+struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list, 
+						 struct MappedFile *item);
+struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
+					     struct MappedFileList *end);
 
 
 

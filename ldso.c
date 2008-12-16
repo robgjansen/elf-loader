@@ -163,8 +163,32 @@ static void stage2 (struct OsArgs args)
   mdl_set_logging (ld_debug);
 
   // add the interpreter itself to the link map to ensure that it is
-  // recorded somewhere.
+  // recorded somewhere. We don't add it to the global scope.
   struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base);
+
+  // add the LD_PRELOAD binary if it is specified somewhere.
+  // We must do this _before_ adding the main binary to the link map
+  // to ensure that the symbol scope of the main binary is correct,
+  // that is, that symbols are resolved first within the 
+  // LD_PRELOAD binary, before everything else.
+  const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
+  if (ld_preload != 0)
+    {
+      char *ld_preload_filename = mdl_elf_search_file (ld_preload);
+      if (ld_preload_filename == 0)
+	{
+      MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
+      goto error;
+	}
+      struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, ld_preload);
+      if (ld_preload_file == 0)
+	{
+	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	  goto error;
+	}
+      g_mdl.global_scope = mdl_file_list_append_one (g_mdl.global_scope, ld_preload_file);
+    }
+  
   
   struct MappedFile *main_file;
   if (args.program_entry == stage1)
@@ -217,6 +241,13 @@ static void stage2 (struct OsArgs args)
       //XXX: mdl_elf_unmap_recursive (main_file);
       goto error;
     }
+
+  // Now, we must calculate the scope of each binary mapped in memory.
+  struct MappedFileList *global_scope = mdl_elf_gather_all_deps_breadth_first (main_file);
+  g_mdl.global_scope = mdl_file_list_append (g_mdl.global_scope, global_scope);
+
+  // Finally, we either setup the GOT for lazy symbol resolution
+  // or we perform binding for all symbols now if LD_BIND_NOW is set
 
   SYSCALL1 (exit, 0);
 error:

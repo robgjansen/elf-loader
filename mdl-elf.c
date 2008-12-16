@@ -249,49 +249,6 @@ find_by_dev_ino (uint32_t context,
     }
   return 0;
 }
-static void mdl_elf_file_ref (struct MappedFile *file)
-{
-  file->count++;
-}
-static void mdl_elf_file_unref (struct MappedFile *file)
-{
-  file->count--;
-  if (file->count == 0)
-    {
-      mdl_delete (file);
-      // XXX: should go through dep 
-    }
-}
-
-static void mdl_elf_file_list_free (struct MappedFileList *list)
-{
-  struct MappedFileList *cur;
-  for (cur = list; cur != 0; cur = cur->next)
-    {
-      mdl_elf_file_unref (cur->item);
-      mdl_delete (cur);
-    }
-}
-static struct MappedFileList *append_item (struct MappedFileList *list, struct MappedFile *item)
-{
-  mdl_elf_file_ref (item);
-  if (list == 0)
-    {
-      list = mdl_new (struct MappedFileList);
-      list->next = 0;
-      list->item = item;
-      return list;
-    }
-  struct MappedFileList *cur = list;
-  while (cur->next != 0)
-    {
-      cur = cur->next;
-    }
-  cur->next = mdl_new (struct MappedFileList);
-  cur->next->item = item;
-  cur->next->next = 0;
-  return list;
-}
 
 int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
 {
@@ -309,7 +266,7 @@ int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
       dep = find_by_name (context, cur->str);
       if (dep != 0)
 	{
-	  deps = append_item (deps, dep);
+	  deps = mdl_file_list_append_one (deps, dep);
 	  continue;
 	}
       
@@ -330,14 +287,14 @@ int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
       dep = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
-	  deps = append_item (deps, dep);
+	  deps = mdl_file_list_append_one (deps, dep);
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  continue;
 	}
       dep = mdl_elf_map_single (context, filename, cur->str);
       
 
-      deps = append_item (deps, dep);
+      deps = mdl_file_list_append_one (deps, dep);
       mdl_free (filename, mdl_strlen (filename)+1);
     }
   mdl_str_list_free (dt_needed);
@@ -360,7 +317,7 @@ int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
   mdl_str_list_free (dt_needed);
   if (deps != 0)
     {
-      mdl_elf_file_list_free (deps);
+      mdl_file_list_free (deps);
     }
   return 0;
 }
@@ -501,14 +458,35 @@ struct MappedFile *mdl_elf_file_new (unsigned long load_base,
   file->ro_size = info->ro_size;
   file->rw_size = info->rw_size;
   file->ro_file_offset = info->ro_file_offset;
+  file->scope_set = 0;
   file->init_called = 0;
   file->fini_called = 0;
   file->local_scope = 0;
-  file->interpreter_name = mdl_strdup ((char *)(info->interpreter_name + load_base));
+  file->global_scope = 0;
+  file->deps = 0;
   file->name = mdl_strdup (name);
-  MDL_LOG_DEBUG ("interp=%p\n", file->interpreter_name);
 
   append_file (file);
 
   return file;
+}
+
+struct MappedFileList *
+mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file)
+{
+  MDL_LOG_FUNCTION ("file=%s\n", file->name);
+
+  struct MappedFileList *local, *cur;
+
+  // All we have to do is iterate the list of deps in a 
+  // breadth-first manner as per the ELF spec.
+  local = mdl_new (struct MappedFileList);
+  local->item = file;
+  local->next = 0;
+  for (cur = local; cur != 0; cur = cur->next)
+    {
+      struct MappedFileList *copy = mdl_file_list_copy (cur->item->deps);
+      cur = mdl_file_list_append (cur, copy);
+    }
+  return local;
 }

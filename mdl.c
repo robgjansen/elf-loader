@@ -293,4 +293,75 @@ struct StringList *mdl_str_list_reverse (struct StringList *list)
     }
   return ret;
 }
+void mdl_file_ref (struct MappedFile *file)
+{
+  file->count++;
+}
+void mdl_file_unref (struct MappedFile *file)
+{
+  file->count--;
+  if (file->count == 0)
+    {
+      mdl_delete (file);
+      // XXX: should go through dep 
+    }
+}
+
+void mdl_file_list_free (struct MappedFileList *list)
+{
+  struct MappedFileList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
+    {
+      mdl_file_unref (cur->item);
+      mdl_delete (cur);
+    }
+}
+struct MappedFileList *mdl_file_list_copy (struct MappedFileList *list)
+{
+  struct MappedFileList *copy = 0;
+  struct MappedFileList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
+    {
+      copy = mdl_file_list_append_one (copy, cur->item);
+    }
+  return copy;
+}
+
+struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list, 
+						 struct MappedFile *item)
+{
+  mdl_file_ref (item);
+  if (list == 0)
+    {
+      list = mdl_new (struct MappedFileList);
+      list->next = 0;
+      list->item = item;
+      return list;
+    }
+  struct MappedFileList *cur = list;
+  while (cur->next != 0)
+    {
+      cur = cur->next;
+    }
+  cur->next = mdl_new (struct MappedFileList);
+  cur->next->item = item;
+  cur->next->next = 0;
+  return list;
+}
+struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
+					     struct MappedFileList *end)
+{
+  struct MappedFileList *cur = start;
+  while (cur->next != 0)
+    {
+      cur = cur->next;
+    }
+  if (cur == 0)
+    {
+      return end;
+    }
+  cur->next = end;
+  return start;
+}
+
 
