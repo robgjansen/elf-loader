@@ -21,6 +21,16 @@ enum LookupType
   LOOKUP_LOCAL_ONLY,
 };
 
+struct FileInfo
+{
+  unsigned long dynamic;
+  unsigned long interpreter_name;
+  unsigned long ro_start;
+  unsigned long ro_size;
+  unsigned long rw_size;
+  unsigned long ro_file_offset;
+};
+
 struct MappedFile
 {
   // The following fields are part of the ABI. Don't change them
@@ -147,6 +157,11 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__);
 
 
+struct MappedFile *mdl_file_new (unsigned long load_base,
+				 const struct FileInfo *info,
+				 const char *filename, 
+				 const char *name,
+				 struct Context *context);
 void mdl_file_ref (struct MappedFile *file);
 void mdl_file_unref (struct MappedFile *file);
 void mdl_file_list_free (struct MappedFileList *list);

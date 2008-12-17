@@ -376,6 +376,56 @@ struct StringList *mdl_str_list_reverse (struct StringList *list)
     }
   return ret;
 }
+static void
+append_file (struct MappedFile *item)
+{
+  MDL_LOG_FUNCTION ("item=%p", item);
+  if (g_mdl.link_map == 0)
+    {
+      g_mdl.link_map = item;
+      return;
+    }
+  struct MappedFile *cur = g_mdl.link_map;
+  while (cur->next != 0)
+    {
+      cur = cur->next;
+    }
+  cur->next = item;
+  item->prev = cur;
+  item->next = 0;
+}
+struct MappedFile *mdl_file_new (unsigned long load_base,
+				 const struct FileInfo *info,
+				 const char *filename, 
+				 const char *name,
+				 struct Context *context)
+{
+  struct MappedFile *file = mdl_new (struct MappedFile);
+
+  file->load_base = load_base;
+  file->filename = mdl_strdup (filename);
+  file->dynamic = info->dynamic + load_base;
+  file->next = 0;
+  file->prev = 0;
+  file->count = 1;
+  file->context = context;
+  file->st_dev = 0;
+  file->st_ino = 0;
+  file->ro_start = info->ro_start + load_base;
+  file->ro_size = info->ro_size;
+  file->rw_size = info->rw_size;
+  file->ro_file_offset = info->ro_file_offset;
+  file->init_called = 0;
+  file->fini_called = 0;
+  file->local_scope = 0;
+  file->deps = 0;
+  file->name = mdl_strdup (name);
+
+  append_file (file);
+
+  return file;
+}
+
 void mdl_file_ref (struct MappedFile *file)
 {
   file->count++;

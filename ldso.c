@@ -120,7 +120,7 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 }
 
 static struct MappedFile *
-interpreter_new (unsigned long load_base)
+interpreter_new (unsigned long load_base, struct Context *context)
 {
   /* We make many assumptions here:
    *   - The loader is an ET_DYN
@@ -140,9 +140,10 @@ interpreter_new (unsigned long load_base)
       MDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
       goto error;
     }
-  struct MappedFile *file = mdl_elf_file_new (load_base, &info, 
-					      (char*)(info.interpreter_name + load_base),
-					      (char*)(info.interpreter_name + load_base));
+  struct MappedFile *file = mdl_file_new (load_base, &info, 
+					  (char*)(info.interpreter_name + load_base),
+					  (char*)(info.interpreter_name + load_base),
+					  context);
   return file;
  error:
   return 0;
@@ -293,7 +294,7 @@ static void stage2 (struct OsArgs args)
 
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere. We don't add it to the global scope.
-  interpreter_new (args.interpreter_load_base);
+  interpreter_new (args.interpreter_load_base, context);
 
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the main binary to the link map
@@ -360,10 +361,11 @@ static void stage2 (struct OsArgs args)
       // between the PT_PHDR vaddr and its real address in memory.
       unsigned long load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
 
-      main_file = mdl_elf_file_new (load_base,
-				    &info,
-				    args.program_argv[0],
-				    args.program_argv[0]);
+      main_file = mdl_file_new (load_base,
+				&info,
+				args.program_argv[0],
+				args.program_argv[0],
+				context);
     }
 
   if (!mdl_elf_map_deps (context, main_file))
@@ -412,7 +414,7 @@ static void stage2 (struct OsArgs args)
     struct MappedFile *cur;
     for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
       {
-	mdl_elf_init (cur);
+	mdl_elf_call_init (cur);
       }
   }
   

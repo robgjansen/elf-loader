@@ -172,8 +172,9 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       goto error;
     }
 
-  struct MappedFile *file = mdl_elf_file_new (load_base, &info, 
-					      filename, name);
+  struct MappedFile *file = mdl_file_new (load_base, &info, 
+					  filename, name,
+					  context);
   MDL_LOG_DEBUG ("mapped file %s ro=0x%x:0x%x, rw=0x%x:0x%x\n", filename,
 		 file->ro_start, file->ro_size, 
 		 file->ro_start + file->ro_size, file->rw_size);
@@ -420,58 +421,6 @@ int mdl_elf_file_get_info (uint32_t phnum,
   return 0;
 }
 
-static void
-append_file (struct MappedFile *item)
-{
-  MDL_LOG_FUNCTION ("item=%p", item);
-  if (g_mdl.link_map == 0)
-    {
-      g_mdl.link_map = item;
-      return;
-    }
-  struct MappedFile *cur = g_mdl.link_map;
-  while (cur->next != 0)
-    {
-      cur = cur->next;
-    }
-  cur->next = item;
-  item->prev = cur;
-  item->next = 0;
-}
-
-
-struct MappedFile *mdl_elf_file_new (unsigned long load_base,
-				     const struct FileInfo *info,
-				     const char *filename, 
-				     const char *name)
-{
-  struct MappedFile *file = mdl_new (struct MappedFile);
-
-  file->load_base = load_base;
-  file->filename = mdl_strdup (filename);
-  file->dynamic = info->dynamic + load_base;
-  file->next = 0;
-  file->prev = 0;
-  file->count = 1;
-  file->context = 0;
-  file->st_dev = 0;
-  file->st_ino = 0;
-  file->ro_start = info->ro_start + load_base;
-  file->ro_size = info->ro_size;
-  file->rw_size = info->rw_size;
-  file->ro_file_offset = info->ro_file_offset;
-  file->scope_set = 0;
-  file->init_called = 0;
-  file->fini_called = 0;
-  file->local_scope = 0;
-  file->deps = 0;
-  file->name = mdl_strdup (name);
-
-  append_file (file);
-
-  return file;
-}
-
 struct MappedFileList *
 mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file)
 {
@@ -619,7 +568,7 @@ unsigned long mdl_elf_symbol_lookup (const char *name, unsigned long hash,
 typedef void (*init_function) (int, char **, char **);
 
 static void
-mdl_elf_init_one (struct MappedFile *file)
+mdl_elf_call_init_one (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   // Gather information from the .dynamic section
@@ -667,7 +616,7 @@ mdl_elf_init_one (struct MappedFile *file)
     }
 }
 
-void mdl_elf_init (struct MappedFile *file)
+void mdl_elf_call_init (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->init_called)
@@ -682,9 +631,9 @@ void mdl_elf_init (struct MappedFile *file)
   struct MappedFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      mdl_elf_init (cur->item);
+      mdl_elf_call_init (cur->item);
     }
 
   // Now that all deps are initialized, initialize ourselves.
-  mdl_elf_init_one (file);  
+  mdl_elf_call_init_one (file);  
 }
