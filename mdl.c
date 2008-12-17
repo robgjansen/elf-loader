@@ -62,19 +62,20 @@ struct Context *mdl_context_new (int argc, const char **argv, const char **envp)
   struct Context *context = mdl_new (struct Context);
   context->global_scope = 0;
   // prepend to context list.
-  g_mdl.contexts->prev = context;
+  if (g_mdl.contexts != 0)
+    {
+      g_mdl.contexts->prev = context;
+    }
   context->next = g_mdl.contexts;
   context->prev = 0;
   g_mdl.contexts = context;
   // store argc safely
   context->argc = argc;
   // create a private copy of argv
-  MDL_LOG_DEBUG ("argc=%d\n", argc);
   context->argv = mdl_malloc (sizeof (char*)*(argc+1));
   int i;
   for (i = 0; i < argc; i++)
     {
-      MDL_LOG_DEBUG ("argv=%s\n", argv[i]);
       context->argv[i] = mdl_strdup (argv[i]);
     }
   context->argv[argc] = 0;
@@ -94,7 +95,7 @@ struct Context *mdl_context_new (int argc, const char **argv, const char **envp)
   i = 0;
   while (1)
     {
-      if (envp[0] == 0)
+      if (envp[i] == 0)
 	{
 	  break;
 	}
