@@ -144,6 +144,10 @@ interpreter_new (unsigned long load_base, struct Context *context)
 					  (char*)(info.interpreter_name + load_base),
 					  (char*)(info.interpreter_name + load_base),
 					  context);
+  // the interpreter has already been reloced, so, we must be
+  // careful to not relocate it twice.
+  file->reloced = 1;
+
   return file;
  error:
   return 0;
@@ -282,7 +286,6 @@ static void stage2 (struct OsArgs args)
 	mdl_elf_reloc (cur);
       }
   }
-
 
   // Finally, call init functions
   {
