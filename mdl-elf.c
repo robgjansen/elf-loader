@@ -253,20 +253,20 @@ find_by_dev_ino (struct Context *context,
   return 0;
 }
 
-int mdl_elf_map_deps (struct Context *context, struct MappedFile *item)
+int mdl_elf_map_deps (struct MappedFile *item)
 {
-  MDL_LOG_FUNCTION ("context=%p, item=%p", context, item);
-  struct MappedFileList *deps = 0;
+  MDL_LOG_FUNCTION ("file=%s", item->name);
+  // get list of deps for the input file.
   struct StringList *dt_needed = mdl_elf_get_dt_needed (item->load_base, 
 							(void*)item->dynamic);
 
   // first, map each dep and accumulate them in deps variable
+  struct MappedFileList *deps = 0;
   struct StringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
       MDL_LOG_DEBUG ("needed=%s\n", cur->str);
-      struct MappedFile *dep = 0;
-      dep = find_by_name (context, cur->str);
+      struct MappedFile *dep = find_by_name (item->context, cur->str);
       if (dep != 0)
 	{
 	  deps = mdl_file_list_append_one (deps, dep);
@@ -287,14 +287,14 @@ int mdl_elf_map_deps (struct Context *context, struct MappedFile *item)
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  goto error;
 	}
-      dep = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
+      dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
 	  deps = mdl_file_list_append_one (deps, dep);
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  continue;
 	}
-      dep = mdl_elf_map_single (context, filename, cur->str);
+      dep = mdl_elf_map_single (item->context, filename, cur->str);
       
 
       deps = mdl_file_list_append_one (deps, dep);
@@ -306,7 +306,7 @@ int mdl_elf_map_deps (struct Context *context, struct MappedFile *item)
   struct MappedFileList *dep;
   for (dep = deps; dep != 0; dep = dep->next)
     {
-      if (!mdl_elf_map_deps (context, dep->item))
+      if (!mdl_elf_map_deps (dep->item))
 	{
 	  goto error;
 	}
@@ -378,6 +378,12 @@ int mdl_elf_file_get_info (uint32_t phnum,
     {
       MDL_LOG_ERROR ("file and memory size should be equal: 0x%x != 0x%x\n",
 		     ro->p_memsz, ro->p_filesz);
+      goto error;
+    }
+  if (ro->p_offset != 0)
+    {
+      MDL_LOG_ERROR ("The ro map should include the ELF header. off=0x%x\n",
+		     ro->p_offset);
       goto error;
     }
   if (ro->p_align != rw->p_align)
@@ -636,4 +642,78 @@ void mdl_elf_call_init (struct MappedFile *file)
 
   // Now that all deps are initialized, initialize ourselves.
   mdl_elf_call_init_one (file);  
+}
+unsigned long mdl_elf_get_entry_point (struct MappedFile *file)
+{
+  // This piece of code assumes that the ELF header starts at the
+  // first byte of the ro map. This is verified in mdl_elf_file_get_info
+  // so we are safe with this assumption.
+  ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
+  return header->e_entry + file->load_base;
+}
+void
+mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *file,
+							    ElfW(Rel) *rel,
+							    const char *name))
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  ElfW(Dyn) *tmp = (ElfW(Dyn)*)file->dynamic;
+  ElfW(Rel) *dt_jmprel = 0;
+  unsigned long dt_pltrel = ~0;
+  unsigned long dt_pltrelsz = ~0;
+  const char *dt_strtab = 0;
+  ElfW(Sym) *dt_symtab = 0;
+  
+  // search DT_PLTREL, DT_PLTRELSZ, DT_JMPREL
+  while (tmp->d_tag != DT_NULL && (dt_pltrel == (~0) || 
+				   dt_pltrelsz == (~0) ||
+				   dt_jmprel == 0 ||
+				   dt_strtab == 0 ||
+				   dt_symtab == 0))
+    {
+      if (tmp->d_tag == DT_JMPREL)
+	{
+	  dt_jmprel = (ElfW(Rel) *) (file->load_base + tmp->d_un.d_ptr);
+	}
+      else if (tmp->d_tag == DT_PLTREL)
+	{
+	  dt_pltrel = tmp->d_un.d_val;
+	}
+      else if (tmp->d_tag == DT_PLTRELSZ)
+	{
+	  dt_pltrelsz = tmp->d_un.d_val;
+	}
+      else if (tmp->d_tag == DT_STRTAB)
+	{
+	  dt_strtab = (char *) (file->load_base + tmp->d_un.d_val);
+	}
+      else if (tmp->d_tag == DT_SYMTAB)
+	{
+	  dt_symtab = (ElfW(Sym)*) (file->load_base + tmp->d_un.d_val);
+	}
+
+      tmp++;
+    }
+  if (dt_pltrel == (~0) || dt_pltrelsz == (~0) || 
+      dt_jmprel == 0 || dt_pltrel != DT_REL ||
+      dt_strtab == 0 || dt_symtab == 0)
+    {
+      return;
+    }
+  int i;
+  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
+    {
+      ElfW(Rel) *rel = &dt_jmprel[i];
+      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+      const char *symbol_name;
+      if (sym->st_name == 0)
+	{
+	  symbol_name = 0;
+	}
+      else
+	{
+	  symbol_name = dt_strtab + sym->st_name;
+	}
+      (*cb) (file, rel, symbol_name);
+    }
 }

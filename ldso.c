@@ -149,14 +149,6 @@ interpreter_new (unsigned long load_base, struct Context *context)
   return 0;
 }
 
-#if __ELF_NATIVE_CLASS == 32
-#define ELFW_R_SYM ELF32_R_SYM
-#define ELFW_R_TYPE ELF32_R_TYPE
-#else
-#define ELFW_R_SYM ELF64_R_SYM
-#define ELFW_R_TYPE ELF64_R_TYPE
-#endif
-
 static void
 i386_pltrel_callback (struct MappedFile *file,
 		      ElfW(Rel) *rel,
@@ -196,73 +188,6 @@ i386_pltrel_callback (struct MappedFile *file,
 }
 
 
-static void
-iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *file,
-						    ElfW(Rel) *rel,
-						    const char *name))
-{
-  MDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Dyn) *tmp = (ElfW(Dyn)*)file->dynamic;
-  ElfW(Rel) *dt_jmprel = 0;
-  unsigned long dt_pltrel = ~0;
-  unsigned long dt_pltrelsz = ~0;
-  const char *dt_strtab = 0;
-  ElfW(Sym) *dt_symtab = 0;
-  
-  // search DT_PLTREL, DT_PLTRELSZ, DT_JMPREL
-  while (tmp->d_tag != DT_NULL && (dt_pltrel == (~0) || 
-				   dt_pltrelsz == (~0) ||
-				   dt_jmprel == 0 ||
-				   dt_strtab == 0 ||
-				   dt_symtab == 0))
-    {
-      if (tmp->d_tag == DT_JMPREL)
-	{
-	  dt_jmprel = (ElfW(Rel) *) (file->load_base + tmp->d_un.d_ptr);
-	}
-      else if (tmp->d_tag == DT_PLTREL)
-	{
-	  dt_pltrel = tmp->d_un.d_val;
-	}
-      else if (tmp->d_tag == DT_PLTRELSZ)
-	{
-	  dt_pltrelsz = tmp->d_un.d_val;
-	}
-      else if (tmp->d_tag == DT_STRTAB)
-	{
-	  dt_strtab = (char *) (file->load_base + tmp->d_un.d_val);
-	}
-      else if (tmp->d_tag == DT_SYMTAB)
-	{
-	  dt_symtab = (ElfW(Sym)*) (file->load_base + tmp->d_un.d_val);
-	}
-
-      tmp++;
-    }
-  if (dt_pltrel == (~0) || dt_pltrelsz == (~0) || 
-      dt_jmprel == 0 || dt_pltrel != DT_REL ||
-      dt_strtab == 0 || dt_symtab == 0)
-    {
-      return;
-    }
-  int i;
-  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
-    {
-      ElfW(Rel) *rel = &dt_jmprel[i];
-      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-      const char *symbol_name;
-      if (sym->st_name == 0)
-	{
-	  symbol_name = 0;
-	}
-      else
-	{
-	  symbol_name = dt_strtab + sym->st_name;
-	}
-      (*cb) (file, rel, symbol_name);
-    }
-
-}
 
 
 void stage1 (unsigned long args);
@@ -305,12 +230,14 @@ static void stage2 (struct OsArgs args)
   const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
   if (ld_preload != 0)
     {
+      // search the requested program
       char *ld_preload_filename = mdl_elf_search_file (ld_preload);
       if (ld_preload_filename == 0)
 	{
 	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
 	  goto error;
 	}
+      // map it in memory.
       struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, 
 							       ld_preload);
       if (ld_preload_file == 0)
@@ -318,6 +245,7 @@ static void stage2 (struct OsArgs args)
 	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
 	  goto error;
 	}
+      // add it to the global scope
       global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
     }
   
@@ -368,7 +296,7 @@ static void stage2 (struct OsArgs args)
 				context);
     }
 
-  if (!mdl_elf_map_deps (context, main_file))
+  if (!mdl_elf_map_deps (main_file))
     {
       MDL_LOG_ERROR ("Unable to map main file and dependencies\n", 1);
       //XXX: mdl_elf_unmap_recursive (main_file);
@@ -398,7 +326,7 @@ static void stage2 (struct OsArgs args)
       struct MappedFile *cur;
       for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
 	{
-	  iterate_pltrel (cur, i386_pltrel_callback);
+	  mdl_elf_iterate_pltrel (cur, i386_pltrel_callback);
 	}
     }
   else
@@ -417,7 +345,19 @@ static void stage2 (struct OsArgs args)
 	mdl_elf_call_init (cur);
       }
   }
-  
+
+  unsigned long entry = mdl_elf_get_entry_point (main_file);
+  if (entry == 0)
+    {
+      MDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);
+      goto error;
+    }
+  int (*main_fn) (int, char **) = (int (*)(int,char**)) entry;
+  int retval = main_fn (args.program_argc, (char**)args.program_argv);
+
+  // call fini functions.
+
+  // call exit (retval)
 
   // And, return the user entry point to allow the _dl_start
   // trampoline to call the executable entry point.

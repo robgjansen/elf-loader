@@ -5,12 +5,21 @@
 #include <link.h>
 #include "mdl.h"
 
+#if __ELF_NATIVE_CLASS == 32
+#define ELFW_R_SYM ELF32_R_SYM
+#define ELFW_R_TYPE ELF32_R_TYPE
+#else
+#define ELFW_R_SYM ELF64_R_SYM
+#define ELFW_R_TYPE ELF64_R_TYPE
+#endif
 
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 struct StringList *mdl_elf_get_dt_needed (unsigned long load_base, ElfW(Dyn) *dynamic);
 char *mdl_elf_search_file (const char *name);
-struct MappedFile *mdl_elf_map_single (struct Context *context, const char *filename, const char *name);
-int mdl_elf_map_deps (struct Context *context, struct MappedFile *item);
+struct MappedFile *mdl_elf_map_single (struct Context *context, 
+				       const char *filename, 
+				       const char *name);
+int mdl_elf_map_deps (struct MappedFile *item);
 int mdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
 			   struct FileInfo *info);
@@ -20,6 +29,13 @@ unsigned long mdl_elf_symbol_lookup (const char *name,
 				     unsigned long hash,
 				     struct MappedFileList *scope);
 void mdl_elf_call_init (struct MappedFile *file);
+unsigned long mdl_elf_get_entry_point (struct MappedFile *file);
+void mdl_elf_iterate_pltrel (struct MappedFile *file, 
+			     void (*cb)(struct MappedFile *file,
+					ElfW(Rel) *rel,
+					const char *name));
+void mdl_elf_reloc_deps (struct MappedFile *main_file);
+
 				     
 
 #endif /* MDL_ELF_H */
