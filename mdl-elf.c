@@ -288,13 +288,14 @@ int mdl_elf_map_deps (struct MappedFile *item)
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  goto error;
 	}
-      // if the name we used to search for the file is different
-      // from the name used to map it before in the same context,
-      // the ino+dev pair will be still equal so, the call below
-      // will find the already-mapped file to avoid mapping it
-      // twice. This typically happens when you create a symlink
-      // to a library and different binaries access the same underlying
-      // file through different symlinks.
+      // If you create a symlink to a binary and link to the
+      // symlinks rather than the underlying binary, the DT_NEEDED
+      // entries record different names for the same binary so,
+      // the search by name above will fail. So, here, we stat
+      // the file we found and check that none of the files
+      // already mapped in the same context have the same ino/dev
+      // pair. If they do, we don't need to re-map the file
+      // and can re-use the previous map.
       dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
