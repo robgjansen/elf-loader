@@ -42,7 +42,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->breakpoint = mdl_breakpoint;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = MDL_LOG_ERR | MDL_LOG_DBG;
+  mdl->logging = MDL_LOG_ERR;
   mdl->search_dirs = 0;
   alloc_initialize (&(mdl->alloc));
   mdl->search_dirs = 0;
@@ -178,6 +178,7 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->ro_file_offset = info->ro_file_offset;
   file->init_called = 0;
   file->fini_called = 0;
+  file->reloced = 0;
   file->local_scope = 0;
   file->deps = 0;
   file->name = mdl_strdup (name);

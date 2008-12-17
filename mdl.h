@@ -52,6 +52,7 @@ struct MappedFile
   uint32_t scope_set : 1;
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
+  uint32_t reloced : 1;
   enum LookupType lookup_type;
   struct Context *context;
   struct MappedFileList *local_scope;

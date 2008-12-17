@@ -34,8 +34,6 @@ void mdl_elf_iterate_pltrel (struct MappedFile *file,
 			     void (*cb)(struct MappedFile *file,
 					ElfW(Rel) *rel,
 					const char *name));
-void mdl_elf_reloc_deps (struct MappedFile *main_file);
-
-				     
+void mdl_elf_reloc (struct MappedFile *file);
 
 #endif /* MDL_ELF_H */

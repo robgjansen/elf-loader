@@ -728,3 +728,121 @@ mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *f
       (*cb) (file, rel, symbol_name);
     }
 }
+
+void
+mdl_elf_iterate_rel (struct MappedFile *file, 
+		     void (*cb)(struct MappedFile *file,
+				ElfW(Rel) *rel))
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  ElfW(Dyn) *tmp = (ElfW(Dyn)*)file->dynamic;
+  ElfW(Rel) *dt_rel = 0;
+  uint32_t dt_relsz = 0;
+  uint32_t dt_relent = 0;
+  // search DT_REL, DT_RELSZ, DT_RELENT
+  while (tmp->d_tag != DT_NULL && (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0))
+    {
+      if (tmp->d_tag == DT_REL)
+	{
+	  dt_rel = (ElfW(Rel) *)(file->load_base + tmp->d_un.d_ptr);
+	}
+      else if (tmp->d_tag == DT_RELSZ)
+	{
+	  dt_relsz = tmp->d_un.d_val;
+	}
+      else if (tmp->d_tag == DT_RELENT)
+	{
+	  dt_relent = tmp->d_un.d_val;
+	}
+      tmp++;
+    }
+  if (dt_rel != 0 && dt_relsz != 0 && dt_relent != 0)
+    {
+      uint32_t i;
+      for (i = 0; i < dt_relsz/dt_relent; i++)
+	{
+	  ElfW(Rel) *tmp = &dt_rel[i];
+	  (*cb) (file, tmp);
+	}
+    }
+}
+
+static void
+i386_pltrel_callback (struct MappedFile *file,
+		      ElfW(Rel) *rel,
+		      const char *symbol_name)
+{
+  MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x", 
+		    file->name, symbol_name, rel->r_offset);
+  // Here, we expect only entries of type R_386_JMP_SLOT
+  if (ELFW_R_TYPE (rel->r_info) != R_386_JMP_SLOT)
+    {
+      MDL_LOG_ERROR ("Bwaaah: expected R_386_JMP_SLOT, got=%x\n",
+		     ELFW_R_TYPE (rel->r_info));
+      return;
+    }
+  // calculate the hash here to avoid calculating 
+  // it twice in both calls to symbol_lookup
+  unsigned long hash = mdl_elf_hash (symbol_name);
+
+  // lookup the symbol in the global scope first
+  unsigned long addr = mdl_elf_symbol_lookup (symbol_name, hash, file->context->global_scope);
+  if (addr == 0)
+    {
+      // and in the local scope.
+      addr = mdl_elf_symbol_lookup (symbol_name, hash, file->local_scope);
+      if (addr == 0)
+	{
+	  MDL_LOG_ERROR ("Cannot resolve symbol=%s\n", symbol_name);
+	  return;
+	}
+    }
+
+  // apply the address to the relocation
+  unsigned long offset = file->load_base;
+  offset += rel->r_offset;
+  unsigned long *p = (unsigned long *)offset;
+  *p = addr;
+}
+
+static void
+i386_rel_callback (struct MappedFile *file,
+		   ElfW(Rel) *rel)
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  // Here, we expect only entries of type R_386_RELATIVE
+  if (ELFW_R_TYPE (rel->r_info) != R_386_RELATIVE)
+    {
+      MDL_LOG_ERROR ("Bwaaah: expected R_386_RELATIVE, got=%x\n",
+		     ELFW_R_TYPE (rel->r_info));
+      return;
+    }
+  unsigned long addr = rel->r_offset + file->load_base;
+  unsigned long *p = (unsigned long *)addr;
+  *p += file->load_base;
+}
+
+
+void mdl_elf_reloc (struct MappedFile *file)
+{
+  if (file->reloced)
+    {
+      return;
+    }
+  file->reloced = 1;
+
+  mdl_elf_iterate_rel (file, i386_rel_callback);
+
+  if (g_mdl.bind_now)
+    {
+      // force symbol resolution for all PLT entries _right now_
+      mdl_elf_iterate_pltrel (file, i386_pltrel_callback);
+    }
+  else
+    {
+      // setup lazy binding by setting the GOT entries 2 and 3.
+      // Entry 2 is set to a pointer to the associated MappedFile
+      // Entry 3 is set to the asm trampoline mdl_symbol_lookup_asm
+      // which calls mdl_symbol_lookup.
+    }
+}
