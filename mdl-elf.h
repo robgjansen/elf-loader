@@ -18,8 +18,8 @@ struct FileInfo
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 struct StringList *mdl_elf_get_dt_needed (unsigned long load_base, ElfW(Dyn) *dynamic);
 char *mdl_elf_search_file (const char *name);
-struct MappedFile *mdl_elf_map_single (uint32_t context, const char *filename, const char *name);
-int mdl_elf_map_deps (uint32_t context, struct MappedFile *item);
+struct MappedFile *mdl_elf_map_single (struct Context *context, const char *filename, const char *name);
+int mdl_elf_map_deps (struct Context *context, struct MappedFile *item);
 int mdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
 			   struct FileInfo *info);

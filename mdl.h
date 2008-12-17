@@ -32,7 +32,6 @@ struct MappedFile
 
   // The following fields are not part of the ABI
   uint32_t count;
-  uint32_t context;
   char *name;
   dev_t st_dev;
   ino_t st_ino;
@@ -44,7 +43,7 @@ struct MappedFile
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
   enum LookupType lookup_type;
-  struct MappedFileList *global_scope;
+  struct Context *context;
   struct MappedFileList *local_scope;
   struct MappedFileList *deps;
 };
@@ -65,6 +64,23 @@ enum MdlLog {
   MDL_LOG_ERR    = (1<<2)
 };
 
+struct Context
+{
+  struct Context *prev;
+  struct Context *next;
+  struct MappedFileList *global_scope;
+  // These variables are used by all .init functions
+  // I have never seen an .init function which makes use
+  // of these 3 arguments (they all take zero arguments)
+  // but the libc loader does pass them around so, for 
+  // compatibility, we do the same.
+  // The arrays below are private copies exclusively used
+  // by the loader.
+  int argc;
+  char **argv;
+  char **envp;  
+};
+
 struct Mdl
 {
   // the following fields are part of the ABI. Don't touch them.
@@ -78,33 +94,22 @@ struct Mdl
   // The list of directories to search for binaries
   // in DT_NEEDED entries.
   struct StringList *search_dirs;
-  // The next time we have to create a context,
-  // we take this value and increment it afterwards.
-  uint32_t next_context;
   // The data structure used by the memory allocator
   // all heap memory allocations through mdl_alloc
   // and mdl_free end up here.
   struct Alloc alloc;
   uint32_t bind_now : 1;
-  // These variables are used by all .init functions
-  // I have never seen an .init function which makes use
-  // of these 3 arguments (they all take zero arguments)
-  // but the libc loader does pass them around so, for 
-  // compatibility, we do the same.
-  // The arrays below are private copies exclusively used
-  // by the loader.
-  int argc;
-  char **argv;
-  char **envp;
+  struct Context *contexts;
 };
 
 
 extern struct Mdl g_mdl;
 
-void mdl_initialize (unsigned long interpreter_load_base,
-		     int argc, const char **argv, const char **envp);
+void mdl_initialize (unsigned long interpreter_load_base);
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
+
+struct Context *mdl_context_new (int argc, const char **argv, const char **envp);
 
 // allocate/free memory
 void *mdl_malloc (size_t size);

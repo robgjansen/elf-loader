@@ -175,7 +175,7 @@ i386_pltrel_callback (struct MappedFile *file,
   unsigned long hash = mdl_elf_hash (symbol_name);
 
   // lookup the symbol in the global scope first
-  unsigned long addr = mdl_elf_symbol_lookup (symbol_name, hash, file->global_scope);
+  unsigned long addr = mdl_elf_symbol_lookup (symbol_name, hash, file->context->global_scope);
   if (addr == 0)
     {
       // and in the local scope.
@@ -268,11 +268,11 @@ void stage1 (unsigned long args);
 
 static void stage2 (struct OsArgs args)
 {
-  mdl_initialize (args.interpreter_load_base,
-		  args.program_argc,
-		  args.program_argv,
-		  args.program_envp);
+  mdl_initialize (args.interpreter_load_base);
 
+  struct Context *context = mdl_context_new (args.program_argc,
+					     args.program_argv,
+					     args.program_envp);
   struct MappedFileList *global_scope = 0;
 
   // populate search_dirs from LD_LIBRARY_PATH
@@ -317,10 +317,7 @@ static void stage2 (struct OsArgs args)
 	  goto error;
 	}
       global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
-      // Note: this piece of code is a bit magic: it relies on the fact that 
-      // value of the pointer global_scope will not change, even, after we append
-      // items to the global scope list.
-      ld_preload_file->global_scope = global_scope;
+      ld_preload_file->context = context;
     }
   
   
@@ -369,7 +366,7 @@ static void stage2 (struct OsArgs args)
 				    args.program_argv[0]);
     }
 
-  if (!mdl_elf_map_deps (0, main_file))
+  if (!mdl_elf_map_deps (context, main_file))
     {
       MDL_LOG_ERROR ("Unable to map main file and dependencies\n", 1);
       //XXX: mdl_elf_unmap_recursive (main_file);
@@ -377,15 +374,14 @@ static void stage2 (struct OsArgs args)
     }
 
   // The global scope is defined as being made of the main binary
-  // and all its dependencies, breadth-first.
+  // and all its dependencies, breadth-first, with duplicate items removed.
   struct MappedFileList *all_deps = mdl_elf_gather_all_deps_breadth_first (main_file);
   global_scope = mdl_file_list_append (global_scope, all_deps);
   mdl_file_list_unicize (global_scope);
-  struct MappedFileList *cur;
-  for (cur = all_deps; cur != 0; cur = cur->next)
-    {
-      cur->item->global_scope = global_scope;
-    }
+
+  // all files hold a pointer back to the context so they can find 
+  // the global scope when they needed it.
+  context->global_scope = global_scope;
 
   // Finally, we either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set

@@ -34,8 +34,7 @@ get_system_search_dirs (void)
 }
 
 
-void mdl_initialize (unsigned long interpreter_load_base,
-		     int argc, const char **argv, const char **envp)
+void mdl_initialize (unsigned long interpreter_load_base)
 {
   struct Mdl *mdl = &g_mdl;
   mdl->version = 1;
@@ -43,26 +42,42 @@ void mdl_initialize (unsigned long interpreter_load_base,
   mdl->breakpoint = mdl_breakpoint;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = MDL_LOG_ERR;
+  mdl->logging = MDL_LOG_ERR | MDL_LOG_DBG;
   mdl->search_dirs = 0;
-  mdl->next_context = 0;
   alloc_initialize (&(mdl->alloc));
   mdl->search_dirs = 0;
   mdl->bind_now = 0; // by default, do lazy binding
+  mdl->contexts = 0;
 
   // populate search dirs from system directories
   mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
 					  get_system_search_dirs ());
 
+}
+
+struct Context *mdl_context_new (int argc, const char **argv, const char **envp)
+{
+  MDL_LOG_FUNCTION ("argc=%d", argc);
+
+  struct Context *context = mdl_new (struct Context);
+  context->global_scope = 0;
+  // prepend to context list.
+  g_mdl.contexts->prev = context;
+  context->next = g_mdl.contexts;
+  context->prev = 0;
+  g_mdl.contexts = context;
+  // store argc safely
+  context->argc = argc;
   // create a private copy of argv
-  mdl->argc = argc;
-  mdl->argv = mdl_malloc (sizeof (char*)*(argc+1));
+  MDL_LOG_DEBUG ("argc=%d\n", argc);
+  context->argv = mdl_malloc (sizeof (char*)*(argc+1));
   int i;
-  for (i = 0; i < mdl->argc; i++)
+  for (i = 0; i < argc; i++)
     {
-      mdl->argv[i] = mdl_strdup (argv[i]);
+      MDL_LOG_DEBUG ("argv=%s\n", argv[i]);
+      context->argv[i] = mdl_strdup (argv[i]);
     }
-  mdl->argv[mdl->argc] = 0;
+  context->argv[argc] = 0;
   // calculate size of envp
   i = 0;
   while (1)
@@ -74,8 +89,8 @@ void mdl_initialize (unsigned long interpreter_load_base,
       i++;
     }
   // create a private copy of envp
-  mdl->envp = mdl_malloc (sizeof (char *)*i);
-  mdl->envp[i] = 0;
+  context->envp = mdl_malloc (sizeof (char *)*i);
+  context->envp[i] = 0;
   i = 0;
   while (1)
     {
@@ -83,9 +98,42 @@ void mdl_initialize (unsigned long interpreter_load_base,
 	{
 	  break;
 	}
-      mdl->envp[i] = mdl_strdup (envp[i]);
+      context->envp[i] = mdl_strdup (envp[i]);
       i++;
     }
+  return context;
+}
+static void mdl_context_delete (struct Context *context)
+{
+  // get rid of associated global scope
+  mdl_file_list_free (context->global_scope);
+  context->global_scope = 0;
+  // unlink from main context list
+  if (context->prev != 0)
+    {
+      context->prev->next = context->next;
+    }
+  if (context->next != 0)
+    {
+      context->next->prev = context->prev;
+    }
+  context->prev = 0;
+  context->next = 0;
+  // delete argv
+  int i;
+  for (i = 0; i < context->argc; i++)
+    {
+      mdl_free (context->argv[i], mdl_strlen (context->argv[i])+1);
+    }
+  mdl_free (context->argv, sizeof (char *)*context->argc);
+  // delete envp
+  char **cur;
+  for (cur = context->envp, i = 0; *cur != 0; cur++, i++)
+    {
+      mdl_free (*cur, mdl_strlen (*cur)+1);
+    }
+  mdl_free (context->envp, sizeof(char *)*i);
+  mdl_delete (context);
 }
 void mdl_set_logging (const char *debug_str)
 {
@@ -340,15 +388,13 @@ void mdl_file_unref (struct MappedFile *file)
       mdl_file_list_free (file->deps);
       // remove file from global link map
       // and count number of files in the same context
-      // which share the same global scope.
-      uint32_t scope_count = 0;
+      uint32_t context_count = 0;
       struct MappedFile *cur;
       for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
 	{
-	  if (cur->context == file->context &&
-	      cur->global_scope == file->global_scope)
+	  if (cur->context == file->context)
 	    {
-	      scope_count++;
+	      context_count++;
 	    }
 	  if (cur == file)
 	    {
@@ -358,9 +404,9 @@ void mdl_file_unref (struct MappedFile *file)
 	      cur->prev = 0;
 	    }
 	}
-      if (scope_count <= 1)
+      if (context_count <= 1)
 	{
-	  mdl_file_list_free (file->global_scope);
+	  mdl_context_delete (file->context);
 	}
       mdl_delete (file);
     }

@@ -72,9 +72,11 @@ char *mdl_elf_search_file (const char *name)
 }
 #define ALIGN_DOWN(v,align) ((v)-((v)%align))
 #define ALIGN_UP(v,align) ((v)+(align-((v)%align)))
-struct MappedFile *mdl_elf_map_single (uint32_t context, const char *filename, const char *name)
+struct MappedFile *mdl_elf_map_single (struct Context *context, 
+				       const char *filename, 
+				       const char *name)
 {
-  MDL_LOG_FUNCTION ("contex=%d, filename=%s, name=%s", context, filename, name);
+  MDL_LOG_FUNCTION ("contex=%p, filename=%s, name=%s", context, filename, name);
   ElfW(Ehdr) header;
   ElfW(Phdr) *phdr = 0;
   size_t bytes_read;
@@ -219,7 +221,7 @@ convert_name (const char *name)
 }
 
 static struct MappedFile *
-find_by_name (uint32_t context,
+find_by_name (struct Context *context,
 	      const char *name)
 {
   name = convert_name (name);
@@ -234,7 +236,7 @@ find_by_name (uint32_t context,
   return 0;
 }
 static struct MappedFile *
-find_by_dev_ino (uint32_t context, 
+find_by_dev_ino (struct Context *context, 
 		 dev_t dev, ino_t ino)
 {
   struct MappedFile *cur;
@@ -250,9 +252,9 @@ find_by_dev_ino (uint32_t context,
   return 0;
 }
 
-int mdl_elf_map_deps (uint32_t context, struct MappedFile *item)
+int mdl_elf_map_deps (struct Context *context, struct MappedFile *item)
 {
-  MDL_LOG_FUNCTION ("context=%d, item=%p", context, item);
+  MDL_LOG_FUNCTION ("context=%p, item=%p", context, item);
   struct MappedFileList *deps = 0;
   struct StringList *dt_needed = mdl_elf_get_dt_needed (item->load_base, 
 							(void*)item->dynamic);
@@ -462,7 +464,6 @@ struct MappedFile *mdl_elf_file_new (unsigned long load_base,
   file->init_called = 0;
   file->fini_called = 0;
   file->local_scope = 0;
-  file->global_scope = 0;
   file->deps = 0;
   file->name = mdl_strdup (name);
 
@@ -649,7 +650,7 @@ mdl_elf_init_one (struct MappedFile *file)
     {
       init_function init;
       init = (init_function) (dt_init + file->load_base);
-      init (g_mdl.argc, g_mdl.argv, g_mdl.envp);
+      init (file->context->argc, file->context->argv, file->context->envp);
     }
 
   // Then, invoke the newer DT_INIT_ARRAY functions.
@@ -661,7 +662,7 @@ mdl_elf_init_one (struct MappedFile *file)
       int i;
       for (i = 0; i < dt_init_arraysz / sizeof (init_function); i++, init++)
 	{
-	  (*init) (g_mdl.argc, g_mdl.argv, g_mdl.envp);
+	  (*init) (file->context->argc, file->context->argv, file->context->envp);
 	}
     }
 }
