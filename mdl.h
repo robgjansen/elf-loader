@@ -139,6 +139,7 @@ struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list,
 						 struct MappedFile *item);
 struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
 					     struct MappedFileList *end);
+void mdl_file_list_unicize (struct MappedFileList *list);
 
 
 

@@ -27,8 +27,7 @@ struct MappedFile *mdl_elf_file_new (unsigned long load_base,
 				     const struct FileInfo *info,
 				     const char *filename, 
 				     const char *name);
-struct MappedFileList *
-mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file);
+struct MappedFileList *mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file);
 unsigned long mdl_elf_hash (const char *n);
 
 unsigned long mdl_elf_symbol_lookup (const char *name, 

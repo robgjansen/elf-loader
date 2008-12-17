@@ -373,20 +373,47 @@ struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list,
   cur->next->next = 0;
   return list;
 }
-struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
-					     struct MappedFileList *end)
+static struct MappedFileList *
+mdl_file_list_get_end (struct MappedFileList *start)
 {
-  struct MappedFileList *cur = start;
-  if (cur == 0)
+  if (start == 0)
     {
-      return end;
+      return 0;
     }
+  struct MappedFileList *cur = start;
   while (cur->next != 0)
     {
       cur = cur->next;
     }
-  cur->next = end;
+  return cur;
+}
+struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
+					     struct MappedFileList *last)
+{
+  if (start == 0)
+    {
+      return last;
+    }
+  struct MappedFileList *end = mdl_file_list_get_end (start);
+  end->next = last;
   return start;
+}
+
+void mdl_file_list_unicize (struct MappedFileList *list)
+{
+  struct MappedFileList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
+    {
+      struct MappedFileList *tmp, *prev;
+      for (prev = cur, tmp = cur->next; tmp != 0; prev = tmp, tmp = tmp->next)
+	{
+	  if (cur == tmp)
+	    {
+	      // if we have a duplicate, we eliminate it from the list
+	      prev->next = tmp->next;
+	    }
+	}
+    }
 }
 
 

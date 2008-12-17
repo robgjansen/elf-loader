@@ -476,20 +476,18 @@ mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
 
-  struct MappedFileList *local, *cur;
+  struct MappedFileList *list, *cur;
 
-  // All we have to do is iterate the list of deps in a 
-  // breadth-first manner as per the ELF spec.
-  local = mdl_new (struct MappedFileList);
-  local->item = file;
-  local->next = 0;
-  for (cur = local; cur != 0; cur = cur->next)
+  list = mdl_new (struct MappedFileList);
+  list->item = file;
+  list->next = 0;
+  for (cur = list; cur != 0; cur = cur->next)
     {
       struct MappedFileList *copy = mdl_file_list_copy (cur->item->deps);
       cur = mdl_file_list_append (cur, copy);
     }
 
-  return local;
+  return list;
 }
 
 unsigned long

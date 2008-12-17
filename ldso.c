@@ -377,6 +377,7 @@ static void stage2 (struct OsArgs args)
   // and all its dependencies, breadth-first.
   struct MappedFileList *all_deps = mdl_elf_gather_all_deps_breadth_first (main_file);
   global_scope = mdl_file_list_append (global_scope, all_deps);
+  mdl_file_list_unicize (global_scope);
   struct MappedFileList *cur;
   for (cur = all_deps; cur != 0; cur = cur->next)
     {
