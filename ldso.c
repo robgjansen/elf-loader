@@ -271,11 +271,6 @@ static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
-  struct Context *context = mdl_context_new (args.program_argc,
-					     args.program_argv,
-					     args.program_envp);
-  struct MappedFileList *global_scope = 0;
-
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
   struct StringList *list = mdl_strsplit (ld_lib_path, ':');
@@ -292,9 +287,15 @@ static void stage2 (struct OsArgs args)
       g_mdl.bind_now = 1;
     }
 
+  struct Context *context = mdl_context_new (args.program_argc,
+					     args.program_argv,
+					     args.program_envp);
+
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere. We don't add it to the global scope.
   interpreter_new (args.interpreter_load_base, context);
+
+  struct MappedFileList *global_scope = 0;
 
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the main binary to the link map
@@ -302,23 +303,22 @@ static void stage2 (struct OsArgs args)
   // that is, that symbols are resolved first within the 
   // LD_PRELOAD binary, before everything else.
   const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
-  struct MappedFile *ld_preload_file = 0;
   if (ld_preload != 0)
     {
       char *ld_preload_filename = mdl_elf_search_file (ld_preload);
       if (ld_preload_filename == 0)
 	{
-      MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
-      goto error;
+	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
+	  goto error;
 	}
-      ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, ld_preload);
+      struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, 
+							       ld_preload);
       if (ld_preload_file == 0)
 	{
 	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
 	  goto error;
 	}
       global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
-      ld_preload_file->context = context;
     }
   
   
