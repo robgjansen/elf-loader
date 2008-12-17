@@ -81,17 +81,28 @@ struct Mdl
   // The next time we have to create a context,
   // we take this value and increment it afterwards.
   uint32_t next_context;
-  // the data structure used by the memory allocator
+  // The data structure used by the memory allocator
   // all heap memory allocations through mdl_alloc
   // and mdl_free end up here.
   struct Alloc alloc;
   uint32_t bind_now : 1;
+  // These variables are used by all .init functions
+  // I have never seen an .init function which makes use
+  // of these 3 arguments (they all take zero arguments)
+  // but the libc loader does pass them around so, for 
+  // compatibility, we do the same.
+  // The arrays below are private copies exclusively used
+  // by the loader.
+  int argc;
+  char **argv;
+  char **envp;
 };
 
 
 extern struct Mdl g_mdl;
 
-void mdl_initialize (unsigned long interpreter_load_base);
+void mdl_initialize (unsigned long interpreter_load_base,
+		     int argc, const char **argv, const char **envp);
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
 

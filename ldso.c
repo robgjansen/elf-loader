@@ -268,7 +268,10 @@ void stage1 (unsigned long args);
 
 static void stage2 (struct OsArgs args)
 {
-  mdl_initialize (args.interpreter_load_base);
+  mdl_initialize (args.interpreter_load_base,
+		  args.program_argc,
+		  args.program_argv,
+		  args.program_envp);
 
   struct MappedFileList *global_scope = 0;
 
@@ -409,6 +412,14 @@ static void stage2 (struct OsArgs args)
     }
 
   // Finally, call init functions
+  {
+    struct MappedFile *cur;
+    for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      {
+	mdl_elf_init (cur);
+      }
+  }
+  
 
   // And, return the user entry point to allow the _dl_start
   // trampoline to call the executable entry point.

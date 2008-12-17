@@ -34,7 +34,8 @@ get_system_search_dirs (void)
 }
 
 
-void mdl_initialize (unsigned long interpreter_load_base)
+void mdl_initialize (unsigned long interpreter_load_base,
+		     int argc, const char **argv, const char **envp)
 {
   struct Mdl *mdl = &g_mdl;
   mdl->version = 1;
@@ -52,6 +53,39 @@ void mdl_initialize (unsigned long interpreter_load_base)
   // populate search dirs from system directories
   mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
 					  get_system_search_dirs ());
+
+  // create a private copy of argv
+  mdl->argc = argc;
+  mdl->argv = mdl_malloc (sizeof (char*)*(argc+1));
+  int i;
+  for (i = 0; i < mdl->argc; i++)
+    {
+      mdl->argv[i] = mdl_strdup (argv[i]);
+    }
+  mdl->argv[mdl->argc] = 0;
+  // calculate size of envp
+  i = 0;
+  while (1)
+    {
+      if (envp[i] == 0)
+	{
+	  break;
+	}
+      i++;
+    }
+  // create a private copy of envp
+  mdl->envp = mdl_malloc (sizeof (char *)*i);
+  mdl->envp[i] = 0;
+  i = 0;
+  while (1)
+    {
+      if (envp[0] == 0)
+	{
+	  break;
+	}
+      mdl->envp[i] = mdl_strdup (envp[i]);
+      i++;
+    }
 }
 void mdl_set_logging (const char *debug_str)
 {

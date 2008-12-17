@@ -33,7 +33,7 @@ unsigned long mdl_elf_hash (const char *n);
 unsigned long mdl_elf_symbol_lookup (const char *name, 
 				     unsigned long hash,
 				     struct MappedFileList *scope);
-
+void mdl_elf_init (struct MappedFile *file);
 				     
 
 #endif /* MDL_ELF_H */

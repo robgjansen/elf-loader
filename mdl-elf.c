@@ -603,3 +603,87 @@ unsigned long mdl_elf_symbol_lookup (const char *name, unsigned long hash,
     }
   return 0;
 }
+
+// the glibc elf loader passes all 3 arguments
+// to the initialization functions so, we do the
+// same for compatibility purposes but:
+//   - I am not aware of any specification which
+//     describes this requirement
+//   - all the initialization functions I have seen
+//     take no arguments so, they effectively ignore
+//     what the libc is giving them.
+// To summarize, I doubt it would make any practical
+// difference if we did not pass the 3 arguments below
+// but, hey, well, just in case, we do.
+typedef void (*init_function) (int, char **, char **);
+
+static void
+mdl_elf_init_one (struct MappedFile *file)
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  // Gather information from the .dynamic section
+  unsigned long dt_init = 0;
+  unsigned long dt_init_array = 0;
+  unsigned long dt_init_arraysz = 0;
+  ElfW(Dyn) *cur = (ElfW(Dyn) *) file->dynamic;
+  while (cur->d_tag != DT_NULL)
+    {
+      if (cur->d_tag == DT_INIT)
+	{
+	  dt_init = cur->d_un.d_val;
+	}
+      else if (cur->d_tag == DT_INIT_ARRAY)
+	{
+	  dt_init_array = cur->d_un.d_val;
+	}
+      else if (cur->d_tag == DT_INIT_ARRAYSZ)
+	{
+	  dt_init_arraysz = cur->d_un.d_val;
+	}
+      cur++;
+    }
+  // First, invoke the old-style DT_INIT function.
+  // The address of the function to call is stored in
+  // the DT_INIT tag, here: dt_init.
+  if (dt_init != 0)
+    {
+      init_function init;
+      init = (init_function) (dt_init + file->load_base);
+      init (g_mdl.argc, g_mdl.argv, g_mdl.envp);
+    }
+
+  // Then, invoke the newer DT_INIT_ARRAY functions.
+  // The address of the functions to call is stored as
+  // an array of pointers pointed to by DT_INIT_ARRAY
+  if (dt_init_array != 0)
+    {
+      init_function *init = (init_function *) (dt_init_array + file->load_base);
+      int i;
+      for (i = 0; i < dt_init_arraysz / sizeof (init_function); i++, init++)
+	{
+	  (*init) (g_mdl.argc, g_mdl.argv, g_mdl.envp);
+	}
+    }
+}
+
+void mdl_elf_init (struct MappedFile *file)
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  if (file->init_called)
+    {
+      // if we are initialized already, no need to do any work
+      return;
+    }
+  // mark the file as initialized
+  file->init_called = 1;
+
+  // iterate over all deps first before initialization.
+  struct MappedFileList *cur;
+  for (cur = file->deps; cur != 0; cur = cur->next)
+    {
+      mdl_elf_init (cur->item);
+    }
+
+  // Now that all deps are initialized, initialize ourselves.
+  mdl_elf_init_one (file);  
+}
