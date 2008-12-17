@@ -115,11 +115,17 @@ struct Mdl
 
 extern struct Mdl g_mdl;
 
+// control setup of core data structures
 void mdl_initialize (unsigned long interpreter_load_base);
+struct Context *mdl_context_new (int argc, const char **argv, const char **envp);
+struct MappedFile *mdl_file_new (unsigned long load_base,
+				 const struct FileInfo *info,
+				 const char *filename, 
+				 const char *name,
+				 struct Context *context);
+
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
-
-struct Context *mdl_context_new (int argc, const char **argv, const char **envp);
 
 // allocate/free memory
 void *mdl_malloc (size_t size);
@@ -156,14 +162,7 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
 #define MDL_LOG_ERROR(str,...) \
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__);
 
-
-struct MappedFile *mdl_file_new (unsigned long load_base,
-				 const struct FileInfo *info,
-				 const char *filename, 
-				 const char *name,
-				 struct Context *context);
-void mdl_file_ref (struct MappedFile *file);
-void mdl_file_unref (struct MappedFile *file);
+// manipulate lists of files
 void mdl_file_list_free (struct MappedFileList *list);
 struct MappedFileList *mdl_file_list_copy (struct MappedFileList *list);
 struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list, 
