@@ -411,6 +411,8 @@ void mdl_file_list_unicize (struct MappedFileList *list)
 	    {
 	      // if we have a duplicate, we eliminate it from the list
 	      prev->next = tmp->next;
+	      mdl_file_unref (cur->item);
+	      mdl_delete (cur);
 	    }
 	}
     }
