@@ -265,21 +265,22 @@ int mdl_elf_map_deps (struct MappedFile *item)
   struct StringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
-      MDL_LOG_DEBUG ("needed=%s\n", cur->str);
+      // if the file is already mapped within this context,
+      // get it and add it to deps
       struct MappedFile *dep = find_by_name (item->context, cur->str);
       if (dep != 0)
 	{
 	  deps = mdl_file_list_append_one (deps, dep);
 	  continue;
 	}
-      
+      // Search the file in the filesystem
       char *filename = mdl_elf_search_file (cur->str);
       if (filename == 0)
 	{
 	  MDL_LOG_ERROR ("Could not find %s\n", cur->str);
 	  goto error;
 	}
-      MDL_LOG_DEBUG ("found %s\n", filename);
+      // get information about file.
       struct stat buf;
       if (system_fstat (filename, &buf) == -1)
 	{
@@ -287,6 +288,13 @@ int mdl_elf_map_deps (struct MappedFile *item)
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  goto error;
 	}
+      // if the name we used to search for the file is different
+      // from the name used to map it before in the same context,
+      // the ino+dev pair will be still equal so, the call below
+      // will find the already-mapped file to avoid mapping it
+      // twice. This typically happens when you create a symlink
+      // to a library and different binaries access the same underlying
+      // file through different symlinks.
       dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
@@ -294,10 +302,12 @@ int mdl_elf_map_deps (struct MappedFile *item)
 	  mdl_free (filename, mdl_strlen (filename)+1);
 	  continue;
 	}
+      // The file is really not yet mapped so, we have to map it
       dep = mdl_elf_map_single (item->context, filename, cur->str);
       
-
+      // add the new file to the list of dependencies
       deps = mdl_file_list_append_one (deps, dep);
+
       mdl_free (filename, mdl_strlen (filename)+1);
     }
   mdl_str_list_free (dt_needed);
