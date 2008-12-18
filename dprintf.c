@@ -5,7 +5,10 @@
 
 static void avprintf_callback (char c, void *context)
 {
-  SYSCALL3(write,2,&c,1);
+  if (c != 0)
+    {
+      SYSCALL3(write,2,&c,1);
+    }
 }
 
 void dprintf (const char *str, ...)
