@@ -180,9 +180,6 @@ static void stage2 (struct OsArgs args)
 					     args.program_argv,
 					     args.program_envp);
 
-  // add the interpreter itself to the link map to ensure that it is
-  // recorded somewhere. We don't add it to the global scope.
-  interpreter_new (args.interpreter_load_base, context);
 
   struct MappedFileList *global_scope = 0;
 
@@ -264,6 +261,11 @@ static void stage2 (struct OsArgs args)
   // the DT_DEBUG entry must be set for the main executable
   // to allow gdb to find it.
   mdl_elf_file_setup_debug (main_file);
+
+  // add the interpreter itself to the link map to ensure that it is
+  // recorded somewhere. We don't add it to the global scope.
+  interpreter_new (args.interpreter_load_base, context);
+  //XXX have to make GDB happy.
 
   if (!mdl_elf_map_deps (main_file))
     {

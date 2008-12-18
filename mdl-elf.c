@@ -38,7 +38,7 @@ mdl_elf_file_get_dynamic_p (const struct MappedFile *file, unsigned long tag)
     {
       return 0;
     }
-  return file->load_base + dyn->d_un.d_val;
+  return file->load_base + dyn->d_un.d_ptr;
 }
 
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
@@ -626,8 +626,7 @@ mdl_elf_call_init_one (struct MappedFile *file)
   // the DT_INIT tag, here: dt_init.
   if (dt_init != 0)
     {
-      init_function init;
-      init = (init_function) (dt_init + file->load_base);
+      init_function init = (init_function) dt_init;
       init (file->context->argc, file->context->argv, file->context->envp);
     }
 
@@ -636,7 +635,7 @@ mdl_elf_call_init_one (struct MappedFile *file)
   // an array of pointers pointed to by DT_INIT_ARRAY
   if (dt_init_array != 0)
     {
-      init_function *init = (init_function *) (dt_init_array + file->load_base);
+      init_function *init = (init_function *) dt_init_array;
       int i;
       for (i = 0; i < dt_init_arraysz / sizeof (init_function); i++, init++)
 	{
