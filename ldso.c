@@ -149,8 +149,6 @@ interpreter_new (unsigned long load_base, struct Context *context)
   // careful to not relocate it twice.
   file->reloced = 1;
 
-  mdl_elf_file_setup_debug (file);
-
   return file;
  error:
   return 0;
@@ -263,6 +261,9 @@ static void stage2 (struct OsArgs args)
 				args.program_argv[0],
 				context);
     }
+  // the DT_DEBUG entry must be set for the main executable
+  // to allow gdb to find it.
+  mdl_elf_file_setup_debug (main_file);
 
   if (!mdl_elf_map_deps (main_file))
     {
@@ -291,6 +292,9 @@ static void stage2 (struct OsArgs args)
 	mdl_elf_reloc (cur);
       }
   }
+
+  g_mdl.state = MDL_CONSISTENT;
+  g_mdl.breakpoint ();
 
   // Finally, call init functions
   {
