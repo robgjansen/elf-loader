@@ -5,11 +5,13 @@ LIBGCC=$(shell gcc --print-libgcc-file-name)
 all: ldso hello
 
 %.o:%.c
-	$(CC) $(CFLAGS) -fpie -o $@ -c $<
+	$(CC) $(CFLAGS) -fpie -fvisibility=hidden -o $@ -c $<
 ldso.o: syscall.h
 ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o
 	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib --dynamic-linker=ldso -o $@ $^ $(LIBGCC)
 
+hello.o: hello.c
+	$(CC) $(CFLAGS) -o $@ -c $<
 hello: hello.o
 	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
 
