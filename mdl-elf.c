@@ -503,8 +503,8 @@ mdl_elf_hash (const char *n)
 }
 
 static unsigned long 
-mdl_elf_symbol_lookup_one (const char *name, unsigned long hash,
-			   const struct MappedFile *file)
+do_symbol_lookup_one (const char *name, unsigned long hash,
+		      const struct MappedFile *file)
 
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->name);
@@ -564,8 +564,9 @@ mdl_elf_symbol_lookup_one (const char *name, unsigned long hash,
 }
 
 
-unsigned long mdl_elf_symbol_lookup (const char *name, unsigned long hash,
-				     struct MappedFileList *scope)
+static unsigned long 
+do_symbol_lookup (const char *name, unsigned long hash,
+		  struct MappedFileList *scope)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
   // then, iterate scope until we find the requested symbol.
@@ -573,7 +574,7 @@ unsigned long mdl_elf_symbol_lookup (const char *name, unsigned long hash,
   struct MappedFileList *cur;
   for (cur = scope; cur != 0; cur = cur->next)
     {
-      addr = mdl_elf_symbol_lookup_one (name, hash, cur->item);
+      addr = do_symbol_lookup_one (name, hash, cur->item);
       if (addr != 0)
 	{
 	  return addr;
@@ -581,6 +582,24 @@ unsigned long mdl_elf_symbol_lookup (const char *name, unsigned long hash,
     }
   return 0;
 }
+
+static unsigned long
+symbol_lookup (const char *name, const struct MappedFile *file)
+{
+  // calculate the hash here to avoid calculating 
+  // it twice in both calls to symbol_lookup
+  unsigned long hash = mdl_elf_hash (name);
+
+  // lookup the symbol in the global scope first
+  unsigned long addr = do_symbol_lookup (name, hash, file->context->global_scope);
+  if (addr == 0)
+    {
+      // and in the local scope.
+      addr = do_symbol_lookup (name, hash, file->local_scope);
+    }
+  return addr;
+}
+
 
 // the glibc elf loader passes all 3 arguments
 // to the initialization functions so, we do the
@@ -656,6 +675,23 @@ unsigned long mdl_elf_get_entry_point (struct MappedFile *file)
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
   return header->e_entry + file->load_base;
 }
+static const char *
+rel_to_symbol_name (ElfW(Rel) *rel,
+		    const char *dt_strtab,
+		    ElfW(Sym) *dt_symtab)
+{
+  ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+  const char *symbol_name;
+  if (sym->st_name == 0)
+    {
+      symbol_name = 0;
+    }
+  else
+    {
+      symbol_name = dt_strtab + sym->st_name;
+    }
+  return symbol_name;
+}
 void
 mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *file,
 							    ElfW(Rel) *rel,
@@ -678,16 +714,7 @@ mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *f
   for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
     {
       ElfW(Rel) *rel = &dt_jmprel[i];
-      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-      const char *symbol_name;
-      if (sym->st_name == 0)
-	{
-	  symbol_name = 0;
-	}
-      else
-	{
-	  symbol_name = dt_strtab + sym->st_name;
-	}
+      const char *symbol_name = rel_to_symbol_name (rel, dt_strtab, dt_symtab);
       (*cb) (file, rel, symbol_name);
     }
 }
@@ -695,21 +722,26 @@ mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *f
 void
 mdl_elf_iterate_rel (struct MappedFile *file, 
 		     void (*cb)(struct MappedFile *file,
-				ElfW(Rel) *rel))
+				ElfW(Rel) *rel,
+				const char *symbol_name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rel) *dt_rel = (ElfW(Rel)*)mdl_elf_file_get_dynamic_p (file, DT_REL);
   unsigned long dt_relsz = mdl_elf_file_get_dynamic_v (file, DT_RELSZ);
   unsigned long dt_relent = mdl_elf_file_get_dynamic_v (file, DT_RELENT);
-  if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0)
+  const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0 ||
+      dt_strtab == 0 || dt_symtab == 0)
     {
       return;
     }
   uint32_t i;
   for (i = 0; i < dt_relsz/dt_relent; i++)
     {
-      ElfW(Rel) *tmp = &dt_rel[i];
-      (*cb) (file, tmp);
+      ElfW(Rel) *rel = &dt_rel[i];
+      const char *symbol_name = rel_to_symbol_name (rel, dt_strtab, dt_symtab);
+      (*cb) (file, rel, symbol_name);
     }
 }
 
@@ -720,52 +752,64 @@ i386_pltrel_callback (struct MappedFile *file,
 {
   MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x", 
 		    file->name, symbol_name, rel->r_offset);
-  // Here, we expect only entries of type R_386_JMP_SLOT
-  if (ELFW_R_TYPE (rel->r_info) != R_386_JMP_SLOT)
+  unsigned long type = ELFW_R_TYPE (rel->r_info);
+  if (type == R_386_JMP_SLOT)
     {
-      MDL_LOG_ERROR ("Bwaaah: expected R_386_JMP_SLOT, got=%x\n",
-		     ELFW_R_TYPE (rel->r_info));
-      return;
-    }
-  // calculate the hash here to avoid calculating 
-  // it twice in both calls to symbol_lookup
-  unsigned long hash = mdl_elf_hash (symbol_name);
-
-  // lookup the symbol in the global scope first
-  unsigned long addr = mdl_elf_symbol_lookup (symbol_name, hash, file->context->global_scope);
-  if (addr == 0)
-    {
-      // and in the local scope.
-      addr = mdl_elf_symbol_lookup (symbol_name, hash, file->local_scope);
+      unsigned long addr = symbol_lookup (symbol_name, file);
       if (addr == 0)
 	{
-	  MDL_LOG_ERROR ("Cannot resolve symbol=%s\n", symbol_name);
+	  // if the symbol resolution has failed, it's
+	  // not a big deal because we might never call
+	  // this function so, we ignore the error for now
 	  return;
 	}
+      // apply the address to the relocation
+      unsigned long offset = file->load_base;
+      offset += rel->r_offset;
+      unsigned long *p = (unsigned long *)offset;
+      *p = addr;
     }
-
-  // apply the address to the relocation
-  unsigned long offset = file->load_base;
-  offset += rel->r_offset;
-  unsigned long *p = (unsigned long *)offset;
-  *p = addr;
+  else
+    {
+      MDL_LOG_ERROR ("Bwaaah: expected R_386_JMP_SLOT got=%x\n",
+		     type);
+      // Here, we expect only entries of type R_386_JMP_SLOT
+    }
 }
 
 static void
 i386_rel_callback (struct MappedFile *file,
-		   ElfW(Rel) *rel)
+		   ElfW(Rel) *rel,
+		   const char *symbol)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
-  // Here, we expect only entries of type R_386_RELATIVE
-  if (ELFW_R_TYPE (rel->r_info) != R_386_RELATIVE)
+  unsigned long type = ELFW_R_TYPE (rel->r_info);
+
+  if (type == R_386_GLOB_DAT)
+    {
+      unsigned long addr = symbol_lookup (symbol, file);
+      if (addr == 0)
+	{
+	  MDL_LOG_ERROR ("Bwaah: could not resolve %s in %s\n", symbol, file->name);
+	  return;
+	}
+      // apply the address to the relocation
+      unsigned long offset = file->load_base;
+      offset += rel->r_offset;
+      unsigned long *p = (unsigned long *)offset;
+      *p = addr;
+    }
+  else if (type == R_386_RELATIVE)
+    {
+      unsigned long addr = rel->r_offset + file->load_base;
+      unsigned long *p = (unsigned long *)addr;
+      *p += file->load_base;
+    }
+  else
     {
       MDL_LOG_ERROR ("Bwaaah: expected R_386_RELATIVE, got=%x\n",
 		     ELFW_R_TYPE (rel->r_info));
-      return;
     }
-  unsigned long addr = rel->r_offset + file->load_base;
-  unsigned long *p = (unsigned long *)addr;
-  *p += file->load_base;
 }
 
 
@@ -778,10 +822,9 @@ void mdl_elf_reloc (struct MappedFile *file)
   file->reloced = 1;
 
   mdl_elf_iterate_rel (file, i386_rel_callback);
-
   if (g_mdl.bind_now)
     {
-      // force symbol resolution for all PLT entries _right now_
+      // perform PLT relocs _now_
       mdl_elf_iterate_pltrel (file, i386_pltrel_callback);
     }
   else
