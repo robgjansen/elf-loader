@@ -753,6 +753,7 @@ i386_pltrel_callback (struct MappedFile *file,
   MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x", 
 		    file->name, symbol_name, rel->r_offset);
   unsigned long type = ELFW_R_TYPE (rel->r_info);
+  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
   if (type == R_386_JMP_SLOT)
     {
       unsigned long addr = symbol_lookup (symbol_name, file);
@@ -764,10 +765,7 @@ i386_pltrel_callback (struct MappedFile *file,
 	  return;
 	}
       // apply the address to the relocation
-      unsigned long offset = file->load_base;
-      offset += rel->r_offset;
-      unsigned long *p = (unsigned long *)offset;
-      *p = addr;
+      *reloc_addr = addr;
     }
   else
     {
