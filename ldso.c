@@ -2,6 +2,7 @@
 #include "dprintf.h"
 #include "mdl.h"
 #include "mdl-elf.h"
+#include "glibc.h"
 #include <elf.h>
 #include <link.h>
 
@@ -166,9 +167,9 @@ static void stage2 (struct OsArgs args)
   struct StringList *list = mdl_strsplit (ld_lib_path, ':');
   g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
 
-  // setup logging from LD_DEBUG
-  const char *ld_debug = mdl_getenv (args.program_envp, "LD_DEBUG");
-  mdl_set_logging (ld_debug);
+  // setup logging from LD_LOG
+  const char *ld_log = mdl_getenv (args.program_envp, "LD_LOG");
+  mdl_set_logging (ld_log);
 
   // setup bind_now from LD_BIND_NOW
   const char *bind_now = mdl_getenv (args.program_envp, "LD_BIND_NOW");
@@ -307,6 +308,7 @@ static void stage2 (struct OsArgs args)
       goto error;
     }
   int (*main_fn) (int, char **) = (int (*)(int,char**)) entry;
+  glibc_startup_finished ();
   int retval = main_fn (args.program_argc, (char**)args.program_argv);
 
   // call fini functions.
