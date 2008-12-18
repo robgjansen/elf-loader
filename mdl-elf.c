@@ -784,6 +784,7 @@ i386_rel_callback (struct MappedFile *file,
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   unsigned long type = ELFW_R_TYPE (rel->r_info);
+  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
 
   if (type == R_386_GLOB_DAT)
     {
@@ -794,16 +795,15 @@ i386_rel_callback (struct MappedFile *file,
 	  return;
 	}
       // apply the address to the relocation
-      unsigned long offset = file->load_base;
-      offset += rel->r_offset;
-      unsigned long *p = (unsigned long *)offset;
-      *p = addr;
+      *reloc_addr = addr;
     }
   else if (type == R_386_RELATIVE)
     {
-      unsigned long addr = rel->r_offset + file->load_base;
-      unsigned long *p = (unsigned long *)addr;
-      *p += file->load_base;
+      *reloc_addr += file->load_base;
+    }
+  else if (type == R_386_32)
+    {
+      *reloc_addr += file->load_base;
     }
   else
     {
