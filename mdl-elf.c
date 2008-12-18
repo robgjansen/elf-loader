@@ -780,7 +780,7 @@ i386_rel_callback (struct MappedFile *file,
 		   ElfW(Rel) *rel,
 		   const char *symbol)
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  MDL_LOG_FUNCTION ("file=%s symbol=%s", file->name, (symbol != 0)?symbol:"");
   unsigned long type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
 
@@ -836,6 +836,7 @@ void mdl_elf_reloc (struct MappedFile *file)
 
 void mdl_elf_file_setup_debug (struct MappedFile *interpreter)
 {
+  // GDB
   ElfW(Dyn) *dt_debug = mdl_elf_file_get_dynamic (interpreter, DT_DEBUG);
   unsigned long *p = (unsigned long *)&(dt_debug->d_un.d_ptr);
   *p = (unsigned long)&g_mdl;
