@@ -6,6 +6,7 @@
 
 static struct Mdl g_real_mdl;
 extern struct Mdl g_mdl __attribute__ ((weak, alias("g_real_mdl")));
+// GDB ?
 extern struct Mdl _r_debug __attribute__ ((weak, alias("g_real_mdl")));
 
 
@@ -13,6 +14,7 @@ extern struct Mdl _r_debug __attribute__ ((weak, alias("g_real_mdl")));
 // this name itself.
 static int _r_debug_state (void)
 {
+  // GDB
   // the debugger will put a breakpoint here.
   return 1;
 }
@@ -251,6 +253,10 @@ void mdl_set_logging (const char *debug_str)
 	{
 	  logging |= MDL_LOG_FUNC;
 	}
+      else if (mdl_strisequal (cur->str, "error"))
+	{
+	  logging |= MDL_LOG_ERR;
+	}
     }
   g_mdl.logging |= logging;
   mdl_str_list_free (list);
@@ -357,7 +363,10 @@ int mdl_exists (const char *filename)
 }
 static void avprintf_callback (char c, void *context)
 {
-  system_write (2, &c, 1);
+  if (c != 0)
+    {
+      system_write (2, &c, 1);
+    }
 }
 void mdl_log_printf (enum MdlLog log, const char *str, ...)
 {
