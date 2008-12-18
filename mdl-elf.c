@@ -522,18 +522,18 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
   // First entry is number of buckets
   // Second entry is number of chains
   ElfW(Word) nbuckets = dt_hash[0];
-  unsigned long sym = dt_hash[2+(hash%nbuckets)];
+  unsigned long index = dt_hash[2+(hash%nbuckets)];
   // The values stored in the hash table are
   // an index in the symbol table.
-  if (dt_symtab[sym].st_name != 0 && 
-      dt_symtab[sym].st_shndx != SHN_UNDEF)
+  if (dt_symtab[index].st_name != 0 && 
+      dt_symtab[index].st_shndx != SHN_UNDEF)
     {
       // the symbol name is an index in the string table
       // and the symbol value is a virtual address relative to
       // the load base
-      if (mdl_strisequal (dt_strtab + dt_symtab[sym].st_name, name))
+      if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
 	{
-	  unsigned long v = file->load_base + dt_symtab[sym].st_value;
+	  unsigned long v = file->load_base + dt_symtab[index].st_value;
 	  MDL_LOG_DEBUG ("yay ! found symbol=%s in file=%s, value=0x%x\n", 
 			 name, file->name, v);
 	  return v;
@@ -544,7 +544,6 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
   // the hash table chains. The chain associated with our bucket
   // starts at the index returned by our bucket
   ElfW(Word) *chain = &dt_hash[2+nbuckets];
-  unsigned long index = sym;
   while (chain[index] != 0)
     {
       index = chain[index];

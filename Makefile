@@ -8,7 +8,7 @@ all: ldso hello
 	$(CC) $(CFLAGS) -fpie -fvisibility=hidden -o $@ -c $<
 ldso.o: syscall.h
 ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o
-	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib --dynamic-linker=ldso -o $@ $^ $(LIBGCC)
+	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib -fvisibility=hidden --dynamic-list=ldso.dyn --dynamic-linker=ldso -o $@ $^ $(LIBGCC)
 
 hello.o: hello.c
 	$(CC) $(CFLAGS) -o $@ -c $<
