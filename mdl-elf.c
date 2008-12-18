@@ -4,6 +4,21 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+static ElfW(Dyn) *
+mdl_elf_file_get_dynamic (struct MappedFile *file, unsigned long tag)
+{
+  ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
+  while (cur->d_tag != DT_NULL)
+    {
+      if (cur->d_tag == tag)
+	{
+	  return cur;
+	}
+      cur++;
+    }
+  return 0;
+}
+
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
 {
   MDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
@@ -845,4 +860,11 @@ void mdl_elf_reloc (struct MappedFile *file)
       // Entry 3 is set to the asm trampoline mdl_symbol_lookup_asm
       // which calls mdl_symbol_lookup.
     }
+}
+
+void mdl_elf_file_setup_debug (struct MappedFile *interpreter)
+{
+  ElfW(Dyn) *dt_debug = mdl_elf_file_get_dynamic (interpreter, DT_DEBUG);
+  unsigned long *p = (unsigned long *)&(dt_debug->d_un.d_ptr);
+  *p = (unsigned long)&g_mdl;
 }

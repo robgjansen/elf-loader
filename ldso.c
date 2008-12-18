@@ -148,6 +148,8 @@ interpreter_new (unsigned long load_base, struct Context *context)
   // careful to not relocate it twice.
   file->reloced = 1;
 
+  mdl_elf_file_setup_debug (file);
+
   return file;
  error:
   return 0;
@@ -233,7 +235,8 @@ static void stage2 (struct OsArgs args)
 	  MDL_LOG_ERROR ("Could not find %s\n", filename);
 	  goto error;
 	}
-      main_file = mdl_elf_map_single (0, filename, args.program_argv[1]);
+      // the filename for the main exec is "" for gdb.
+      main_file = mdl_elf_map_single (0, "", args.program_argv[1]);
     }
   else
     {
@@ -252,9 +255,10 @@ static void stage2 (struct OsArgs args)
       // between the PT_PHDR vaddr and its real address in memory.
       unsigned long load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
 
+      // the filename for the main exec is "" for gdb.
       main_file = mdl_file_new (load_base,
 				&info,
-				args.program_argv[0],
+				"",
 				args.program_argv[0],
 				context);
     }
