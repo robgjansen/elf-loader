@@ -5,7 +5,7 @@
 #include <sys/mman.h>
 
 static ElfW(Dyn) *
-mdl_elf_file_get_dynamic (struct MappedFile *file, unsigned long tag)
+mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
 {
   ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
   while (cur->d_tag != DT_NULL)
@@ -17,6 +17,28 @@ mdl_elf_file_get_dynamic (struct MappedFile *file, unsigned long tag)
       cur++;
     }
   return 0;
+}
+
+static unsigned long
+mdl_elf_file_get_dynamic_v (const struct MappedFile *file, unsigned long tag)
+{
+  ElfW(Dyn) *dyn = mdl_elf_file_get_dynamic (file, tag);
+  if (dyn == 0)
+    {
+      return 0;
+    }
+  return dyn->d_un.d_val;
+}
+
+static unsigned long
+mdl_elf_file_get_dynamic_p (const struct MappedFile *file, unsigned long tag)
+{
+  ElfW(Dyn) *dyn = mdl_elf_file_get_dynamic (file, tag);
+  if (dyn == 0)
+    {
+      return 0;
+    }
+  return file->load_base + dyn->d_un.d_val;
 }
 
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
@@ -34,29 +56,22 @@ ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
   return 0;
 }
 
-struct StringList *mdl_elf_get_dt_needed (unsigned long load_base, ElfW(Dyn) *dynamic)
+struct StringList *mdl_elf_get_dt_needed (struct MappedFile *file)
 {
-  MDL_LOG_FUNCTION ("load_base=%ld, dynamic=%p", load_base, dynamic);
-  ElfW(Dyn) *cur;
-  unsigned long dt_strtab = 0;
-  struct StringList *ret = 0;
-  for (cur = dynamic; cur->d_tag != DT_NULL; cur++)
-    {
-      if (cur->d_tag == DT_STRTAB)
-	{
-	  dt_strtab = cur->d_un.d_ptr;
-	  break;
-	}
-    }
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  unsigned long dt_strtab = mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
   if (dt_strtab == 0)
     {
       return 0;
     }
+  ElfW(Dyn) *dynamic = (ElfW(Dyn)*)file->dynamic;
+  ElfW(Dyn)*cur;
+  struct StringList *ret = 0;
   for (cur = dynamic; cur->d_tag != DT_NULL; cur++)
     {
       if (cur->d_tag == DT_NEEDED)
 	{
-	  const char *str = (const char *)(load_base + dt_strtab + cur->d_un.d_val);
+	  const char *str = (const char *)(dt_strtab + cur->d_un.d_val);
 	  struct StringList *tmp = mdl_new (struct StringList);
 	  tmp->str = mdl_strdup (str);
 	  tmp->next = ret;
@@ -272,8 +287,7 @@ int mdl_elf_map_deps (struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("file=%s", item->name);
   // get list of deps for the input file.
-  struct StringList *dt_needed = mdl_elf_get_dt_needed (item->load_base, 
-							(void*)item->dynamic);
+  struct StringList *dt_needed = mdl_elf_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
   struct MappedFileList *deps = 0;
@@ -495,28 +509,10 @@ mdl_elf_symbol_lookup_one (const char *name, unsigned long hash,
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->name);
   // first, gather information needed to look into the hash table
-  ElfW(Word) *dt_hash = 0;
-  const char *dt_strtab = 0;
-  ElfW(Sym) *dt_symtab = 0;
-  ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
-  while (cur->d_tag != DT_NULL && (dt_hash == 0 || 
-				   dt_strtab == 0 || 
-				   dt_symtab == 0))
-    {
-      if (cur->d_tag == DT_HASH)
-	{
-	  dt_hash = (ElfW(Word)*) (file->load_base + cur->d_un.d_val);
-	}
-      else if (cur->d_tag == DT_STRTAB)
-	{
-	  dt_strtab = (const char *) (file->load_base + cur->d_un.d_val);
-	}
-      else if (cur->d_tag == DT_SYMTAB)
-	{
-	  dt_symtab = (ElfW(Sym)*) (file->load_base + cur->d_un.d_val);
-	}
-      cur++;
-    }
+  ElfW(Word) *dt_hash = (ElfW(Word)*) mdl_elf_file_get_dynamic_p (file, DT_HASH);
+  const char *dt_strtab = (const char *) mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*) mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+
   if (dt_hash == 0 || dt_strtab == 0 || dt_symtab == 0)
     {
       return 0;
@@ -604,26 +600,9 @@ mdl_elf_call_init_one (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   // Gather information from the .dynamic section
-  unsigned long dt_init = 0;
-  unsigned long dt_init_array = 0;
-  unsigned long dt_init_arraysz = 0;
-  ElfW(Dyn) *cur = (ElfW(Dyn) *) file->dynamic;
-  while (cur->d_tag != DT_NULL)
-    {
-      if (cur->d_tag == DT_INIT)
-	{
-	  dt_init = cur->d_un.d_val;
-	}
-      else if (cur->d_tag == DT_INIT_ARRAY)
-	{
-	  dt_init_array = cur->d_un.d_val;
-	}
-      else if (cur->d_tag == DT_INIT_ARRAYSZ)
-	{
-	  dt_init_arraysz = cur->d_un.d_val;
-	}
-      cur++;
-    }
+  unsigned long dt_init = mdl_elf_file_get_dynamic_p (file, DT_INIT);
+  unsigned long dt_init_array = mdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAY);
+  unsigned long dt_init_arraysz = mdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAYSZ);
   // First, invoke the old-style DT_INIT function.
   // The address of the function to call is stored in
   // the DT_INIT tag, here: dt_init.
@@ -683,46 +662,15 @@ mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *f
 							    const char *name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Dyn) *tmp = (ElfW(Dyn)*)file->dynamic;
-  ElfW(Rel) *dt_jmprel = 0;
-  unsigned long dt_pltrel = ~0;
-  unsigned long dt_pltrelsz = ~0;
-  const char *dt_strtab = 0;
-  ElfW(Sym) *dt_symtab = 0;
+  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)mdl_elf_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = mdl_elf_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = mdl_elf_file_get_dynamic_v (file, DT_PLTRELSZ);
+  const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
   
-  // search DT_PLTREL, DT_PLTRELSZ, DT_JMPREL
-  while (tmp->d_tag != DT_NULL && (dt_pltrel == (~0) || 
-				   dt_pltrelsz == (~0) ||
-				   dt_jmprel == 0 ||
-				   dt_strtab == 0 ||
-				   dt_symtab == 0))
-    {
-      if (tmp->d_tag == DT_JMPREL)
-	{
-	  dt_jmprel = (ElfW(Rel) *) (file->load_base + tmp->d_un.d_ptr);
-	}
-      else if (tmp->d_tag == DT_PLTREL)
-	{
-	  dt_pltrel = tmp->d_un.d_val;
-	}
-      else if (tmp->d_tag == DT_PLTRELSZ)
-	{
-	  dt_pltrelsz = tmp->d_un.d_val;
-	}
-      else if (tmp->d_tag == DT_STRTAB)
-	{
-	  dt_strtab = (char *) (file->load_base + tmp->d_un.d_val);
-	}
-      else if (tmp->d_tag == DT_SYMTAB)
-	{
-	  dt_symtab = (ElfW(Sym)*) (file->load_base + tmp->d_un.d_val);
-	}
-
-      tmp++;
-    }
-  if (dt_pltrel == (~0) || dt_pltrelsz == (~0) || 
-      dt_jmprel == 0 || dt_pltrel != DT_REL ||
-      dt_strtab == 0 || dt_symtab == 0)
+  if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
+      dt_jmprel == 0 || dt_strtab == 0 || 
+      dt_symtab == 0)
     {
       return;
     }
@@ -750,35 +698,18 @@ mdl_elf_iterate_rel (struct MappedFile *file,
 				ElfW(Rel) *rel))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Dyn) *tmp = (ElfW(Dyn)*)file->dynamic;
-  ElfW(Rel) *dt_rel = 0;
-  uint32_t dt_relsz = 0;
-  uint32_t dt_relent = 0;
-  // search DT_REL, DT_RELSZ, DT_RELENT
-  while (tmp->d_tag != DT_NULL && (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0))
+  ElfW(Rel) *dt_rel = (ElfW(Rel)*)mdl_elf_file_get_dynamic_p (file, DT_REL);
+  unsigned long dt_relsz = mdl_elf_file_get_dynamic_v (file, DT_RELSZ);
+  unsigned long dt_relent = mdl_elf_file_get_dynamic_v (file, DT_RELENT);
+  if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0)
     {
-      if (tmp->d_tag == DT_REL)
-	{
-	  dt_rel = (ElfW(Rel) *)(file->load_base + tmp->d_un.d_ptr);
-	}
-      else if (tmp->d_tag == DT_RELSZ)
-	{
-	  dt_relsz = tmp->d_un.d_val;
-	}
-      else if (tmp->d_tag == DT_RELENT)
-	{
-	  dt_relent = tmp->d_un.d_val;
-	}
-      tmp++;
+      return;
     }
-  if (dt_rel != 0 && dt_relsz != 0 && dt_relent != 0)
+  uint32_t i;
+  for (i = 0; i < dt_relsz/dt_relent; i++)
     {
-      uint32_t i;
-      for (i = 0; i < dt_relsz/dt_relent; i++)
-	{
-	  ElfW(Rel) *tmp = &dt_rel[i];
-	  (*cb) (file, tmp);
-	}
+      ElfW(Rel) *tmp = &dt_rel[i];
+      (*cb) (file, tmp);
     }
 }
 
