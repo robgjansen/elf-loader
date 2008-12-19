@@ -1,4 +1,4 @@
-CFLAGS=-g3 -O1 -fno-stack-protector -Wall 
+CFLAGS=-g3 -fno-stack-protector -Wall 
 #we need libgcc for 64bit arithmetic functions
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 
