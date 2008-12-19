@@ -1,6 +1,7 @@
 #include "mdl-elf.h"
 #include "mdl.h"
 #include "system.h"
+#include "machine.h"
 #include <unistd.h>
 #include <sys/mman.h>
 
@@ -603,8 +604,8 @@ do_symbol_lookup (const char *name, unsigned long hash,
   return 0;
 }
 
-static unsigned long
-symbol_lookup (const char *name, const struct MappedFile *file)
+unsigned long
+mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file)
 {
   // calculate the hash here to avoid calculating 
   // it twice in both calls to symbol_lookup
@@ -758,72 +759,6 @@ mdl_elf_iterate_rel (struct MappedFile *file,
     }
 }
 
-static void
-i386_pltrel_callback (struct MappedFile *file,
-		      ElfW(Rel) *rel,
-		      const char *symbol_name)
-{
-  MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x", 
-		    file->name, symbol_name, rel->r_offset);
-  unsigned long type = ELFW_R_TYPE (rel->r_info);
-  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
-  if (type == R_386_JMP_SLOT)
-    {
-      unsigned long addr = symbol_lookup (symbol_name, file);
-      if (addr == 0)
-	{
-	  // if the symbol resolution has failed, it's
-	  // not a big deal because we might never call
-	  // this function so, we ignore the error for now
-	  return;
-	}
-      // apply the address to the relocation
-      *reloc_addr = addr;
-    }
-  else
-    {
-      MDL_LOG_ERROR ("Bwaaah: expected R_386_JMP_SLOT got=%x\n",
-		     type);
-      // Here, we expect only entries of type R_386_JMP_SLOT
-    }
-}
-
-static void
-i386_rel_callback (struct MappedFile *file,
-		   ElfW(Rel) *rel,
-		   const char *symbol)
-{
-  MDL_LOG_FUNCTION ("file=%s symbol=%s", file->name, (symbol != 0)?symbol:"");
-  unsigned long type = ELFW_R_TYPE (rel->r_info);
-  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
-
-  if (type == R_386_GLOB_DAT)
-    {
-      unsigned long addr = symbol_lookup (symbol, file);
-      if (addr == 0)
-	{
-	  MDL_LOG_ERROR ("Bwaah: could not resolve %s in %s\n", symbol, file->name);
-	  return;
-	}
-      // apply the address to the relocation
-      *reloc_addr = addr;
-    }
-  else if (type == R_386_RELATIVE)
-    {
-      *reloc_addr += file->load_base;
-    }
-  else if (type == R_386_32)
-    {
-      *reloc_addr += file->load_base;
-    }
-  else
-    {
-      MDL_LOG_ERROR ("Bwaaah: expected R_386_RELATIVE, got=%x\n",
-		     ELFW_R_TYPE (rel->r_info));
-    }
-}
-
-
 void mdl_elf_reloc (struct MappedFile *file)
 {
   if (file->reloced)
@@ -832,11 +767,11 @@ void mdl_elf_reloc (struct MappedFile *file)
     }
   file->reloced = 1;
 
-  mdl_elf_iterate_rel (file, i386_rel_callback);
+  mdl_elf_iterate_rel (file, machine_perform_relocation);
   if (g_mdl.bind_now)
     {
       // perform PLT relocs _now_
-      mdl_elf_iterate_pltrel (file, i386_pltrel_callback);
+      mdl_elf_iterate_pltrel (file, machine_perform_relocation);
     }
   else
     {
@@ -845,9 +780,4 @@ void mdl_elf_reloc (struct MappedFile *file)
       // Entry 3 is set to the asm trampoline mdl_symbol_lookup_asm
       // which calls mdl_symbol_lookup.
     }
-}
-
-void mdl_elf_file_setup_debug (struct MappedFile *interpreter)
-{
-  // GDB
 }
