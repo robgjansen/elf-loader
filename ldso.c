@@ -247,7 +247,7 @@ static void stage2 (struct OsArgs args)
 	  goto error;
 	}
       // the filename for the main exec is "" for gdb.
-      main_file = mdl_elf_map_single (0, "", args.program_argv[1]);
+      main_file = mdl_elf_map_single (context, "", args.program_argv[1]);
     }
   else
     {
