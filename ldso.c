@@ -200,7 +200,7 @@ setup_env_vars (const char **envp)
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = mdl_getenv (envp, "LD_LIBRARY_PATH");
   struct StringList *list = mdl_strsplit (ld_lib_path, ':');
-  g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
+  g_mdl.search_dirs = mdl_str_list_append (list, g_mdl.search_dirs);
 
   // setup logging from LD_LOG
   const char *ld_log = mdl_getenv (envp, "LD_LOG");
