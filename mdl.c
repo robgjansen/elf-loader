@@ -4,20 +4,7 @@
 #include "avprintf-cb.h"
 #include <stdarg.h>
 
-static struct Mdl g_real_mdl;
-extern struct Mdl g_mdl __attribute__ ((weak, alias("g_real_mdl")));
-// GDB ?
-extern struct Mdl _r_debug __attribute__ ((weak, alias("g_real_mdl")));
-
-
-// The name of this function is important: gdb hardcodes 
-// this name itself.
-static int _r_debug_state (void)
-{
-  // GDB
-  // the debugger will put a breakpoint here.
-  return 1;
-}
+struct Mdl g_mdl;
 
 static struct StringList *
 get_system_search_dirs (void)
@@ -43,7 +30,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   struct Mdl *mdl = &g_mdl;
   mdl->version = 1;
   mdl->link_map = 0;
-  mdl->breakpoint = _r_debug_state;
+  mdl->breakpoint = 0;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
   mdl->logging = MDL_LOG_ERR;

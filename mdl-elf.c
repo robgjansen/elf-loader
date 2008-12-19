@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-static ElfW(Dyn) *
+ElfW(Dyn) *
 mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
 {
   ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
@@ -835,7 +835,4 @@ void mdl_elf_reloc (struct MappedFile *file)
 void mdl_elf_file_setup_debug (struct MappedFile *interpreter)
 {
   // GDB
-  ElfW(Dyn) *dt_debug = mdl_elf_file_get_dynamic (interpreter, DT_DEBUG);
-  unsigned long *p = (unsigned long *)&(dt_debug->d_un.d_ptr);
-  *p = (unsigned long)&g_mdl;
 }

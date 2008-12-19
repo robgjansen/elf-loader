@@ -3,6 +3,7 @@
 #include "mdl.h"
 #include "mdl-elf.h"
 #include "glibc.h"
+#include "gdb.h"
 #include <elf.h>
 #include <link.h>
 
@@ -179,37 +180,6 @@ static void stage2 (struct OsArgs args)
   struct Context *context = mdl_context_new (args.program_argc,
 					     args.program_argv,
 					     args.program_envp);
-
-
-  struct MappedFileList *global_scope = 0;
-
-  // add the LD_PRELOAD binary if it is specified somewhere.
-  // We must do this _before_ adding the main binary to the link map
-  // to ensure that the symbol scope of the main binary is correct,
-  // that is, that symbols are resolved first within the 
-  // LD_PRELOAD binary, before everything else.
-  const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
-  if (ld_preload != 0)
-    {
-      // search the requested program
-      char *ld_preload_filename = mdl_elf_search_file (ld_preload);
-      if (ld_preload_filename == 0)
-	{
-	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
-	  goto error;
-	}
-      // map it in memory.
-      struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, 
-							       ld_preload);
-      if (ld_preload_file == 0)
-	{
-	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
-	  goto error;
-	}
-      // add it to the global scope
-      global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
-    }
-  
   
   struct MappedFile *main_file;
   if (args.program_entry == stage1)
@@ -258,14 +228,54 @@ static void stage2 (struct OsArgs args)
 				args.program_argv[0],
 				context);
     }
-  // the DT_DEBUG entry must be set for the main executable
-  // to allow gdb to find it.
-  mdl_elf_file_setup_debug (main_file);
+  gdb_initialize (main_file);
 
   // add the interpreter itself to the link map to ensure that it is
-  // recorded somewhere. We don't add it to the global scope.
-  interpreter_new (args.interpreter_load_base, context);
-  //XXX have to make GDB happy.
+  // recorded somewhere. We must add it to the link map only after
+  // the main binary because gdb assumes that the first entry in the
+  // link map is the main binary itself. We don't add it to the global 
+  // scope.
+  struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base, context);
+  if (!mdl_elf_map_deps (interpreter))
+    {
+      MDL_LOG_ERROR ("Unable to map dependencies of interpreter %s\n", interpreter->name);
+      //XXX: mdl_elf_unmap_recursive (interpreter);
+      goto error;
+    }
+
+  struct MappedFileList *global_scope = 0;
+
+  // we add the main binary to the global scope
+  global_scope = mdl_file_list_append_one (0, main_file);
+
+  // add the LD_PRELOAD binary if it is specified somewhere.
+  // We must do this _before_ adding the dependencies of the main 
+  // binary to the link map to ensure that the symbol scope of 
+  // the main binary is correct, that is, that symbols are 
+  // resolved first within the LD_PRELOAD binary, before every
+  // other library, but after the main binary itself.
+  const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
+  if (ld_preload != 0)
+    {
+      // search the requested program
+      char *ld_preload_filename = mdl_elf_search_file (ld_preload);
+      if (ld_preload_filename == 0)
+	{
+	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
+	  goto error;
+	}
+      // map it in memory.
+      struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, 
+							       ld_preload);
+      if (ld_preload_file == 0)
+	{
+	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	  goto error;
+	}
+      // add it to the global scope
+      global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
+    }
+
 
   if (!mdl_elf_map_deps (main_file))
     {
@@ -295,8 +305,7 @@ static void stage2 (struct OsArgs args)
       }
   }
 
-  g_mdl.state = MDL_CONSISTENT;
-  g_mdl.breakpoint ();
+  gdb_notify ();
 
   // Finally, call init functions
   {
