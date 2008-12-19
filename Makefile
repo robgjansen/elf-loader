@@ -16,4 +16,4 @@ hello: hello.o
 	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
 
 clean: 
-	-rm -f hello ldso *.o  2> /dev/null
+	-rm -f hello ldso *.o  i386/*.o 2> /dev/null
