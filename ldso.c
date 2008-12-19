@@ -146,13 +146,72 @@ interpreter_new (unsigned long load_base, struct Context *context)
 					  (char*)(info.interpreter_name + load_base),
 					  (char*)(info.interpreter_name + load_base),
 					  context);
-  // the interpreter has already been reloced, so, we must be
-  // careful to not relocate it twice.
+  // the interpreter has already been reloced during stage1, so, 
+  // we must be careful to not relocate it twice.
   file->reloced = 1;
+
+  if (!mdl_elf_map_deps (file))
+    {
+      goto error;
+    }
 
   return file;
  error:
   return 0;
+}
+
+static struct MappedFileList *
+do_ld_preload (struct Context *context, struct MappedFileList *scope, const char **envp)
+{
+  // add the LD_PRELOAD binary if it is specified somewhere.
+  // We must do this _before_ adding the dependencies of the main 
+  // binary to the link map to ensure that the symbol scope of 
+  // the main binary is correct, that is, that symbols are 
+  // resolved first within the LD_PRELOAD binary, before every
+  // other library, but after the main binary itself.
+  const char *ld_preload = mdl_getenv (envp, "LD_PRELOAD");
+  if (ld_preload != 0)
+    {
+      // search the requested program
+      char *ld_preload_filename = mdl_elf_search_file (ld_preload);
+      if (ld_preload_filename == 0)
+	{
+	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
+	  goto error;
+	}
+      // map it in memory.
+      struct MappedFile *ld_preload_file = mdl_elf_map_single (context, ld_preload_filename, 
+							       ld_preload);
+      if (ld_preload_file == 0)
+	{
+	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	  goto error;
+	}
+      // add it to the global scope
+      scope = mdl_file_list_append_one (scope, ld_preload_file);
+    }
+ error:
+  return scope;
+}
+
+static void
+setup_env_vars (const char **envp)
+{
+  // populate search_dirs from LD_LIBRARY_PATH
+  const char *ld_lib_path = mdl_getenv (envp, "LD_LIBRARY_PATH");
+  struct StringList *list = mdl_strsplit (ld_lib_path, ':');
+  g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
+
+  // setup logging from LD_LOG
+  const char *ld_log = mdl_getenv (envp, "LD_LOG");
+  mdl_set_logging (ld_log);
+
+  // setup bind_now from LD_BIND_NOW
+  const char *bind_now = mdl_getenv (envp, "LD_BIND_NOW");
+  if (bind_now != 0)
+    {
+      g_mdl.bind_now = 1;
+    }
 }
 
 void stage1 (unsigned long args);
@@ -161,21 +220,7 @@ static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
-  // populate search_dirs from LD_LIBRARY_PATH
-  const char *ld_lib_path = mdl_getenv (args.program_envp, "LD_LIBRARY_PATH");
-  struct StringList *list = mdl_strsplit (ld_lib_path, ':');
-  g_mdl.search_dirs = mdl_str_list_append (g_mdl.search_dirs, list);
-
-  // setup logging from LD_LOG
-  const char *ld_log = mdl_getenv (args.program_envp, "LD_LOG");
-  mdl_set_logging (ld_log);
-
-  // setup bind_now from LD_BIND_NOW
-  const char *bind_now = mdl_getenv (args.program_envp, "LD_BIND_NOW");
-  if (bind_now != 0)
-    {
-      g_mdl.bind_now = 1;
-    }
+  setup_env_vars (args.program_envp);
 
   struct Context *context = mdl_context_new (args.program_argc,
 					     args.program_argv,
@@ -236,46 +281,13 @@ static void stage2 (struct OsArgs args)
   // link map is the main binary itself. We don't add it to the global 
   // scope.
   struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base, context);
-  if (!mdl_elf_map_deps (interpreter))
-    {
-      MDL_LOG_ERROR ("Unable to map dependencies of interpreter %s\n", interpreter->name);
-      //XXX: mdl_elf_unmap_recursive (interpreter);
-      goto error;
-    }
 
   struct MappedFileList *global_scope = 0;
 
   // we add the main binary to the global scope
   global_scope = mdl_file_list_append_one (0, main_file);
 
-  // add the LD_PRELOAD binary if it is specified somewhere.
-  // We must do this _before_ adding the dependencies of the main 
-  // binary to the link map to ensure that the symbol scope of 
-  // the main binary is correct, that is, that symbols are 
-  // resolved first within the LD_PRELOAD binary, before every
-  // other library, but after the main binary itself.
-  const char *ld_preload = mdl_getenv (args.program_envp, "LD_PRELOAD");
-  if (ld_preload != 0)
-    {
-      // search the requested program
-      char *ld_preload_filename = mdl_elf_search_file (ld_preload);
-      if (ld_preload_filename == 0)
-	{
-	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
-	  goto error;
-	}
-      // map it in memory.
-      struct MappedFile *ld_preload_file = mdl_elf_map_single (0, ld_preload_filename, 
-							       ld_preload);
-      if (ld_preload_file == 0)
-	{
-	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
-	  goto error;
-	}
-      // add it to the global scope
-      global_scope = mdl_file_list_append_one (global_scope, ld_preload_file);
-    }
-
+  global_scope = do_ld_preload (context, global_scope, args.program_envp);
 
   if (!mdl_elf_map_deps (main_file))
     {
@@ -283,6 +295,8 @@ static void stage2 (struct OsArgs args)
       //XXX: mdl_elf_unmap_recursive (main_file);
       goto error;
     }
+
+  gdb_notify ();
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
@@ -304,8 +318,6 @@ static void stage2 (struct OsArgs args)
 	mdl_elf_reloc (cur);
       }
   }
-
-  gdb_notify ();
 
   // Finally, call init functions
   {
