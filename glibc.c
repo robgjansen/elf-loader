@@ -34,10 +34,17 @@ void *__libc_stack_end EXPORT = 0;
 // By default, we don't set secure mode, contrary to the libc.
 // Theoretically, this variable would be set based on a couple of
 // checks on eid/egid, etc.
-int __libc_enable_secure = 0;
+int __libc_enable_secure EXPORT = 0;
 // Obviously, points to the program argv. I can't figure out why
 // and how this symbol is imported by libc.so
-char **_dl_argv;
+char **_dl_argv EXPORT;
+
+// Got these values from readelf -s /lib/libc.so.6|grep rtld
+#define RTLD_GLOBAL_SIZE 1424
+#define RTLD_GLOBAL_RO_SIZE 448
+char _rtld_global[RTLD_GLOBAL_SIZE] EXPORT;
+char _rtld_global_ro[RTLD_GLOBAL_RO_SIZE] EXPORT;
+
 
 void glibc_startup_finished (void) 
 {

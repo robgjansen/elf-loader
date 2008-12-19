@@ -106,7 +106,7 @@ struct Context
 
 struct Mdl
 {
-  // the following fields are part of the ABI. Don't touch them.
+  // the following fields are part of the gdb/libc ABI. Don't touch them.
   int version; // always 1
   struct MappedFile *link_map;
   int (*breakpoint)(void);
