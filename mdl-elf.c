@@ -195,6 +195,21 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       goto error;
     }
 
+  // zero the end of rw map
+  unsigned long rw_zero_size = info.ro_start + info.ro_size + info.rw_size - info.zero_start;
+  mdl_memset ((void*)(info.zero_start + load_base), 0, rw_zero_size);
+
+  // if needed, map zero pages
+  unsigned long requested_zero_start = load_base + info.ro_start + info.ro_size + info.rw_size;
+  unsigned long zero_start = (unsigned long) system_mmap ((void*)requested_zero_start,
+							  info.zero_size, PROT_READ | PROT_WRITE, 
+							  MAP_PRIVATE | MAP_FIXED, -1, 0);
+  if (zero_start == -1)
+    {
+      MDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
+      goto error;
+    }
+
   struct stat st_buf;
   if (system_fstat (filename, &st_buf) == -1)
     {
@@ -223,7 +238,9 @@ error:
     }
   if (map_start != -1)
     {
-      system_munmap ((void*)map_start, map_size);
+      system_munmap ((void*)map_start, info.ro_size + info.rw_size);
+      // just in case, try to unmap zero map.
+      system_munmap ((void*)map_start + info.ro_size + info.rw_size, info.zero_size);
     }
   return 0;
 }
@@ -447,7 +464,9 @@ int mdl_elf_file_get_info (uint32_t phnum,
   unsigned long ro_start = ALIGN_DOWN (ro->p_vaddr, ro->p_align);
   unsigned long ro_size = ALIGN_UP (ro->p_memsz, ro->p_align);
   unsigned long rw_start = ALIGN_DOWN (rw->p_vaddr, rw->p_align);
-  unsigned long rw_size = ALIGN_UP (rw->p_memsz, rw->p_align);
+  unsigned long rw_size = ALIGN_UP (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
+  unsigned long zero_size = ALIGN_UP (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
+  unsigned long zero_start = rw->p_vaddr + rw->p_filesz;
   unsigned long ro_file_offset = ALIGN_DOWN (ro->p_offset, ro->p_align);
   if (ro_start + ro_size != rw_start)
     {
@@ -460,6 +479,8 @@ int mdl_elf_file_get_info (uint32_t phnum,
   info->ro_start = ro_start;
   info->ro_size = ro_size;
   info->rw_size = rw_size;
+  info->zero_size = zero_size;
+  info->zero_start = zero_start;
   info->ro_file_offset = ro_file_offset;;
 
   return 1;
@@ -601,16 +622,10 @@ symbol_lookup (const char *name, const struct MappedFile *file)
 
 
 // the glibc elf loader passes all 3 arguments
-// to the initialization functions so, we do the
-// same for compatibility purposes but:
-//   - I am not aware of any specification which
-//     describes this requirement
-//   - all the initialization functions I have seen
-//     take no arguments so, they effectively ignore
-//     what the libc is giving them.
-// To summarize, I doubt it would make any practical
-// difference if we did not pass the 3 arguments below
-// but, hey, well, just in case, we do.
+// to the initialization functions and the libc initializer
+// function makes use of these arguments to initialize
+// __libc_argc, __libc_argv, and, __environ so, we do the
+// same for compatibility purposes.
 typedef void (*init_function) (int, char **, char **);
 
 static void

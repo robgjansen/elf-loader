@@ -9,7 +9,8 @@ struct Mdl g_mdl;
 static struct StringList *
 get_system_search_dirs (void)
 {
-  const char *dirs[] = {"/lib", "/lib64", "/lib32",
+  // XXX: first is for my ubuntu box.
+  const char *dirs[] = {"/lib/tls/i686/cmov", "/lib", "/lib64", "/lib32",
 			"/usr/lib", "/usr/lib64", "/usr/lib32"};
   struct StringList *list = 0;
   int i;
@@ -166,6 +167,7 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->ro_start = info->ro_start + load_base;
   file->ro_size = info->ro_size;
   file->rw_size = info->rw_size;
+  file->zero_size = info->zero_size;
   file->ro_file_offset = info->ro_file_offset;
   file->init_called = 0;
   file->fini_called = 0;
@@ -304,6 +306,15 @@ void mdl_memcpy (void *d, const void *s, size_t len)
       dst++;
       src++;
       tmp--;
+    }
+}
+void mdl_memset(void *d, int c, size_t n)
+{
+  char *dst = d;
+  size_t i;
+  for (i = 0; i < n; i++)
+    {
+      *dst = c;
     }
 }
 char *mdl_strconcat (const char *str, ...)

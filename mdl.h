@@ -23,11 +23,22 @@ enum LookupType
 
 struct FileInfo
 {
+  // vaddr of DYNAMIC program header
   unsigned long dynamic;
+  // vaddr of INTERPRETER program header
   unsigned long interpreter_name;
+
+  //      | <-- ro_size --> |  <--  rw_size  -->  | <-- zero_size --> |
+  //      |                 |          | <-zero-> |                   |
+  //     /                            /
+  //    /                            /
+  //  ro_start                    zero_start
   unsigned long ro_start;
   unsigned long ro_size;
   unsigned long rw_size;
+  unsigned long zero_start;
+  unsigned long zero_size;
+  // the ro mapping starts here in the file
   unsigned long ro_file_offset;
 };
 
@@ -47,8 +58,9 @@ struct MappedFile
   ino_t st_ino;
   unsigned long ro_start;
   unsigned long ro_file_offset;
-  uint32_t ro_size;
-  uint32_t rw_size;
+  unsigned long ro_size;
+  unsigned long rw_size;
+  unsigned long zero_size;
   uint32_t scope_set : 1;
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
@@ -141,6 +153,7 @@ int mdl_strisequal (const char *a, const char *b);
 int mdl_strlen (const char *str);
 char *mdl_strdup (const char *str);
 void mdl_memcpy (void *dst, const void *src, size_t len);
+void mdl_memset(void *s, int c, size_t n);
 char *mdl_strconcat (const char *str, ...);
 const char *mdl_getenv (const char **envp, const char *value);
 
