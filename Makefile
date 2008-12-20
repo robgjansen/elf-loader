@@ -7,7 +7,9 @@ all: ldso hello
 
 %.o:%.c
 	$(CC) $(CFLAGS) -I$(PWD) -I$(PWD)/i386 -fpie -fvisibility=hidden -o $@ -c $<
-ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o
+%.o:%.S
+	$(AS) $(ASFLAGS) -o $@ $<
+ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/start-trampoline.o
 	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib -fvisibility=hidden --dynamic-list=ldso.dyn --dynamic-linker=ldso -o $@ $^ $(LIBGCC)
 
 hello.o: hello.c

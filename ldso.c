@@ -1,9 +1,10 @@
-#include "syscall.h"
+#include "system.h"
 #include "dprintf.h"
 #include "mdl.h"
 #include "mdl-elf.h"
 #include "glibc.h"
 #include "gdb.h"
+#include "start-trampoline.h"
 #include <elf.h>
 #include <link.h>
 
@@ -73,7 +74,7 @@ get_os_args (unsigned long *args)
       os_args.program_phdr == 0 ||
       os_args.program_phnum == 0)
     {
-      SYSCALL1 (exit, -3);
+      system_exit (-3);
     }
   return os_args;
 }
@@ -216,6 +217,7 @@ setup_env_vars (const char **envp)
 
 void stage1 (unsigned long args);
 
+
 static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
@@ -334,20 +336,13 @@ static void stage2 (struct OsArgs args)
       MDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);
       goto error;
     }
-  int (*main_fn) (int, char **) = (int (*)(int,char**)) entry;
+  void (*entry_fn) (void) = (void (*)(void)) entry;
   glibc_startup_finished ();
-  int retval = main_fn (args.program_argc, (char**)args.program_argv);
-
-  // call fini functions.
-
-  // call exit (retval)
-
-  // And, return the user entry point to allow the _dl_start
-  // trampoline to call the executable entry point.
-
-  SYSCALL1 (exit, 0);
+  start_trampoline (args.program_argc, args.program_argv, args.program_envp,
+		    0, entry_fn);
+  system_exit (0);
 error:
-  SYSCALL1 (exit, -6);
+  system_exit (-6);
 }
 
 void stage1 (unsigned long args)
