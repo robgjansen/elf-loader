@@ -1,5 +1,6 @@
 #include "alloc.h"
 #include "system.h"
+#include <sys/mman.h>
 
 
 void alloc_initialize (struct Alloc *alloc)
@@ -36,7 +37,8 @@ static uint32_t chunk_overhead (void)
 static void alloc_chunk (struct Alloc *alloc, uint32_t size)
 {
   size = round_to (size, 4096);
-  uint8_t *map = system_mmap_anon (size);
+  uint8_t *map = system_mmap (0, size, PROT_READ | PROT_WRITE, 
+			      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   struct AllocMmapChunk *chunk = (struct AllocMmapChunk*) (map);
   chunk->buffer = map;
   chunk->size = size;
