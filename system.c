@@ -2,7 +2,6 @@
 #include "syscall.h"
 #include <sys/mman.h>
 #include <fcntl.h>
-#include "mdl.h"
 
 /* The magic checks below for -256 are probably misterious to non-kernel programmers:
  * they come from the fact that we call the raw system calls, not the libc wrappers
@@ -50,7 +49,6 @@ int system_mprotect (const void *addr, size_t len, int prot)
   int status = SYSCALL3 (mprotect, addr, len, prot);
   if (status < 0 && status > -256)
     {
-      MDL_LOG_DEBUG ("status=0x%x\n", status);
       return -1;
     }
   return status;
