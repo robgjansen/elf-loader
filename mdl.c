@@ -254,6 +254,10 @@ void mdl_set_logging (const char *debug_str)
 	{
 	  logging |= MDL_LOG_SYM;
 	}
+      else if (mdl_strisequal (cur->str, "reloc"))
+	{
+	  logging |= MDL_LOG_REL;
+	}
     }
   g_mdl.logging |= logging;
   mdl_str_list_free (list);

@@ -87,7 +87,8 @@ enum MdlLog {
   MDL_LOG_DBG    = (1<<1),
   MDL_LOG_ERR    = (1<<2),
   MDL_LOG_AST    = (1<<3),
-  MDL_LOG_SYM    = (1<<4)
+  MDL_LOG_SYM    = (1<<4),
+  MDL_LOG_REL    = (1<<5)
 };
 
 struct Context
@@ -181,6 +182,9 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
 #define MDL_LOG_SYMBOL(symbol,file)					 \
   mdl_log_printf (MDL_LOG_SYM, "Could not resolve symbol=%s, file=%s\n", \
 		  symbol, file->name)
+#define MDL_LOG_RELOC(rel)				      \
+  mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x\n", \
+		  ELFW_R_TYPE (rel->r_info))
 #define MDL_ASSERT(predicate,str)		 \
   if (!(predicate))				 \
     {						 \

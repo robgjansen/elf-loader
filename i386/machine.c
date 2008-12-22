@@ -33,7 +33,7 @@ void machine_perform_relocation (struct MappedFile *file,
     }
   else
     {
-      MDL_LOG_ERROR ("Bwaaah: unhandled reloc type=0x%x\n", type);
+      MDL_LOG_RELOC (rel);
     }
 }
 void machine_finish_tls_setup (unsigned int entry)
