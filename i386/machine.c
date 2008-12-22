@@ -11,7 +11,9 @@ void machine_perform_relocation (struct MappedFile *file,
   unsigned long type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
 
-  if (type == R_386_JMP_SLOT || type == R_386_GLOB_DAT)
+  if (type == R_386_JMP_SLOT || 
+      type == R_386_GLOB_DAT ||
+      type == R_386_32)
     {
       unsigned long addr = mdl_elf_symbol_lookup (symbol_name, file);
       if (addr == 0)
@@ -27,10 +29,6 @@ void machine_perform_relocation (struct MappedFile *file,
       *reloc_addr = addr;
     }
   else if (type == R_386_RELATIVE)
-    {
-      *reloc_addr += file->load_base;
-    }
-  else if (type == R_386_32)
     {
       *reloc_addr += file->load_base;
     }
