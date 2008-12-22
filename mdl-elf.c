@@ -204,7 +204,8 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
   unsigned long requested_zero_start = load_base + info.ro_start + info.ro_size + info.rw_size;
   unsigned long zero_start = (unsigned long) system_mmap ((void*)requested_zero_start,
 							  info.zero_size, PROT_READ | PROT_WRITE, 
-							  MAP_PRIVATE | MAP_FIXED, -1, 0);
+							  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+							  -1, 0);
   if (zero_start == -1)
     {
       MDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
