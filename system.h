@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <linux/unistd.h>
+#include <asm/ldt.h>
+
 
 void *system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
 uint8_t *system_mmap_anon (size_t size);
@@ -17,5 +20,6 @@ int system_lseek (int fd, off_t offset, int whence);
 int system_fstat (const char *file, struct stat *buf);
 void system_close (int fd);
 void system_exit (int status);
+int system_set_thread_area (struct user_desc *u_info);
 
 #endif /* SYSTEM_H */
