@@ -1,4 +1,6 @@
 #include "glibc.h"
+#include "machine.h"
+#include "mdl.h"
 
 #define EXPORT __attribute__ ((visibility("default")))
 
@@ -51,3 +53,22 @@ void glibc_startup_finished (void)
   _dl_starting_up = 1;
 }
 
+void glibc_initialize_tcb (void)
+{
+  void *tcb = mdl_malloc (100);
+  struct user_desc desc;
+  desc.entry_number = -1; // ask kernel to allocate an entry number
+  desc.base_addr = (unsigned int)tcb;
+  desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
+  desc.seg_32bit = 1;
+  desc.contents = 0;
+  desc.read_exec_only = 0;
+  desc.limit_in_pages = 1;
+  desc.seg_not_present = 0;
+  desc.useable = 1;
+  
+  int status = system_set_thread_area (&desc);
+  MDL_ASSERT (status == 0, "Unable to set TCB");
+
+  machine_finish_tls_setup (desc.entry_number);
+}

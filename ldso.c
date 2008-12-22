@@ -4,7 +4,7 @@
 #include "mdl-elf.h"
 #include "glibc.h"
 #include "gdb.h"
-#include "start-trampoline.h"
+#include "machine.h"
 #include <elf.h>
 #include <link.h>
 
@@ -321,6 +321,8 @@ static void stage2 (struct OsArgs args)
       }
   }
 
+  glibc_initialize_tcb ();
+
   // Finally, call init functions
   {
     struct MappedFile *cur;
@@ -338,8 +340,8 @@ static void stage2 (struct OsArgs args)
     }
   void (*entry_fn) (void) = (void (*)(void)) entry;
   glibc_startup_finished ();
-  start_trampoline (args.program_argc, args.program_argv, args.program_envp,
-		    0, entry_fn);
+  machine_start_trampoline (args.program_argc, args.program_argv, args.program_envp,
+			    0, entry_fn);
   system_exit (0);
 error:
   system_exit (-6);

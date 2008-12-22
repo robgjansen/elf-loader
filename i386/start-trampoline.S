@@ -13,8 +13,8 @@
 # eax = 0
 	.text
 	.align 16
-	.globl start_trampoline
-start_trampoline:
+	.globl machine_start_trampoline
+machine_start_trampoline:
 	# get dl_fini
 	mov 16(%esp), %edx
 	# get entry_point

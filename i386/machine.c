@@ -39,5 +39,17 @@ void machine_perform_relocation (struct MappedFile *file,
       MDL_LOG_ERROR ("Bwaaah: unhandled reloc type=0x%x\n", type);
     }
 }
-
+void machine_finish_tls_setup (unsigned int entry)
+{
+  // set_thread_area allocated an entry in the GDT and returned
+  // the index associated to this entry. So, now, we associate
+  // %gs with this newly-allocated entry.
+  // Bits 3 to 15 indicate the entry index.
+  // Bit 2 is set to 0 to indicate that we address the GDT through
+  // this segment selector.
+  // Bits 0 to 1 indicate the privilege level requested (here, 3,
+  // is the least privileged level)
+  int gs = (entry << 3) | 3;
+  __asm ("movw %w0, %%gs" :: "q" (gs));
+}
 
