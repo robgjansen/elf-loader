@@ -7,7 +7,11 @@
  */
 void dprintf (const char *str, ...);
 
+#ifdef DEBUG_ENABLE
 #define DPRINTF(str,...) \
   dprintf(str, __VA_ARGS__)
+#else
+#define DPRINTF(str,...)
+#endif
 
 #endif /* DPRINTF_H */

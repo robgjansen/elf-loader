@@ -1,4 +1,5 @@
-CFLAGS=-g3 -fno-stack-protector -Wall 
+#DEBUG=-DDEBUG_ENABLE
+CFLAGS=-g3 -fno-stack-protector -Wall $(DEBUG)
 #we need libgcc for 64bit arithmetic functions
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
