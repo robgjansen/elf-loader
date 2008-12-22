@@ -169,9 +169,9 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
   // MAP_FIXED flag.
 
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
-  map_size = info.ro_size + info.rw_size;
+  map_size = info.ro_size + info.rw_size + info.zero_size;
   map_start = (unsigned long) system_mmap ((void*)info.ro_start,
-					   info.ro_size + info.rw_size,
+					   map_size,
 					   PROT_READ, MAP_PRIVATE | fixed, fd, 
 					   info.ro_file_offset);
   if (map_start == -1)
@@ -200,12 +200,21 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
   unsigned long rw_zero_size = info.ro_start + info.ro_size + info.rw_size - info.zero_start;
   mdl_memset ((void*)(info.zero_start + load_base), 0, rw_zero_size);
 
-  // if needed, map zero pages
+  // first, unmap the extended file mapping for the zero pages.
+  system_munmap ((void*)(map_start + info.ro_size + info.rw_size),
+		 info.zero_size);
+  // then, map zero pages.
   unsigned long requested_zero_start = load_base + info.ro_start + info.ro_size + info.rw_size;
   unsigned long zero_start = (unsigned long) system_mmap ((void*)requested_zero_start,
 							  info.zero_size, PROT_READ | PROT_WRITE, 
 							  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
 							  -1, 0);
+  MDL_LOG_DEBUG ("maps: ro=0x%x:0x%x, rw=0x%x:0x%x, zero=0x%x:0x%x, zero_start=0x%x:0x%x\n", 
+		 map_start, map_start+info.ro_size,
+		 map_start+info.ro_size,map_start+info.ro_size+info.rw_size,
+		 map_start+info.ro_size+info.rw_size,
+		 map_start+info.ro_size+info.rw_size+info.zero_size,
+		 map_start+info.zero_start, rw_zero_size);
   if (zero_start == -1)
     {
       MDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
@@ -483,7 +492,7 @@ int mdl_elf_file_get_info (uint32_t phnum,
   info->rw_size = rw_size;
   info->zero_size = zero_size;
   info->zero_start = zero_start;
-  info->ro_file_offset = ro_file_offset;;
+  info->ro_file_offset = ro_file_offset;
 
   return 1;
  error:
