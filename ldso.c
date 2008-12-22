@@ -177,7 +177,7 @@ do_ld_preload (struct Context *context, struct MappedFileList *scope, const char
       char *ld_preload_filename = mdl_elf_search_file (ld_preload);
       if (ld_preload_filename == 0)
 	{
-	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload_filename);
+	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload);
 	  goto error;
 	}
       // map it in memory.
