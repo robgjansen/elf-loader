@@ -86,7 +86,8 @@ enum MdlLog {
   MDL_LOG_FUNC   = (1<<0),
   MDL_LOG_DBG    = (1<<1),
   MDL_LOG_ERR    = (1<<2),
-  MDL_LOG_AST    = (1<<3)
+  MDL_LOG_AST    = (1<<3),
+  MDL_LOG_SYM    = (1<<4)
 };
 
 struct Context
@@ -174,9 +175,12 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
 		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define MDL_LOG_DEBUG(str,...) \
-  mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__);
+  mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__)
 #define MDL_LOG_ERROR(str,...) \
-  mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__);
+  mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
+#define MDL_LOG_SYMBOL(symbol,file)					 \
+  mdl_log_printf (MDL_LOG_SYM, "Could not resolve symbol=%s, file=%s\n", \
+		  symbol, file->name)
 #define MDL_ASSERT(predicate,str)		 \
   if (!(predicate))				 \
     {						 \

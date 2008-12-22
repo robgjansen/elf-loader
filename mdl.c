@@ -250,6 +250,10 @@ void mdl_set_logging (const char *debug_str)
 	{
 	  logging |= MDL_LOG_AST;
 	}
+      else if (mdl_strisequal (cur->str, "symbol"))
+	{
+	  logging |= MDL_LOG_SYM;
+	}
     }
   g_mdl.logging |= logging;
   mdl_str_list_free (list);
