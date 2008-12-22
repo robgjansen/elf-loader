@@ -34,7 +34,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->breakpoint = 0;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = MDL_LOG_ERR;
+  mdl->logging = MDL_LOG_ERR | MDL_LOG_AST;
   mdl->search_dirs = 0;
   alloc_initialize (&(mdl->alloc));
   mdl->search_dirs = 0;
@@ -245,6 +245,10 @@ void mdl_set_logging (const char *debug_str)
       else if (mdl_strisequal (cur->str, "error"))
 	{
 	  logging |= MDL_LOG_ERR;
+	}
+      else if (mdl_strisequal (cur->str, "assert"))
+	{
+	  logging |= MDL_LOG_AST;
 	}
     }
   g_mdl.logging |= logging;

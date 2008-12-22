@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include "alloc.h"
+#include "system.h"
 
 struct MappedFileList
 {
@@ -84,7 +85,8 @@ enum MdlState {
 enum MdlLog {
   MDL_LOG_FUNC   = (1<<0),
   MDL_LOG_DBG    = (1<<1),
-  MDL_LOG_ERR    = (1<<2)
+  MDL_LOG_ERR    = (1<<2),
+  MDL_LOG_AST    = (1<<3)
 };
 
 struct Context
@@ -175,6 +177,14 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__);
 #define MDL_LOG_ERROR(str,...) \
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__);
+#define MDL_ASSERT(predicate,str)		 \
+  if (!(predicate))				 \
+    {						 \
+      mdl_log_printf (MDL_LOG_AST, "%s\n", str); \
+      system_exit (-1);				 \
+    }
+
+
 
 // manipulate lists of files
 void mdl_file_list_free (struct MappedFileList *list);
