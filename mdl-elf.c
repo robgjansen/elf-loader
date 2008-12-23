@@ -231,6 +231,8 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
   struct MappedFile *file = mdl_file_new (load_base, &info, 
 					  filename, name,
 					  context);
+  file->st_dev = st_buf.st_dev;
+  file->st_ino = st_buf.st_ino;
   
   mdl_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
