@@ -6,7 +6,7 @@ void machine_perform_relocation (struct MappedFile *file,
 				 const char *symbol_name)
 {
   MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
-		    file->name, symbol_name, rel->r_offset,
+		    file->name, (symbol_name != 0)?symbol_name:"", rel->r_offset,
 		    ELFW_R_TYPE (rel->r_info));
   unsigned long type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
