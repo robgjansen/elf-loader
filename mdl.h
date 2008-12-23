@@ -83,12 +83,13 @@ enum MdlState {
   MDL_DELETE
 };
 enum MdlLog {
-  MDL_LOG_FUNC   = (1<<0),
-  MDL_LOG_DBG    = (1<<1),
-  MDL_LOG_ERR    = (1<<2),
-  MDL_LOG_AST    = (1<<3),
-  MDL_LOG_SYM    = (1<<4),
-  MDL_LOG_REL    = (1<<5)
+  MDL_LOG_FUNC     = (1<<0),
+  MDL_LOG_DBG      = (1<<1),
+  MDL_LOG_ERR      = (1<<2),
+  MDL_LOG_AST      = (1<<3),
+  MDL_LOG_SYM_FAIL = (1<<4),
+  MDL_LOG_REL      = (1<<5),
+  MDL_LOG_SYM_OK   = (1<<6)
 };
 
 struct Context
@@ -179,8 +180,11 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__)
 #define MDL_LOG_ERROR(str,...) \
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
-#define MDL_LOG_SYMBOL(symbol,file)					 \
-  mdl_log_printf (MDL_LOG_SYM, "Could not resolve symbol=%s, file=%s\n", \
+#define MDL_LOG_SYMBOL_FAIL(symbol,file)					 \
+  mdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
+		  symbol, file->name)
+#define MDL_LOG_SYMBOL_OK(symbol,file)					 \
+  mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, file=%s\n", \
 		  symbol, file->name)
 #define MDL_LOG_RELOC(rel)				      \
   mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x\n", \

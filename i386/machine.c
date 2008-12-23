@@ -18,12 +18,13 @@ void machine_perform_relocation (struct MappedFile *file,
       unsigned long addr = mdl_elf_symbol_lookup (symbol_name, file);
       if (addr == 0)
 	{
-	  MDL_LOG_SYMBOL (symbol_name, file);
+	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
 	  // if the symbol resolution has failed, it's
 	  // not a big deal because we might never call
 	  // this function so, we ignore the error for now
 	  return;
 	}
+      MDL_LOG_SYMBOL_OK (symbol_name, file);
       // apply the address to the relocation
       *reloc_addr = addr;
     }

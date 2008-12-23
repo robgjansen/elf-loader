@@ -250,9 +250,13 @@ void mdl_set_logging (const char *debug_str)
 	{
 	  logging |= MDL_LOG_AST;
 	}
-      else if (mdl_strisequal (cur->str, "symbol"))
+      else if (mdl_strisequal (cur->str, "symbol-fail"))
 	{
-	  logging |= MDL_LOG_SYM;
+	  logging |= MDL_LOG_SYM_FAIL;
+	}
+      else if (mdl_strisequal (cur->str, "symbol-ok"))
+	{
+	  logging |= MDL_LOG_SYM_OK;
 	}
       else if (mdl_strisequal (cur->str, "reloc"))
 	{
