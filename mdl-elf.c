@@ -214,7 +214,7 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
 		 map_start+info.ro_size,map_start+info.ro_size+info.rw_size,
 		 map_start+info.ro_size+info.rw_size,
 		 map_start+info.ro_size+info.rw_size+info.zero_size,
-		 map_start+info.zero_start, rw_zero_size);
+		 load_base + info.zero_start, rw_zero_size);
   if (zero_start == -1)
     {
       MDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
@@ -231,9 +231,6 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
   struct MappedFile *file = mdl_file_new (load_base, &info, 
 					  filename, name,
 					  context);
-  MDL_LOG_DEBUG ("mapped file %s ro=0x%x:0x%x, rw=0x%x:0x%x\n", filename,
-		 file->ro_start, file->ro_size, 
-		 file->ro_start + file->ro_size, file->rw_size);
   
   mdl_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
