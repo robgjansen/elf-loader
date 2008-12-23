@@ -566,8 +566,6 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
       if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
 	{
 	  unsigned long v = file->load_base + dt_symtab[index].st_value;
-	  MDL_LOG_DEBUG ("yay ! found symbol=%s in file=%s, value=0x%x\n", 
-			 name, file->name, v);
 	  return v;
 	}
     }
@@ -585,8 +583,6 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
 	  if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
 	    {
 	      unsigned long v = file->load_base + dt_symtab[index].st_value;
-	      MDL_LOG_DEBUG ("yay ! found symbol=%s in file=%s, value=0x%x\n", 
-			     name, file->name, v);
 	      return v;
 	    }
 	}
