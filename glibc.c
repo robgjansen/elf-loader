@@ -57,6 +57,7 @@ void glibc_initialize_tcb (void)
 {
   void *tcb = mdl_malloc (100);
   struct user_desc desc;
+  mdl_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number
   desc.base_addr = (unsigned int)tcb;
   desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
