@@ -22,8 +22,7 @@ struct OsArgs
 {
   unsigned long interpreter_load_base;
   ElfW(Phdr) *program_phdr;
-  uint32_t program_phnum;
-  void *program_entry;
+  unsigned long program_phnum;
   int program_argc;
   const char **program_argv;
   const char **program_envp;
@@ -34,10 +33,10 @@ get_os_args (unsigned long *args)
 {
   struct OsArgs os_args;
   unsigned long tmp;
-
   ElfW(auxv_t) *auxvt, *auxvt_tmp;
-  tmp = (unsigned long)(args-1);
+  tmp = (unsigned long)(args+1);
   os_args.program_argc = READ_INT (tmp); // skip argc
+  DPRINTF("argc=0x%x\n", os_args.program_argc);
   os_args.program_argv = (const char **)tmp;
   tmp += sizeof(char *)*(os_args.program_argc+1); // skip argv
   os_args.program_envp = (const char **)tmp;
@@ -47,7 +46,6 @@ get_os_args (unsigned long *args)
   os_args.interpreter_load_base = 0;
   os_args.program_phdr = 0;
   os_args.program_phnum = 0;
-  os_args.program_entry = 0;
   auxvt_tmp = auxvt;
   while (auxvt_tmp->a_type != AT_NULL)
     {
@@ -62,10 +60,6 @@ get_os_args (unsigned long *args)
       else if (auxvt_tmp->a_type == AT_PHNUM)
 	{
 	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_ENTRY)
-	{
-	  os_args.program_entry = (void*)auxvt_tmp->a_un.a_val;
 	}
       auxvt_tmp++;
     }
@@ -215,66 +209,18 @@ setup_env_vars (const char **envp)
     }
 }
 
-void stage1 (unsigned long args);
-
-
 static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
   setup_env_vars (args.program_envp);
 
-  struct Context *context = mdl_context_new (args.program_argc,
-					     args.program_argv,
-					     args.program_envp);
-  
-  struct MappedFile *main_file;
-  if (args.program_entry == stage1)
-    {
-      // the interpreter is run as a normal program. We behave like the libc
-      // interpreter and assume that this means that the name of the program
-      // to run is the first argument in the argv.
-      if (args.program_argc < 2)
-	{
-	  MDL_LOG_ERROR ("Not enough arguments to run loader, argc=%d\n", args.program_argc);
-	  goto error;
-	}
-
-      // We need to do what the kernel usually does for us, that is,
-      // search the file, and map it in memory
-      char *filename = mdl_elf_search_file (args.program_argv[1]);
-      if (filename == 0)
-	{
-	  MDL_LOG_ERROR ("Could not find %s\n", filename);
-	  goto error;
-	}
-      // the filename for the main exec is "" for gdb.
-      main_file = mdl_elf_map_single (context, "", args.program_argv[1]);
-    }
-  else
-    {
-      // here, the file is already mapped so, we just create the 
-      // right data structure
-      struct FileInfo info;
-      if (!mdl_elf_file_get_info (args.program_phnum,
-				  args.program_phdr,
-				  &info))
-	{
-	  MDL_LOG_ERROR ("Unable to obtain information about main program\n", 1);
-	  goto error;
-	}
-
-      // The load base of the main program is easy to calculate as the difference
-      // between the PT_PHDR vaddr and its real address in memory.
-      unsigned long load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
-
-      // the filename for the main exec is "" for gdb.
-      main_file = mdl_file_new (load_base,
-				&info,
-				"",
-				args.program_argv[0],
-				context);
-    }
+  struct MappedFile *main_file = mdl_elf_main_file_new (args.program_phnum,
+							args.program_phdr,
+							args.program_argc,
+							args.program_argv,
+							args.program_envp);
+  struct Context *context = main_file->context;
   gdb_initialize (main_file);
 
   // add the interpreter itself to the link map to ensure that it is
@@ -347,17 +293,15 @@ error:
   system_exit (-6);
 }
 
-void stage1 (unsigned long args)
+void stage1 (void)
 {
-  struct OsArgs os_args;
-
-  os_args = get_os_args (&args);
+  void *stack = __builtin_frame_address (0);
+  struct OsArgs os_args = get_os_args (stack);
   // The linker defines the symbol _DYNAMIC to point to the start of the 
   // PT_DYNAMIC area which has been mapped by the OS loader as part of the
   // rw PT_LOAD segment.
   void *dynamic = _DYNAMIC;
   dynamic += os_args.interpreter_load_base;
   relocate_dt_rel (dynamic, os_args.interpreter_load_base);
-
   stage2 (os_args);
 }

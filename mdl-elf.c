@@ -791,3 +791,96 @@ void mdl_elf_reloc (struct MappedFile *file)
       // which calls mdl_symbol_lookup.
     }
 }
+
+static int
+is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
+{
+  // the file is already mapped in memory so, we reverse-engineer its setup
+  struct FileInfo info;
+  MDL_ASSERT (mdl_elf_file_get_info (phnum,phdr, &info),
+	      "Unable to obtain information about main program");
+
+  MDL_ASSERT (phdr->p_type == PT_PHDR,
+	      "The first program header is not a PT_PHDR");
+  // If we assume that the first program in the program header table is the PT_HDR
+  // The load base of the main program is easy to calculate as the difference
+  // between the PT_PHDR vaddr and its real address in memory.
+  unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
+  // Now, go to dynamic section and look at its DT_SONAME entry
+  ElfW(Dyn) *cur = (ElfW(Dyn) *) (load_base + info.dynamic);
+  unsigned long dt_strtab = 0;
+  unsigned long dt_soname = 0;
+  while (cur->d_tag != DT_NULL)
+    {
+      if (cur->d_tag == DT_SONAME)
+	{
+	  dt_soname = cur->d_un.d_val;
+	}
+      else if (cur->d_tag == DT_STRTAB)
+	{
+	  dt_strtab = cur->d_un.d_val + load_base;
+	}
+      cur++;
+    }
+  if (dt_soname == 0)
+    {
+      return 0;
+    }
+  MDL_ASSERT (dt_strtab != 0, "Could not find dt_strtab");
+  char *soname = (char *)(dt_strtab + dt_soname);
+  return mdl_strisequal (soname, LDSO_SONAME);
+}
+
+struct MappedFile *
+mdl_elf_main_file_new (unsigned long phnum,
+		       ElfW(Phdr)*phdr,
+		       int argc, 
+		       const char **argv, 
+		       const char **envp)
+{
+  struct MappedFile *main_file;
+  if (is_loader (phnum, phdr))
+    {
+      // the interpreter is run as a normal program. We behave like the libc
+      // interpreter and assume that this means that the name of the program
+      // to run is the first argument in the argv.
+      MDL_ASSERT (argc >= 2, "Not enough arguments to run loader");
+      const char *program = argv[1];
+      argv++;
+      argc--;
+      // We need to do what the kernel usually does for us, that is,
+      // search the file, and map it in memory
+      char *filename = mdl_elf_search_file (program);
+      MDL_ASSERT (filename != 0, "Could not find main binary");
+      struct Context *context = mdl_context_new (argc,
+						 argv,
+						 envp);
+
+      // the filename for the main exec is "" for gdb.
+      main_file = mdl_elf_map_single (context, program, "");
+    }
+  else
+    {
+      // here, the file is already mapped so, we just create the 
+      // right data structure
+      struct FileInfo info;
+      MDL_ASSERT (mdl_elf_file_get_info (phnum, phdr, &info),
+		  "Unable to obtain information about main program");
+
+      // The load base of the main program is easy to calculate as the difference
+      // between the PT_PHDR vaddr and its real address in memory.
+      unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
+
+      struct Context *context = mdl_context_new (argc,
+						 argv,
+						 envp);
+
+      // the filename for the main exec is "" for gdb.
+      main_file = mdl_file_new (load_base,
+				&info,
+				"",
+				argv[0],
+				context);
+    }
+  return main_file;
+}

@@ -1,5 +1,7 @@
-#DEBUG=-DDEBUG_ENABLE
-CFLAGS=-g3 -fno-stack-protector -Wall $(DEBUG)
+DEBUG=-DDEBUG_ENABLE
+LDSO_SONAME=ldso
+CFLAGS=-g3 -fno-stack-protector -Wall $(DEBUG) -DLDSO_SONAME=\"$(LDSO_SONAME)\"
+
 #we need libgcc for 64bit arithmetic functions
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
@@ -11,12 +13,13 @@ all: ldso hello
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/start-trampoline.o
-	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib -fvisibility=hidden --dynamic-list=ldso.dyn --dynamic-linker=ldso -o $@ $^ $(LIBGCC)
+	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib -fvisibility=hidden --dynamic-list=ldso.dyn --dynamic-linker=ldso --soname=$(LDSO_SONAME) -o $@ $^ $(LIBGCC)
 
 hello.o: hello.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 hello: hello.o
-	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^
+#	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
 
 clean: 
 	-rm -f hello ldso *.o  i386/*.o 2> /dev/null

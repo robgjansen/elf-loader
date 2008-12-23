@@ -33,5 +33,10 @@ void mdl_elf_iterate_pltrel (struct MappedFile *file,
 void mdl_elf_reloc (struct MappedFile *file);
 ElfW(Dyn) *mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag);
 unsigned long mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file);
+struct MappedFile *mdl_elf_main_file_new (unsigned long phnum,
+					  ElfW(Phdr)*phdr,
+					  int argc, 
+					  const char **argv, 
+					  const char **envp);
 
 #endif /* MDL_ELF_H */
