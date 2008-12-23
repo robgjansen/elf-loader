@@ -29,18 +29,16 @@ struct FileInfo
   // vaddr of INTERPRETER program header
   unsigned long interpreter_name;
 
-  //      | <-- ro_size --> |  <--  rw_size  -->  | <-- zero_size --> |
-  //      |                 |          | <-zero-> |                   |
-  //     /                            /
-  //    /                            /
-  //  ro_start                    zero_start
   unsigned long ro_start;
   unsigned long ro_size;
+  unsigned long rw_start;
   unsigned long rw_size;
   unsigned long zero_start;
   unsigned long zero_size;
-  // the ro mapping starts here in the file
   unsigned long ro_file_offset;
+  unsigned long rw_file_offset;
+  unsigned long memset_zero_start;
+  unsigned long memset_zero_size;
 };
 
 struct MappedFile
@@ -58,9 +56,10 @@ struct MappedFile
   dev_t st_dev;
   ino_t st_ino;
   unsigned long ro_start;
-  unsigned long ro_file_offset;
   unsigned long ro_size;
+  unsigned long rw_start;
   unsigned long rw_size;
+  unsigned long zero_start;
   unsigned long zero_size;
   uint32_t scope_set : 1;
   uint32_t init_called : 1;

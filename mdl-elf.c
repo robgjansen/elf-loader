@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#define mdl_max(a,b)(((a)>(b))?(a):(b))
+
 ElfW(Dyn) *
 mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
 {
@@ -112,7 +114,9 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
   ElfW(Phdr) *phdr = 0;
   size_t bytes_read;
   int fd = -1;
-  unsigned long map_start = -1;
+  unsigned long ro_start = 0;
+  unsigned long rw_start = 0;
+  unsigned long zero_start = 0;
   unsigned long map_size = 0;
   struct FileInfo info;
 
@@ -161,60 +165,67 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       goto error;
     }
 
-  // we do a single mmap for both ro and rw entries as ro, and, then
-  // use mprotect to give the 'w' power to the second entry. This is needed
-  // to ensure that the relative position of both entries is preserved for
-  // DYN files. For EXEC files, we don't care about the relative position
-  // but we need to ensure that the absolute position is correct so we add the 
-  // MAP_FIXED flag.
+  // calculate the size of the total mapping required
+  unsigned long end = info.ro_start + info.ro_size;
+  end = mdl_max (end, info.rw_start + info.rw_size);
+  end = mdl_max (end, info.zero_start + info.zero_size);
+  map_size = end-info.ro_start;
 
+  // We perform a single initial mmap to reserve all the virtual space we need
+  // and, then, we map again portions of the space to make sure we get
+  // the mappings we need
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
-  map_size = info.ro_size + info.rw_size + info.zero_size;
-  map_start = (unsigned long) system_mmap ((void*)info.ro_start,
-					   map_size,
-					   PROT_READ, MAP_PRIVATE | fixed, fd, 
-					   info.ro_file_offset);
-  if (map_start == -1)
+  ro_start = (unsigned long) system_mmap ((void*)info.ro_start,
+					  map_size,
+					  PROT_READ, 
+					  MAP_PRIVATE | fixed, 
+					  fd, info.ro_file_offset);
+  if (ro_start == -1)
     {
       MDL_LOG_ERROR ("Unable to perform mapping for %s\n", filename);
       goto error;
     }
   // calculate the offset between the start address we asked for and the one we got
-  unsigned long load_base = map_start - info.ro_start;
+  unsigned long load_base = ro_start - info.ro_start;
   if (fixed && load_base != 0)
     {
       MDL_LOG_ERROR ("We need a fixed address and we did not get it in %s\n", filename);
       goto error;
     }
-
-  // make the rw map actually writable.
-  if (system_mprotect ((void*)(info.ro_start + info.ro_size + load_base), 
-		       info.rw_size, PROT_READ | PROT_WRITE) == -1)
+  // Now, unmap the rw area
+  system_munmap ((void*)(load_base + info.rw_start),
+		 info.rw_size);
+  // Now, map again the rw area at the right location.
+  rw_start = (unsigned long) system_mmap ((void*)load_base + info.rw_start,
+					  info.rw_size,
+					  PROT_READ | PROT_WRITE, 
+					  MAP_PRIVATE | MAP_FIXED, 
+					  fd, info.rw_file_offset);
+  if (rw_start == -1)
     {
-      MDL_LOG_ERROR ("Unable to add w flag to rw mapping for file=%s 0x%x:0x%x\n", 
-		     filename, info.ro_start + info.ro_size + load_base, info.rw_size);
+      MDL_LOG_ERROR ("Unable to perform rw mapping for %s\n", filename);
       goto error;
     }
 
   // zero the end of rw map
-  unsigned long rw_zero_size = info.ro_start + info.ro_size + info.rw_size - info.zero_start;
-  mdl_memset ((void*)(info.zero_start + load_base), 0, rw_zero_size);
+  mdl_memset ((void*)(load_base + info.memset_zero_start), 0, info.memset_zero_size);
 
   // first, unmap the extended file mapping for the zero pages.
-  system_munmap ((void*)(map_start + info.ro_size + info.rw_size),
+  system_munmap ((void*)(load_base + info.zero_start),
 		 info.zero_size);
   // then, map zero pages.
-  unsigned long requested_zero_start = load_base + info.ro_start + info.ro_size + info.rw_size;
-  unsigned long zero_start = (unsigned long) system_mmap ((void*)requested_zero_start,
-							  info.zero_size, PROT_READ | PROT_WRITE, 
-							  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-							  -1, 0);
-  MDL_LOG_DEBUG ("maps: ro=0x%x:0x%x, rw=0x%x:0x%x, zero=0x%x:0x%x, zero_start=0x%x:0x%x\n", 
-		 map_start, map_start+info.ro_size,
-		 map_start+info.ro_size,map_start+info.ro_size+info.rw_size,
-		 map_start+info.ro_size+info.rw_size,
-		 map_start+info.ro_size+info.rw_size+info.zero_size,
-		 load_base + info.zero_start, rw_zero_size);
+  zero_start = (unsigned long) system_mmap ((void*)load_base + info.zero_start,
+					    info.zero_size, 
+					    PROT_READ | PROT_WRITE, 
+					    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+					    -1, 0);
+  MDL_LOG_DEBUG ("maps: ro=0x%x:0x%x, rw=0x%x:0x%x, zero=0x%x:0x%x, memset_zero_start=0x%x:0x%x, "
+		 "ro_offset=0x%x, rw_offset=0x%x\n", 
+		 load_base + info.ro_start, info.ro_size,
+		 load_base + info.rw_start, info.rw_size,
+		 load_base + info.zero_start, info.zero_size,
+		 load_base + info.memset_zero_start, info.memset_zero_size,
+		 info.ro_file_offset, info.rw_file_offset);
   if (zero_start == -1)
     {
       MDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
@@ -246,11 +257,9 @@ error:
     {
       mdl_free (phdr, header.e_phnum * header.e_phentsize);
     }
-  if (map_start != -1)
+  if (ro_start != 0)
     {
-      system_munmap ((void*)map_start, info.ro_size + info.rw_size);
-      // just in case, try to unmap zero map.
-      system_munmap ((void*)map_start + info.ro_size + info.rw_size, info.zero_size);
+      system_munmap ((void*)ro_start, map_size);
     }
   return 0;
 }
@@ -313,6 +322,12 @@ find_by_dev_ino (struct Context *context,
 int mdl_elf_map_deps (struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("file=%s", item->name);
+
+  if (item->deps != 0)
+    {
+      return 1;
+    }
+
   // get list of deps for the input file.
   struct StringList *dt_needed = mdl_elf_get_dt_needed (item);
 
@@ -476,8 +491,11 @@ int mdl_elf_file_get_info (uint32_t phnum,
   unsigned long rw_start = ALIGN_DOWN (rw->p_vaddr, rw->p_align);
   unsigned long rw_size = ALIGN_UP (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
   unsigned long zero_size = ALIGN_UP (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
-  unsigned long zero_start = rw->p_vaddr + rw->p_filesz;
+  unsigned long zero_start = ALIGN_UP (rw->p_vaddr + rw->p_filesz, rw->p_align);
   unsigned long ro_file_offset = ALIGN_DOWN (ro->p_offset, ro->p_align);
+  unsigned long rw_file_offset = ALIGN_DOWN (rw->p_offset, rw->p_align);
+  unsigned long memset_zero_start = rw->p_vaddr+rw->p_filesz;
+  unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
   if (ro_start + ro_size != rw_start)
     {
       MDL_LOG_ERROR ("ro and rw maps must be adjacent\n", 1);
@@ -488,10 +506,14 @@ int mdl_elf_file_get_info (uint32_t phnum,
   info->interpreter_name = interp->p_vaddr;
   info->ro_start = ro_start;
   info->ro_size = ro_size;
+  info->rw_start = rw_start;
   info->rw_size = rw_size;
-  info->zero_size = zero_size;
-  info->zero_start = zero_start;
   info->ro_file_offset = ro_file_offset;
+  info->rw_file_offset = rw_file_offset;
+  info->zero_start = zero_start;
+  info->zero_size = zero_size;
+  info->memset_zero_start = memset_zero_start;
+  info->memset_zero_size = memset_zero_size;
 
   return 1;
  error:

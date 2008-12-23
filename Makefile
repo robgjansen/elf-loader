@@ -1,4 +1,4 @@
-DEBUG=-DDEBUG_ENABLE
+#DEBUG=-DDEBUG_ENABLE
 LDSO_SONAME=ldso
 CFLAGS=-g3 -fno-stack-protector -Wall $(DEBUG) -DLDSO_SONAME=\"$(LDSO_SONAME)\"
 
@@ -6,7 +6,7 @@ CFLAGS=-g3 -fno-stack-protector -Wall $(DEBUG) -DLDSO_SONAME=\"$(LDSO_SONAME)\"
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
 
-all: ldso hello
+all: ldso hello hello-ldso
 
 %.o:%.c
 	$(CC) $(CFLAGS) -I$(PWD) -I$(PWD)/i386 -fpie -fvisibility=hidden -o $@ -c $<
@@ -17,9 +17,10 @@ ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gd
 
 hello.o: hello.c
 	$(CC) $(CFLAGS) -o $@ -c $<
+hello-ldso: hello.o
+	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
 hello: hello.o
 	$(CC) $(LDFLAGS) -o $@ $^
-#	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
 
 clean: 
-	-rm -f hello ldso *.o  i386/*.o 2> /dev/null
+	-rm -f hello hello-ldso ldso *.o  i386/*.o 2> /dev/null

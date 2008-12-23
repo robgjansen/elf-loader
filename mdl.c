@@ -164,11 +164,12 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->context = context;
   file->st_dev = 0;
   file->st_ino = 0;
-  file->ro_start = info->ro_start + load_base;
+  file->ro_start = load_base + info->ro_start;
   file->ro_size = info->ro_size;
+  file->rw_start = load_base + info->rw_start;
   file->rw_size = info->rw_size;
+  file->zero_start = load_base + info->zero_start;
   file->zero_size = info->zero_size;
-  file->ro_file_offset = info->ro_file_offset;
   file->init_called = 0;
   file->fini_called = 0;
   file->reloced = 0;
@@ -290,7 +291,7 @@ int mdl_strisequal (const char *a, const char *b)
       a++;
       b++;
     }
-  return 1;
+  return *a == *b;
 }
 int mdl_strlen (const char *str)
 {
