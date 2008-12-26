@@ -23,6 +23,7 @@ struct OsArgs
   unsigned long interpreter_load_base;
   ElfW(Phdr) *program_phdr;
   unsigned long program_phnum;
+  unsigned long sysinfo;
   int program_argc;
   const char **program_argv;
   const char **program_envp;
@@ -61,12 +62,17 @@ get_os_args (unsigned long *args)
 	{
 	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
 	}
+      else if (auxvt_tmp->a_type == AT_SYSINFO)
+	{
+	  os_args.sysinfo = auxvt_tmp->a_un.a_val;
+	}
       auxvt_tmp++;
     }
   DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
   if (os_args.interpreter_load_base == 0 ||
       os_args.program_phdr == 0 ||
-      os_args.program_phnum == 0)
+      os_args.program_phnum == 0 ||
+      os_args.sysinfo == 0)
     {
       system_exit (-3);
     }
@@ -267,7 +273,7 @@ static void stage2 (struct OsArgs args)
       }
   }
 
-  glibc_initialize_tcb ();
+  glibc_initialize_tcb (args.sysinfo);
 
   // Finally, call init functions
   {

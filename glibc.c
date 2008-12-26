@@ -53,9 +53,25 @@ void glibc_startup_finished (void)
   _dl_starting_up = 1;
 }
 
-void glibc_initialize_tcb (void)
+struct i386_tcbhead
 {
-  void *tcb = mdl_malloc (100);
+  void *tcb;
+  void *dtv;
+  void *self;
+  int multiple_threads;
+  uintptr_t sysinfo;
+  uintptr_t stack_guard;
+  uintptr_t pointer_guard;
+  int gscope_flag;
+  int private_futex;
+};
+
+
+void glibc_initialize_tcb (unsigned long sysinfo)
+{
+  struct i386_tcbhead *tcb = mdl_new (struct i386_tcbhead);
+  mdl_memset (tcb, sizeof (*tcb), 0);
+  tcb->sysinfo = sysinfo;
   struct user_desc desc;
   mdl_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number

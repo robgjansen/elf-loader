@@ -8,7 +8,7 @@
 // just before calling the executable's entry point.
 void glibc_startup_finished (void);
 
-void glibc_initialize_tcb (void);
+void glibc_initialize_tcb (unsigned long sysinfo);
 
 
 #endif /* GLIBC_H */
