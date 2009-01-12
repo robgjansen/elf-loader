@@ -144,8 +144,8 @@ interpreter_new (unsigned long load_base, struct Context *context)
       goto error;
     }
   struct MappedFile *file = mdl_file_new (load_base, &info, 
-					  (char*)(info.interpreter_name + load_base),
-					  (char*)(info.interpreter_name + load_base),
+					  LDSO_SONAME,
+					  LDSO_SONAME,
 					  context);
   // the interpreter has already been reloced during stage1, so, 
   // we must be careful to not relocate it twice.

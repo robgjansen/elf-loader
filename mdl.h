@@ -26,8 +26,6 @@ struct FileInfo
 {
   // vaddr of DYNAMIC program header
   unsigned long dynamic;
-  // vaddr of INTERPRETER program header
-  unsigned long interpreter_name;
 
   unsigned long ro_start;
   unsigned long ro_size;

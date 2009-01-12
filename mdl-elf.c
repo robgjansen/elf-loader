@@ -164,6 +164,12 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       MDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
+  if (header.e_phoff <info.ro_file_offset || 
+      header.e_phoff + header.e_phnum * header.e_phentsize > info.ro_file_offset + info.ro_size)
+    {
+      MDL_LOG_ERROR ("program header table not included in ro map in %s\n", filename);
+      goto error;
+    }
 
   // calculate the size of the total mapping required
   unsigned long end = info.ro_start + info.ro_size;
@@ -411,7 +417,7 @@ int mdl_elf_file_get_info (uint32_t phnum,
 			   struct FileInfo *info)
 {
   MDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
-  ElfW(Phdr) *ro = 0, *rw = 0, *interp = 0, *dynamic = 0, *pt_phdr = 0, *cur;
+  ElfW(Phdr) *ro = 0, *rw = 0, *dynamic = 0, *cur;
   int i;
   for (i = 0, cur = phdr; i < phnum; i++, cur++)
     {
@@ -436,24 +442,21 @@ int mdl_elf_file_get_info (uint32_t phnum,
 	      ro = cur;
 	    }
 	}
-      else if (cur->p_type == PT_INTERP)
-	{
-	  interp = cur;
-	}
       else if (cur->p_type == PT_DYNAMIC)
 	{
 	  dynamic = cur;
 	}
-      else if (cur->p_type == PT_PHDR)
-	{
-	  pt_phdr = cur;
-	}
     }
-  if (ro == 0 || rw == 0 || interp == 0 || dynamic == 0 || pt_phdr == 0)
+  if (ro == 0 || rw == 0 || dynamic == 0)
     {
       MDL_LOG_ERROR ("file is missing a critical program header "
-		     "ro=0x%x, rw=0x%x, interp=0x%x, dynamic=0x%x, pt_phdr=0x%x\n", 
-		     ro, rw, interp, dynamic, pt_phdr);
+		     "ro=0x%x, rw=0x%x, dynamic=0x%x\n",
+		     ro, rw, dynamic);
+      goto error;
+    }
+  if (ro->p_offset != 0 || ro->p_filesz < sizeof (ElfW(Ehdr)))
+    {
+      MDL_LOG_ERROR ("ro load area does not include elf header\n", 1);
       goto error;
     }
   if (ro->p_memsz != ro->p_filesz)
@@ -472,11 +475,6 @@ int mdl_elf_file_get_info (uint32_t phnum,
     {
       MDL_LOG_ERROR ("something is fishy about the alignment constraints "
 		     "ro_align=0x%x, rw_align=0x%x\n", ro->p_align, rw->p_align);
-      goto error;
-    }
-  if (pt_phdr->p_offset < ro->p_offset || pt_phdr->p_offset + pt_phdr->p_filesz > ro->p_filesz)
-    {
-      MDL_LOG_ERROR ("phdr not included in ro load\n", 1);
       goto error;
     }
   if (dynamic->p_offset < rw->p_offset || dynamic->p_filesz > rw->p_filesz)
@@ -503,7 +501,6 @@ int mdl_elf_file_get_info (uint32_t phnum,
     }
 
   info->dynamic = dynamic->p_vaddr;
-  info->interpreter_name = interp->p_vaddr;
   info->ro_start = ro_start;
   info->ro_size = ro_size;
   info->rw_start = rw_start;
