@@ -660,7 +660,7 @@ mdl_elf_call_init_one (struct MappedFile *file)
   // Gather information from the .dynamic section
   unsigned long dt_init = mdl_elf_file_get_dynamic_p (file, DT_INIT);
   unsigned long dt_init_array = mdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAY);
-  unsigned long dt_init_arraysz = mdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAYSZ);
+  unsigned long dt_init_arraysz = mdl_elf_file_get_dynamic_v (file, DT_INIT_ARRAYSZ);
   // First, invoke the old-style DT_INIT function.
   // The address of the function to call is stored in
   // the DT_INIT tag, here: dt_init.
@@ -679,7 +679,7 @@ mdl_elf_call_init_one (struct MappedFile *file)
       int i;
       for (i = 0; i < dt_init_arraysz / sizeof (init_function); i++, init++)
 	{
-	  (*init) (file->context->argc, file->context->argv, file->context->envp);
+	  (*(init[i])) (file->context->argc, file->context->argv, file->context->envp);
 	}
     }
 }
