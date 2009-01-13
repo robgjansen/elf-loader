@@ -250,7 +250,6 @@ static void stage2 (struct OsArgs args)
       goto error;
     }
 
-  gdb_notify ();
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
@@ -272,6 +271,11 @@ static void stage2 (struct OsArgs args)
 	mdl_elf_reloc (cur);
       }
   }
+
+  // Note that we must invoke this method to notify gdb that we have
+  // a valid linkmap only _after_ relocations have been done and _before_
+  // the initializers are run (to allow the user to debug the initializers).
+  gdb_notify ();
 
   glibc_initialize_tcb (args.sysinfo);
 
