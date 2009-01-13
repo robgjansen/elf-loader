@@ -34,7 +34,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->breakpoint = 0;
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = MDL_LOG_ERR | MDL_LOG_AST;
+  mdl->logging = MDL_LOG_ERR | MDL_LOG_AST | MDL_LOG_PRINT;
   mdl->search_dirs = 0;
   alloc_initialize (&(mdl->alloc));
   mdl->search_dirs = 0;
@@ -45,6 +45,17 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
 					  get_system_search_dirs ());
 
+}
+
+void mdl_linkmap_print (void)
+{
+  struct MappedFile *cur;
+  for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+    {
+      mdl_log_printf (MDL_LOG_PRINT, 
+		      "load_base=%x, file=%s\n", 
+		      cur->load_base, cur->filename);
+    }
 }
 
 struct Context *mdl_context_new (int argc, const char **argv, const char **envp)

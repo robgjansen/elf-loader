@@ -86,7 +86,8 @@ enum MdlLog {
   MDL_LOG_AST      = (1<<3),
   MDL_LOG_SYM_FAIL = (1<<4),
   MDL_LOG_REL      = (1<<5),
-  MDL_LOG_SYM_OK   = (1<<6)
+  MDL_LOG_SYM_OK   = (1<<6),
+  MDL_LOG_PRINT    = (1<<7)
 };
 
 struct Context
@@ -138,6 +139,8 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
 				 const char *filename, 
 				 const char *name,
 				 struct Context *context);
+
+void mdl_linkmap_print (void);
 
 // expect a ':' separated list
 void mdl_set_logging (const char *debug_str);
