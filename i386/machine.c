@@ -1,5 +1,8 @@
 #include "machine.h"
 #include "mdl-elf.h"
+#include "mdl.h"
+#include <sys/mman.h>
+
 
 void machine_perform_relocation (struct MappedFile *file,
 				 ElfW(Rel) *rel,
@@ -51,3 +54,22 @@ void machine_finish_tls_setup (unsigned int entry)
   __asm ("movw %w0, %%gs" :: "q" (gs));
 }
 
+void machine_insert_trampoline (unsigned long from, unsigned long to)
+{
+  MDL_LOG_FUNCTION ("from=0x%x, to=0x%x", from, to);
+  // In this code, we assume that the target symbol is bigger than
+  // our jump and that none of that code is running yet so, we don't have
+  // to worry about modifying a piece of code which is running already.
+  unsigned long page_start = from / 4096 * 4096;
+  system_mprotect ((void*)page_start, 4096, PROT_WRITE);
+  signed long delta = to;
+  delta -= from + 5;
+  unsigned long delta_unsigned = delta;
+  unsigned char *buffer = (unsigned char *)from;
+  buffer[0] = 0xe9;
+  buffer[1] = (delta_unsigned >> 0) & 0xff;
+  buffer[2] = (delta_unsigned >> 8) & 0xff;
+  buffer[3] = (delta_unsigned >> 16) & 0xff;
+  buffer[4] = (delta_unsigned >> 24) & 0xff;
+  system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
+}

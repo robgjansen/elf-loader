@@ -1,6 +1,11 @@
+#define _GNU_SOURCE
 #include "glibc.h"
 #include "machine.h"
 #include "mdl.h"
+#include "mdl-elf.h"
+#include <elf.h>
+#include <dlfcn.h>
+#include <link.h>
 
 #define EXPORT __attribute__ ((visibility("default")))
 
@@ -48,6 +53,34 @@ char _rtld_global[RTLD_GLOBAL_SIZE] EXPORT;
 char _rtld_global_ro[RTLD_GLOBAL_RO_SIZE] EXPORT;
 
 
+struct dl_open_hook
+{
+  void *(*dlopen_mode) (const char *name, int mode);
+  void *(*dlsym) (void *map, const char *name);
+  int (*dlclose) (void *map);
+} * _dl_open_hook = 0;
+void *mdl_dlopen_mode (const char *name, int mode)
+{
+  return 0;
+}
+void *mdl_dlsym (void *map, const char *name)
+{
+  return 0;
+}
+int mdl_dlclose (void *map)
+{
+  return 0;
+}
+static struct dl_open_hook g_dl_open_hook = {mdl_dlopen_mode, mdl_dlsym, mdl_dlclose};
+
+
+static int mdl_dl_addr (const void *address, Dl_info *info,
+			struct link_map **mapp, const ElfW(Sym) **symbolp)
+{
+  MDL_LOG_FUNCTION ("address=%p, info=%p, mapp=%p, symbolp=%p", address, info, mapp, symbolp);
+  return 0;
+}
+
 void glibc_startup_finished (void) 
 {
   _dl_starting_up = 1;
@@ -66,8 +99,7 @@ struct i386_tcbhead
   int private_futex;
 };
 
-
-void glibc_initialize_tcb (unsigned long sysinfo)
+static void initialize_tcb (unsigned long sysinfo)
 {
   struct i386_tcbhead *tcb = mdl_new (struct i386_tcbhead);
   mdl_memset (tcb, sizeof (*tcb), 0);
@@ -78,6 +110,7 @@ void glibc_initialize_tcb (unsigned long sysinfo)
   desc.base_addr = (unsigned int)tcb;
   desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
   desc.seg_32bit = 1;
+
   desc.contents = 0;
   desc.read_exec_only = 0;
   desc.limit_in_pages = 1;
@@ -88,4 +121,37 @@ void glibc_initialize_tcb (unsigned long sysinfo)
   MDL_ASSERT (status == 0, "Unable to set TCB");
 
   machine_finish_tls_setup (desc.entry_number);
+}
+
+void glibc_initialize (unsigned long sysinfo)
+{
+  _dl_open_hook = &g_dl_open_hook;
+  initialize_tcb (sysinfo);
+}
+
+
+
+void glibc_patch (struct MappedFile *file)
+{
+  MDL_LOG_FUNCTION ("file=%s", file->name);
+  if (file->patched)
+    {
+      // if we are patched already, no need to do any work
+      return;
+    }
+  // mark the file as patched
+  file->patched = 1;
+
+  // iterate over all deps first before initialization.
+  struct MappedFileList *cur;
+  for (cur = file->deps; cur != 0; cur = cur->next)
+    {
+      glibc_patch (cur->item);
+    }
+
+  unsigned long addr = mdl_elf_symbol_lookup_local ("_dl_addr", file);
+  if (addr != 0)
+    {
+      machine_insert_trampoline (addr, (unsigned long) &mdl_dl_addr);
+    }
 }

@@ -24,4 +24,7 @@ hello: hello.o
 elfedit: elfedit.o
 
 clean: 
-	-rm -f hello hello-ldso ldso *.o  i386/*.o 2> /dev/null
+	-rm -f elfedit core hello hello-ldso 2> /dev/null
+	-rm -f ldso *.o  i386/*.o 2>/dev/null
+	-rm -f *~ i386/*~ 2>/dev/null
+	-rm -f \#* i386/\#* 2>/dev/null

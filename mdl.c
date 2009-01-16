@@ -53,8 +53,9 @@ void mdl_linkmap_print (void)
   for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
     {
       mdl_log_printf (MDL_LOG_PRINT, 
-		      "load_base=%x, file=%s\n", 
-		      cur->load_base, cur->filename);
+		      "load_base=0x%x , ro_start=0x%x , ro_end=0x%x , file=%s\n", 
+		      cur->load_base, cur->ro_start, cur->ro_start + cur->ro_size, 
+		      cur->filename);
     }
 }
 
@@ -184,6 +185,7 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->init_called = 0;
   file->fini_called = 0;
   file->reloced = 0;
+  file->patched = 0;
   file->local_scope = 0;
   file->deps = 0;
   file->name = mdl_strdup (name);

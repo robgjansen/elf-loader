@@ -12,4 +12,6 @@ void machine_start_trampoline (int argc, const char **argv, const char **envp,
 			       void (*dl_fini) (void), void (*entry_point) (void));
 void machine_finish_tls_setup (unsigned int entry);
 
+void machine_insert_trampoline (unsigned long from, unsigned long to);
+
 #endif /* MACHINE_H */

@@ -277,7 +277,16 @@ static void stage2 (struct OsArgs args)
   // the initializers are run (to allow the user to debug the initializers).
   gdb_notify ();
 
-  glibc_initialize_tcb (args.sysinfo);
+  glibc_initialize (args.sysinfo);
+
+  // patch glibc functions which need to be overriden.
+  {
+    struct MappedFile *cur;
+    for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      {
+	glibc_patch (cur);
+      }
+  }
 
   // Finally, call init functions
   {

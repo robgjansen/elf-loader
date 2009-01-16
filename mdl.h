@@ -63,6 +63,7 @@ struct MappedFile
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
   uint32_t reloced : 1;
+  uint32_t patched : 1;
   enum LookupType lookup_type;
   struct Context *context;
   struct MappedFileList *local_scope;
@@ -95,11 +96,14 @@ struct Context
   struct Context *prev;
   struct Context *next;
   struct MappedFileList *global_scope;
+  // return the symbol to lookup instead of the input symbol
+  const char *(*remap_symbol) (const char *name);
+  // return the library to lookup instead of the input library
+  const char *(*remap_lib) (const char *name);
   // These variables are used by all .init functions
-  // I have never seen an .init function which makes use
-  // of these 3 arguments (they all take zero arguments)
-  // but the libc loader does pass them around so, for 
-  // compatibility, we do the same.
+  // _some_ libc .init functions make use of these
+  // 3 arguments so, even though no one else uses them, 
+  // we have to pass them around.
   // The arrays below are private copies exclusively used
   // by the loader.
   int argc;

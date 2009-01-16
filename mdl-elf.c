@@ -644,6 +644,13 @@ mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file)
     }
   return addr;
 }
+unsigned long 
+mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
+{
+  unsigned long hash = mdl_elf_hash (name);
+  unsigned long addr = do_symbol_lookup_one (name, hash, file);
+  return addr;
+}
 
 
 // the glibc elf loader passes all 3 arguments
