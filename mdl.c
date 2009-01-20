@@ -10,7 +10,8 @@ static struct StringList *
 get_system_search_dirs (void)
 {
   // XXX: first is for my ubuntu box.
-  const char *dirs[] = {"/lib", "/lib64", "/lib32",
+  const char *dirs[] = {"/lib/tls/i686/cmov/",
+			"/lib", "/lib64", "/lib32",
 			"/usr/lib", "/usr/lib64", "/usr/lib32"};
   struct StringList *list = 0;
   int i;
