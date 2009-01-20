@@ -10,7 +10,7 @@ static struct StringList *
 get_system_search_dirs (void)
 {
   // XXX: first is for my ubuntu box.
-  const char *dirs[] = {"/lib/tls/i686/cmov", "/lib", "/lib64", "/lib32",
+  const char *dirs[] = {"/lib", "/lib64", "/lib32",
 			"/usr/lib", "/usr/lib64", "/usr/lib32"};
   struct StringList *list = 0;
   int i;
@@ -182,6 +182,7 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->rw_size = info->rw_size;
   file->zero_start = load_base + info->zero_start;
   file->zero_size = info->zero_size;
+  file->has_deps = 0;
   file->init_called = 0;
   file->fini_called = 0;
   file->reloced = 0;
@@ -205,6 +206,7 @@ static void mdl_file_unref (struct MappedFile *file)
   if (file->count == 0)
     {
       mdl_file_list_free (file->deps);
+      file->deps = 0;
       // remove file from global link map
       // and count number of files in the same context
       uint32_t context_count = 0;

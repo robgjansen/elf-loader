@@ -329,10 +329,11 @@ int mdl_elf_map_deps (struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("file=%s", item->name);
 
-  if (item->deps != 0)
+  if (item->has_deps)
     {
       return 1;
     }
+  item->has_deps = 1;
 
   // get list of deps for the input file.
   struct StringList *dt_needed = mdl_elf_get_dt_needed (item);
