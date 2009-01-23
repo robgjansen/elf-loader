@@ -40,4 +40,7 @@ struct MappedFile *mdl_elf_main_file_new (unsigned long phnum,
 					  const char **envp);
 unsigned long mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file);
 
+void mdl_elf_tls (struct MappedFile *file);
+void mdl_elf_tcb_initialize (unsigned long sysinfo);
+
 #endif /* MDL_ELF_H */

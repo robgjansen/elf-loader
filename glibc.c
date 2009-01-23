@@ -86,47 +86,10 @@ void glibc_startup_finished (void)
   _dl_starting_up = 1;
 }
 
-struct i386_tcbhead
-{
-  void *tcb;
-  void *dtv;
-  void *self;
-  int multiple_threads;
-  uintptr_t sysinfo;
-  uintptr_t stack_guard;
-  uintptr_t pointer_guard;
-  int gscope_flag;
-  int private_futex;
-};
-
-static void initialize_tcb (unsigned long sysinfo)
-{
-  struct i386_tcbhead *tcb = mdl_new (struct i386_tcbhead);
-  mdl_memset (tcb, sizeof (*tcb), 0);
-  tcb->sysinfo = sysinfo;
-  struct user_desc desc;
-  mdl_memset (&desc, 0, sizeof (desc));
-  desc.entry_number = -1; // ask kernel to allocate an entry number
-  desc.base_addr = (unsigned int)tcb;
-  desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
-  desc.seg_32bit = 1;
-
-  desc.contents = 0;
-  desc.read_exec_only = 0;
-  desc.limit_in_pages = 1;
-  desc.seg_not_present = 0;
-  desc.useable = 1;
-  
-  int status = system_set_thread_area (&desc);
-  MDL_ASSERT (status == 0, "Unable to set TCB");
-
-  machine_finish_tls_setup (desc.entry_number);
-}
 
 void glibc_initialize (unsigned long sysinfo)
 {
   _dl_open_hook = &g_dl_open_hook;
-  initialize_tcb (sysinfo);
 }
 
 

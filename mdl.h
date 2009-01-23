@@ -59,19 +59,23 @@ struct MappedFile
   unsigned long rw_size;
   unsigned long zero_start;
   unsigned long zero_size;
-  uint32_t has_deps : 1;
+  uint32_t deps_initialized : 1;
+  uint32_t tls_initialized : 1;
   uint32_t init_called : 1;
   uint32_t fini_called : 1;
   uint32_t reloced : 1;
   uint32_t patched : 1;
   uint32_t has_tls : 1;
-  unsigned long tls_init_start;
-  unsigned long tls_init_size;
+  uint32_t is_initial : 1;
+  unsigned long tls_tmpl_start;
+  unsigned long tls_tmpl_size;
   unsigned long tls_init_zero_size;
-  unsigned long tls_index;
-  unsigned long tls_size;
   unsigned long tls_align;
-  unsigned long tls_offset;
+  unsigned long tls_index;
+  // offset from thread pointer to this module
+  // this field is valid only for modules which
+  // are loaded at startup.
+  signed long tls_offset;
   enum LookupType lookup_type;
   struct Context *context;
   struct MappedFileList *local_scope;
@@ -138,6 +142,7 @@ struct Mdl
   struct Alloc alloc;
   uint32_t bind_now : 1;
   struct Context *contexts;
+  unsigned long tls_gen;
 };
 
 
@@ -218,6 +223,8 @@ struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list,
 struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
 					     struct MappedFileList *end);
 void mdl_file_list_unicize (struct MappedFileList *list);
+unsigned long mdl_align_down (unsigned long v, unsigned long align);
+unsigned long mdl_align_up (unsigned long v, unsigned long align);
 
 
 

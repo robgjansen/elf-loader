@@ -40,19 +40,6 @@ void machine_perform_relocation (struct MappedFile *file,
       MDL_LOG_RELOC (rel);
     }
 }
-void machine_finish_tls_setup (unsigned int entry)
-{
-  // set_thread_area allocated an entry in the GDT and returned
-  // the index associated to this entry. So, now, we associate
-  // %gs with this newly-allocated entry.
-  // Bits 3 to 15 indicate the entry index.
-  // Bit 2 is set to 0 to indicate that we address the GDT through
-  // this segment selector.
-  // Bits 0 to 1 indicate the privilege level requested (here, 3,
-  // is the least privileged level)
-  int gs = (entry << 3) | 3;
-  __asm ("movw %w0, %%gs" :: "q" (gs));
-}
 
 void machine_insert_trampoline (unsigned long from, unsigned long to)
 {
@@ -73,3 +60,78 @@ void machine_insert_trampoline (unsigned long from, unsigned long to)
   buffer[4] = (delta_unsigned >> 24) & 0xff;
   system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
 }
+
+struct i386_tcbhead
+{
+  void *tcb;
+  void *dtv;
+  void *self;
+  int multiple_threads;
+  uintptr_t sysinfo;
+  uintptr_t stack_guard;
+  uintptr_t pointer_guard;
+  int gscope_flag;
+  int private_futex;
+};
+
+void machine_tcb_allocate_and_set (unsigned long tcb_size)
+{
+  unsigned long total_size = sizeof (struct i386_tcbhead) + tcb_size;
+  unsigned long buffer = (unsigned long) mdl_malloc (total_size);
+  mdl_memset ((void*)buffer, 0, total_size);
+  struct i386_tcbhead *tcb = (struct i386_tcbhead *)(buffer + tcb_size);
+  tcb->tcb = tcb;
+  struct user_desc desc;
+  mdl_memset (&desc, 0, sizeof (desc));
+  desc.entry_number = -1; // ask kernel to allocate an entry number
+  desc.base_addr = buffer + tcb_size;
+  desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
+  desc.seg_32bit = 1;
+
+  desc.contents = 0;
+  desc.read_exec_only = 0;
+  desc.limit_in_pages = 1;
+  desc.seg_not_present = 0;
+  desc.useable = 1;
+  
+  int status = system_set_thread_area (&desc);
+  MDL_ASSERT (status == 0, "Unable to set TCB");
+
+  // set_thread_area allocated an entry in the GDT and returned
+  // the index associated to this entry. So, now, we associate
+  // %gs with this newly-allocated entry.
+  // Bits 3 to 15 indicate the entry index.
+  // Bit 2 is set to 0 to indicate that we address the GDT through
+  // this segment selector.
+  // Bits 0 to 1 indicate the privilege level requested (here, 3,
+  // is the least privileged level)
+  int gs = (desc.entry_number << 3) | 3;
+  asm ("movw %w0, %%gs" :: "q" (gs));
+}
+void machine_tcb_set_dtv (unsigned long *dtv)
+{
+  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
+  tcb->dtv = (void*)dtv;
+}
+void machine_tcb_set_sysinfo (unsigned long sysinfo)
+{
+  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
+  tcb->sysinfo = sysinfo;
+}
+unsigned long machine_tcb_get (void)
+{
+  unsigned long value;
+  asm ("movl %%gs:0,%0" : "=r" (value) :);
+  return value;
+}
+unsigned long *machine_tcb_get_dtv (void)
+{
+  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
+  return tcb->dtv;
+}
+unsigned long machine_tcb_get_sysinfo (void)
+{
+  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
+  return tcb->sysinfo;
+}
+

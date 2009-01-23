@@ -215,18 +215,96 @@ setup_env_vars (const char **envp)
     }
 }
 
+static int
+is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
+{
+  // the file is already mapped in memory so, we reverse-engineer its setup
+  struct FileInfo info;
+  MDL_ASSERT (mdl_elf_file_get_info (phnum,phdr, &info),
+	      "Unable to obtain information about main program");
+
+  MDL_ASSERT (phdr->p_type == PT_PHDR,
+	      "The first program header is not a PT_PHDR");
+  // If we assume that the first program in the program header table is the PT_HDR
+  // The load base of the main program is easy to calculate as the difference
+  // between the PT_PHDR vaddr and its real address in memory.
+  unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
+  // Now, go to dynamic section and look at its DT_SONAME entry
+  ElfW(Dyn) *cur = (ElfW(Dyn) *) (load_base + info.dynamic);
+  unsigned long dt_strtab = 0;
+  unsigned long dt_soname = 0;
+  while (cur->d_tag != DT_NULL)
+    {
+      if (cur->d_tag == DT_SONAME)
+	{
+	  dt_soname = cur->d_un.d_val;
+	}
+      else if (cur->d_tag == DT_STRTAB)
+	{
+	  dt_strtab = cur->d_un.d_val + load_base;
+	}
+      cur++;
+    }
+  if (dt_soname == 0)
+    {
+      return 0;
+    }
+  MDL_ASSERT (dt_strtab != 0, "Could not find dt_strtab");
+  char *soname = (char *)(dt_strtab + dt_soname);
+  return mdl_strisequal (soname, LDSO_SONAME);
+}
 static void stage2 (struct OsArgs args)
 {
   mdl_initialize (args.interpreter_load_base);
 
   setup_env_vars (args.program_envp);
 
-  struct MappedFile *main_file = mdl_elf_main_file_new (args.program_phnum,
-							args.program_phdr,
-							args.program_argc,
-							args.program_argv,
-							args.program_envp);
-  struct Context *context = main_file->context;
+  struct MappedFile *main_file;
+  struct Context *context;
+  if (is_loader (args.program_phnum, args.program_phdr))
+    {
+      // the interpreter is run as a normal program. We behave like the libc
+      // interpreter and assume that this means that the name of the program
+      // to run is the first argument in the argv.
+      MDL_ASSERT (args.program_argc >= 2, "Not enough arguments to run loader");
+
+      const char *program = args.program_argv[1];
+      args.program_argv++;
+      args.program_argc--;
+      // We need to do what the kernel usually does for us, that is,
+      // search the file, and map it in memory
+      char *filename = mdl_elf_search_file (program);
+      MDL_ASSERT (filename != 0, "Could not find main binary");
+      context = mdl_context_new (args.program_argc,
+				 args.program_argv,
+				 args.program_envp);
+
+      // the filename for the main exec is "" for gdb.
+      main_file = mdl_elf_map_single (context, program, "");
+    }
+  else
+    {
+      // here, the file is already mapped so, we just create the 
+      // right data structure
+      struct FileInfo info;
+      MDL_ASSERT (mdl_elf_file_get_info (args.program_phnum, args.program_phdr, &info),
+		  "Unable to obtain information about main program");
+
+      // The load base of the main program is easy to calculate as the difference
+      // between the PT_PHDR vaddr and its real address in memory.
+      unsigned long load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
+
+      context = mdl_context_new (args.program_argc,
+				 args.program_argv,
+				 args.program_envp);
+
+      // the filename for the main exec is "" for gdb.
+      main_file = mdl_file_new (load_base,
+				&info,
+				"",
+				args.program_argv[0],
+				context);
+    }
   gdb_initialize (main_file);
 
   // add the interpreter itself to the link map to ensure that it is
@@ -243,23 +321,63 @@ static void stage2 (struct OsArgs args)
 
   global_scope = do_ld_preload (context, global_scope, args.program_envp);
 
-  if (!mdl_elf_map_deps (main_file))
-    {
-      MDL_LOG_ERROR ("Unable to map main file and dependencies\n", 1);
-      //XXX: mdl_elf_unmap_recursive (main_file);
-      goto error;
-    }
-
+  MDL_ASSERT (mdl_elf_map_deps (main_file), 
+	      "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
   struct MappedFileList *all_deps = mdl_elf_gather_all_deps_breadth_first (main_file);
   global_scope = mdl_file_list_append (global_scope, all_deps);
   mdl_file_list_unicize (global_scope);
-
-  // all files hold a pointer back to the context so they can find 
-  // the global scope when they needed it.
   context->global_scope = global_scope;
+
+  // We gather tls information for each module. We need to
+  // do this before relocation because the TLS-type relocations 
+  // need this tls information.
+  {
+    struct MappedFile *cur;
+    for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      {
+	mdl_elf_tls (cur);
+      }
+  }
+  // Then, we calculate the size of the memory needed for the 
+  // static and local tls model
+  {
+    unsigned long tcb_size = 0;
+    unsigned long n_dtv = 0;
+    struct MappedFile *cur;
+    for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      {
+	if (cur->has_tls)
+	  {
+	    tcb_size += cur->tls_tmpl_size + cur->tls_init_zero_size;
+	    tcb_size = mdl_align_up (tcb_size, cur->tls_align);
+	    n_dtv++;
+	    cur->tls_offset = - tcb_size;
+	  }
+      }
+    machine_tcb_allocate_and_set (tcb_size);
+    unsigned long tcb = machine_tcb_get ();
+    machine_tcb_set_sysinfo (args.sysinfo);
+    unsigned long *dtv = mdl_malloc ((1+n_dtv) * sizeof (unsigned long));
+    dtv[0] = g_mdl.tls_gen;
+    g_mdl.tls_gen++;
+    unsigned long i; // starts at 1 because 0 contains the generation
+    for (i = 1, cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      {
+	if (cur->has_tls)
+	  {
+	    // setup the dtv to point to the tls block
+	    dtv[i] = tcb + cur->tls_offset;
+	    // copy the template in the module tls block
+	    mdl_memcpy ((void*)dtv[i], (void*)cur->tls_tmpl_start, cur->tls_tmpl_size);
+	    mdl_memset ((void*)(dtv[i] + cur->tls_tmpl_size), 0, cur->tls_init_zero_size);
+	    i++;
+	  }
+      }
+    machine_tcb_set_dtv (dtv);
+  }
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
@@ -273,13 +391,13 @@ static void stage2 (struct OsArgs args)
   }
 
   // Note that we must invoke this method to notify gdb that we have
-  // a valid linkmap only _after_ relocations have been done and _before_
-  // the initializers are run (to allow the user to debug the initializers).
+  // a valid linkmap only _after_ relocations have been done (if you do
+  // it before, gdb gets confused) and _before_ the initializers are 
+  // run (to allow the user to debug the initializers).
   gdb_notify ();
 
-  glibc_initialize (args.sysinfo);
-
   // patch glibc functions which need to be overriden.
+  // This is really a hack I am not very proud of.
   {
     struct MappedFile *cur;
     for (cur = g_mdl.link_map; cur != 0; cur = cur->next)

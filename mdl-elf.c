@@ -103,8 +103,6 @@ char *mdl_elf_search_file (const char *name)
     }
   return 0;
 }
-#define ALIGN_DOWN(v,align) ((v)-((v)%align))
-#define ALIGN_UP(v,align) ((v)+(align-((v)%align)))
 struct MappedFile *mdl_elf_map_single (struct Context *context, 
 				       const char *filename, 
 				       const char *name)
@@ -329,11 +327,11 @@ int mdl_elf_map_deps (struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("file=%s", item->name);
 
-  if (item->has_deps)
+  if (item->deps_initialized)
     {
       return 1;
     }
-  item->has_deps = 1;
+  item->deps_initialized = 1;
 
   // get list of deps for the input file.
   struct StringList *dt_needed = mdl_elf_get_dt_needed (item);
@@ -485,14 +483,14 @@ int mdl_elf_file_get_info (uint32_t phnum,
     }
 
 
-  unsigned long ro_start = ALIGN_DOWN (ro->p_vaddr, ro->p_align);
-  unsigned long ro_size = ALIGN_UP (ro->p_memsz, ro->p_align);
-  unsigned long rw_start = ALIGN_DOWN (rw->p_vaddr, rw->p_align);
-  unsigned long rw_size = ALIGN_UP (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
-  unsigned long zero_size = ALIGN_UP (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
-  unsigned long zero_start = ALIGN_UP (rw->p_vaddr + rw->p_filesz, rw->p_align);
-  unsigned long ro_file_offset = ALIGN_DOWN (ro->p_offset, ro->p_align);
-  unsigned long rw_file_offset = ALIGN_DOWN (rw->p_offset, rw->p_align);
+  unsigned long ro_start = mdl_align_down (ro->p_vaddr, ro->p_align);
+  unsigned long ro_size = mdl_align_up (ro->p_memsz, ro->p_align);
+  unsigned long rw_start = mdl_align_down (rw->p_vaddr, rw->p_align);
+  unsigned long rw_size = mdl_align_up (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
+  unsigned long zero_size = mdl_align_up (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
+  unsigned long zero_start = mdl_align_up (rw->p_vaddr + rw->p_filesz, rw->p_align);
+  unsigned long ro_file_offset = mdl_align_down (ro->p_offset, ro->p_align);
+  unsigned long rw_file_offset = mdl_align_down (rw->p_offset, rw->p_align);
   unsigned long memset_zero_start = rw->p_vaddr+rw->p_filesz;
   unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
   if (ro_start + ro_size != rw_start)
@@ -814,95 +812,62 @@ void mdl_elf_reloc (struct MappedFile *file)
     }
 }
 
-static int
-is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
+static unsigned long
+mdl_elf_allocate_tls_index (void)
 {
-  // the file is already mapped in memory so, we reverse-engineer its setup
-  struct FileInfo info;
-  MDL_ASSERT (mdl_elf_file_get_info (phnum,phdr, &info),
-	      "Unable to obtain information about main program");
-
-  MDL_ASSERT (phdr->p_type == PT_PHDR,
-	      "The first program header is not a PT_PHDR");
-  // If we assume that the first program in the program header table is the PT_HDR
-  // The load base of the main program is easy to calculate as the difference
-  // between the PT_PHDR vaddr and its real address in memory.
-  unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
-  // Now, go to dynamic section and look at its DT_SONAME entry
-  ElfW(Dyn) *cur = (ElfW(Dyn) *) (load_base + info.dynamic);
-  unsigned long dt_strtab = 0;
-  unsigned long dt_soname = 0;
-  while (cur->d_tag != DT_NULL)
+  // This is the slowest but simplest implementation possible
+  // For each possible module index, we try to find a module
+  // which has been already assigned that module index.
+  // If it has been already assigned, we try another one, otherwise,
+  // we return it.
+  unsigned long i;
+  unsigned long ul_max = 0;
+  ul_max = ~ul_max;
+  for (i = 1; i < ul_max; i++)
     {
-      if (cur->d_tag == DT_SONAME)
+      struct MappedFile *cur;
+      for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
 	{
-	  dt_soname = cur->d_un.d_val;
+	  if (cur->has_tls && cur->tls_index == i)
+	    {
+	      break;
+	    }
 	}
-      else if (cur->d_tag == DT_STRTAB)
+      if (cur == 0)
 	{
-	  dt_strtab = cur->d_un.d_val + load_base;
+	  return i;
 	}
-      cur++;
     }
-  if (dt_soname == 0)
-    {
-      return 0;
-    }
-  MDL_ASSERT (dt_strtab != 0, "Could not find dt_strtab");
-  char *soname = (char *)(dt_strtab + dt_soname);
-  return mdl_strisequal (soname, LDSO_SONAME);
+  MDL_ASSERT (0, "All tls module indexes are used up ? impossible !");
+  return 0; // quiet compiler
 }
 
-struct MappedFile *
-mdl_elf_main_file_new (unsigned long phnum,
-		       ElfW(Phdr)*phdr,
-		       int argc, 
-		       const char **argv, 
-		       const char **envp)
+void mdl_elf_tls (struct MappedFile *file)
 {
-  struct MappedFile *main_file;
-  if (is_loader (phnum, phdr))
+  if (file->tls_initialized)
     {
-      // the interpreter is run as a normal program. We behave like the libc
-      // interpreter and assume that this means that the name of the program
-      // to run is the first argument in the argv.
-      MDL_ASSERT (argc >= 2, "Not enough arguments to run loader");
-      const char *program = argv[1];
-      argv++;
-      argc--;
-      // We need to do what the kernel usually does for us, that is,
-      // search the file, and map it in memory
-      char *filename = mdl_elf_search_file (program);
-      MDL_ASSERT (filename != 0, "Could not find main binary");
-      struct Context *context = mdl_context_new (argc,
-						 argv,
-						 envp);
-
-      // the filename for the main exec is "" for gdb.
-      main_file = mdl_elf_map_single (context, program, "");
+      return;
     }
-  else
+  file->tls_initialized = 1;
+
+  ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_start;
+  ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_start + header->e_phoff);
+  ElfW(Phdr) *pt_tls = mdl_elf_search_phdr (phdr, header->e_phnum, PT_TLS);
+  if (pt_tls == 0)
     {
-      // here, the file is already mapped so, we just create the 
-      // right data structure
-      struct FileInfo info;
-      MDL_ASSERT (mdl_elf_file_get_info (phnum, phdr, &info),
-		  "Unable to obtain information about main program");
-
-      // The load base of the main program is easy to calculate as the difference
-      // between the PT_PHDR vaddr and its real address in memory.
-      unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
-
-      struct Context *context = mdl_context_new (argc,
-						 argv,
-						 envp);
-
-      // the filename for the main exec is "" for gdb.
-      main_file = mdl_file_new (load_base,
-				&info,
-				"",
-				argv[0],
-				context);
+      file->has_tls = 0;
+      return;
     }
-  return main_file;
+  file->has_tls = 1;
+  file->tls_tmpl_start = file->ro_start + pt_tls->p_offset;
+  file->tls_tmpl_size = pt_tls->p_filesz;
+  file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
+  file->tls_align = pt_tls->p_align;
+  file->tls_index = mdl_elf_allocate_tls_index ();
+
+  struct MappedFileList *cur;
+  for (cur = file->deps; cur != 0; cur = cur->next)
+    {
+      mdl_elf_tls (cur->item);
+    }
 }

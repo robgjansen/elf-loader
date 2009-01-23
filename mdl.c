@@ -10,7 +10,7 @@ static struct StringList *
 get_system_search_dirs (void)
 {
   // XXX: first is for my ubuntu box.
-  const char *dirs[] = {"/lib/tls/i686/cmov/",
+  const char *dirs[] = {"/lib/tls/i686/cmov",
 			"/lib", "/lib64", "/lib32",
 			"/usr/lib", "/usr/lib64", "/usr/lib32"};
   struct StringList *list = 0;
@@ -45,7 +45,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   // populate search dirs from system directories
   mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
 					  get_system_search_dirs ());
-
+  mdl->tls_gen = 1;
 }
 
 void mdl_linkmap_print (void)
@@ -183,11 +183,13 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->rw_size = info->rw_size;
   file->zero_start = load_base + info->zero_start;
   file->zero_size = info->zero_size;
-  file->has_deps = 0;
+  file->deps_initialized = 0;
+  file->tls_initialized = 0;
   file->init_called = 0;
   file->fini_called = 0;
   file->reloced = 0;
   file->patched = 0;
+  file->is_initial = 0;
   file->local_scope = 0;
   file->deps = 0;
   file->name = mdl_strdup (name);
@@ -598,5 +600,22 @@ void mdl_file_list_unicize (struct MappedFileList *list)
 	}
     }
 }
-
+unsigned long mdl_align_down (unsigned long v, unsigned long align)
+{
+  if ((v % align) == 0)
+    {
+      return v;
+    }
+  unsigned long aligned = v - (v % align);
+  return aligned;
+}
+unsigned long mdl_align_up (unsigned long v, unsigned long align)
+{
+  if ((v % align) == 0)
+    {
+      return v;
+    }
+  unsigned long aligned = v + align - (v % align);
+  return aligned;
+}
 
