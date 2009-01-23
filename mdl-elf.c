@@ -551,9 +551,10 @@ mdl_elf_hash (const char *n)
   return h;
 }
 
-static unsigned long 
+static int
 do_symbol_lookup_one (const char *name, unsigned long hash,
-		      const struct MappedFile *file)
+		      const struct MappedFile *file,
+		      struct SymbolMatch *match)
 
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->name);
@@ -582,8 +583,9 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
       // the load base
       if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
 	{
-	  unsigned long v = file->load_base + dt_symtab[index].st_value;
-	  return v;
+	  match->file = file;
+	  match->symbol = &dt_symtab[index];
+	  return 1;
 	}
     }
 
@@ -599,8 +601,9 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
 	{
 	  if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
 	    {
-	      unsigned long v = file->load_base + dt_symtab[index].st_value;
-	      return v;
+	      match->file = file;
+	      match->symbol = &dt_symtab[index];
+	      return 1;
 	    }
 	}
     }
@@ -608,47 +611,52 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
 }
 
 
-static unsigned long 
+static int
 do_symbol_lookup (const char *name, unsigned long hash,
-		  struct MappedFileList *scope)
+		  struct MappedFileList *scope,
+		  struct SymbolMatch *match)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
   // then, iterate scope until we find the requested symbol.
-  unsigned long addr;
   struct MappedFileList *cur;
   for (cur = scope; cur != 0; cur = cur->next)
     {
-      addr = do_symbol_lookup_one (name, hash, cur->item);
-      if (addr != 0)
+      int ok = do_symbol_lookup_one (name, hash, cur->item, match);
+      if (ok)
 	{
-	  return addr;
+	  return 1;
 	}
     }
   return 0;
 }
 
-unsigned long
-mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file)
+int 
+mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
+		       struct SymbolMatch *match)
 {
   // calculate the hash here to avoid calculating 
   // it twice in both calls to symbol_lookup
   unsigned long hash = mdl_elf_hash (name);
 
   // lookup the symbol in the global scope first
-  unsigned long addr = do_symbol_lookup (name, hash, file->context->global_scope);
-  if (addr == 0)
+  int ok = do_symbol_lookup (name, hash, file->context->global_scope, match);
+  if (!ok)
     {
       // and in the local scope.
-      addr = do_symbol_lookup (name, hash, file->local_scope);
+      ok = do_symbol_lookup (name, hash, file->local_scope, match);
     }
-  return addr;
+  return ok;
 }
 unsigned long 
 mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
 {
   unsigned long hash = mdl_elf_hash (name);
-  unsigned long addr = do_symbol_lookup_one (name, hash, file);
-  return addr;
+  struct SymbolMatch match;
+  if (!do_symbol_lookup_one (name, hash, file, &match))
+    {
+      return 0;
+    }
+  return match.file->load_base + match.symbol->st_value;
 }
 
 
@@ -719,27 +727,12 @@ unsigned long mdl_elf_get_entry_point (struct MappedFile *file)
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
   return header->e_entry + file->load_base;
 }
-static const char *
-rel_to_symbol_name (ElfW(Rel) *rel,
-		    const char *dt_strtab,
-		    ElfW(Sym) *dt_symtab)
-{
-  ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-  const char *symbol_name;
-  if (sym->st_name == 0)
-    {
-      symbol_name = 0;
-    }
-  else
-    {
-      symbol_name = dt_strtab + sym->st_name;
-    }
-  return symbol_name;
-}
 void
-mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *file,
-							    ElfW(Rel) *rel,
-							    const char *name))
+mdl_elf_iterate_pltrel (struct MappedFile *file, 
+			void (*cb)(const struct MappedFile *file,
+				   const ElfW(Rel) *rel,
+				   const ElfW(Sym) *sym,
+				   const char *name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)mdl_elf_file_get_dynamic_p (file, DT_JMPREL);
@@ -758,15 +751,25 @@ mdl_elf_iterate_pltrel (struct MappedFile *file, void (*cb)(struct MappedFile *f
   for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
     {
       ElfW(Rel) *rel = &dt_jmprel[i];
-      const char *symbol_name = rel_to_symbol_name (rel, dt_strtab, dt_symtab);
-      (*cb) (file, rel, symbol_name);
+      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+      const char *symbol_name;
+      if (sym->st_name == 0)
+	{
+	  symbol_name = 0;
+	}
+      else
+	{
+	  symbol_name = dt_strtab + sym->st_name;
+	}
+      (*cb) (file, rel, sym, symbol_name);
     }
 }
 
 void
 mdl_elf_iterate_rel (struct MappedFile *file, 
-		     void (*cb)(struct MappedFile *file,
-				ElfW(Rel) *rel,
+		     void (*cb)(const struct MappedFile *file,
+				const ElfW(Rel) *rel,
+				const ElfW(Sym) *sym,
 				const char *symbol_name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
@@ -784,8 +787,17 @@ mdl_elf_iterate_rel (struct MappedFile *file,
   for (i = 0; i < dt_relsz/dt_relent; i++)
     {
       ElfW(Rel) *rel = &dt_rel[i];
-      const char *symbol_name = rel_to_symbol_name (rel, dt_strtab, dt_symtab);
-      (*cb) (file, rel, symbol_name);
+      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+      const char *symbol_name;
+      if (sym->st_name == 0)
+	{
+	  symbol_name = 0;
+	}
+      else
+	{
+	  symbol_name = dt_strtab + sym->st_name;
+	}
+      (*cb) (file, rel, sym, symbol_name);
     }
 }
 

@@ -26,13 +26,15 @@ struct MappedFileList *mdl_elf_gather_all_deps_breadth_first (struct MappedFile 
 unsigned long mdl_elf_hash (const char *n);
 void mdl_elf_call_init (struct MappedFile *file);
 unsigned long mdl_elf_get_entry_point (struct MappedFile *file);
-void mdl_elf_iterate_pltrel (struct MappedFile *file, 
-			     void (*cb)(struct MappedFile *file,
-					ElfW(Rel) *rel,
-					const char *name));
 void mdl_elf_reloc (struct MappedFile *file);
 ElfW(Dyn) *mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag);
-unsigned long mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file);
+struct SymbolMatch
+{
+  const struct MappedFile *file;
+  const ElfW(Sym) *symbol;
+};
+int mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
+			   struct SymbolMatch *match);
 struct MappedFile *mdl_elf_main_file_new (unsigned long phnum,
 					  ElfW(Phdr)*phdr,
 					  int argc, 

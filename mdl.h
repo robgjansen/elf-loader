@@ -200,9 +200,9 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
 #define MDL_LOG_SYMBOL_FAIL(symbol,file)					 \
   mdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
 		  symbol, file->name)
-#define MDL_LOG_SYMBOL_OK(symbol,file)					 \
-  mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, file=%s\n", \
-		  symbol, file->name)
+#define MDL_LOG_SYMBOL_OK(symbol,from,in)					\
+  mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=%s, in file=%s\n", \
+		  symbol, from->name, in->name)
 #define MDL_LOG_RELOC(rel)				      \
   mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x\n", \
 		  ELFW_R_TYPE (rel->r_info))

@@ -4,12 +4,14 @@
 #include <sys/mman.h>
 
 
-void machine_perform_relocation (struct MappedFile *file,
-				 ElfW(Rel) *rel,
+void machine_perform_relocation (const struct MappedFile *file,
+				 const ElfW(Rel) *rel,
+				 const ElfW(Sym) *sym,
 				 const char *symbol_name)
 {
   MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
-		    file->name, (symbol_name != 0)?symbol_name:"", rel->r_offset,
+		    file->name, (symbol_name != 0)?symbol_name:"", 
+		    rel->r_offset,
 		    ELFW_R_TYPE (rel->r_info));
   unsigned long type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
@@ -18,22 +20,38 @@ void machine_perform_relocation (struct MappedFile *file,
       type == R_386_GLOB_DAT ||
       type == R_386_32)
     {
-      unsigned long addr = mdl_elf_symbol_lookup (symbol_name, file);
-      if (addr == 0)
+      struct SymbolMatch match;
+      if (!mdl_elf_symbol_lookup (symbol_name, file, &match))
 	{
 	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
-	  // if the symbol resolution has failed, it's
-	  // not a big deal because we might never call
-	  // this function so, we ignore the error for now
+	  // if the symbol resolution has failed, it's could
+	  // be that it's not a big deal.
 	  return;
 	}
-      MDL_LOG_SYMBOL_OK (symbol_name, file);
+      MDL_LOG_SYMBOL_OK (symbol_name, file, match.file);
       // apply the address to the relocation
-      *reloc_addr = addr;
+      *reloc_addr = match.file->load_base + match.symbol->st_value;
     }
   else if (type == R_386_RELATIVE)
     {
       *reloc_addr += file->load_base;
+    }
+  else if (type == R_386_COPY)
+    {
+      struct SymbolMatch match;
+      if (!mdl_elf_symbol_lookup (symbol_name, file, &match))
+	{
+	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
+	  // if the symbol resolution has failed, it's could
+	  // be that it's not a big deal.
+	  return;
+	}
+      MDL_LOG_SYMBOL_OK (symbol_name, file, match.file);
+      MDL_ASSERT (match.symbol->st_size == sym->st_size,
+		  "Symbols don't have the same size: likely a recipe for disaster.");
+      mdl_memcpy (reloc_addr, 
+		  (void*)(match.file->load_base + match.symbol->st_value),
+		  match.symbol->st_size);
     }
   else
     {
@@ -74,13 +92,18 @@ struct i386_tcbhead
   int private_futex;
 };
 
+// stole from readelf -wi /usr/lib/debug/libpthread.so.0
+// struct pthread includes struct i386_tcbhead as its first member
+#define PTHREAD_SIZE (1136)
+
 void machine_tcb_allocate_and_set (unsigned long tcb_size)
 {
-  unsigned long total_size = sizeof (struct i386_tcbhead) + tcb_size;
+  unsigned long total_size = PTHREAD_SIZE + tcb_size;
   unsigned long buffer = (unsigned long) mdl_malloc (total_size);
   mdl_memset ((void*)buffer, 0, total_size);
   struct i386_tcbhead *tcb = (struct i386_tcbhead *)(buffer + tcb_size);
   tcb->tcb = tcb;
+  tcb->self = tcb; // the tcb is the first member of struct pthread
   struct user_desc desc;
   mdl_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number
