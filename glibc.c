@@ -87,7 +87,7 @@ void glibc_startup_finished (void)
 }
 
 
-void glibc_initialize (unsigned long sysinfo)
+void glibc_initialize (void)
 {
   _dl_open_hook = &g_dl_open_hook;
 }

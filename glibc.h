@@ -10,7 +10,7 @@ struct MappedFile;
 // just before calling the executable's entry point.
 void glibc_startup_finished (void);
 
-void glibc_initialize (unsigned long sysinfo);
+void glibc_initialize (void);
 
 void glibc_patch (struct MappedFile *file);
 
