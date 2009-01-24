@@ -8,12 +8,17 @@ PWD=$(shell pwd)
 
 all: ldso elfedit hello hello-ldso
 
+%.c: config.h
+
 %.o:%.c
 	$(CC) $(CFLAGS) -I$(PWD) -I$(PWD)/i386 -fpie -fvisibility=hidden -o $@ -c $<
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso: ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/start-trampoline.o
 	$(LD) $(LDFLAGS) -e stage1 -pie -nostdlib -fvisibility=hidden --dynamic-list=ldso.dyn --dynamic-linker=ldso --soname=$(LDSO_SONAME) -o $@ $^ $(LIBGCC)
+
+config.h:
+	readelf -wi /usr/lib/debug/ld-linux.so.2 | ./extract-system-config.py > $@
 
 hello.o: hello.c
 	$(CC) $(CFLAGS) -o $@ -c $<
