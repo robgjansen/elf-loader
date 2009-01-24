@@ -1,6 +1,7 @@
 #include "machine.h"
 #include "mdl-elf.h"
 #include "mdl.h"
+#include "config.h"
 #include <sys/mman.h>
 
 
@@ -10,25 +11,30 @@ void machine_perform_relocation (const struct MappedFile *file,
 				 const char *symbol_name)
 {
   MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
-		    file->name, (symbol_name != 0)?symbol_name:"", 
+		    file->filename, (symbol_name != 0)?symbol_name:"", 
 		    rel->r_offset,
 		    ELFW_R_TYPE (rel->r_info));
   unsigned long type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
+  struct SymbolMatch match;
+  if (symbol_name != 0)
+    {
+      if (!mdl_elf_symbol_lookup (symbol_name, file, &match))
+	{
+	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
+	  // if the symbol resolution has failed, it could
+	  // be that it's not a big deal.
+	  return;
+	}
+      MDL_LOG_SYMBOL_OK (symbol_name, file, match.file);
+      MDL_LOG_DEBUG ("a=0x%x, b=0x%x\n", match.symbol->st_size, sym->st_size);
+    }
+
 
   if (type == R_386_JMP_SLOT || 
       type == R_386_GLOB_DAT ||
       type == R_386_32)
     {
-      struct SymbolMatch match;
-      if (!mdl_elf_symbol_lookup (symbol_name, file, &match))
-	{
-	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
-	  // if the symbol resolution has failed, it's could
-	  // be that it's not a big deal.
-	  return;
-	}
-      MDL_LOG_SYMBOL_OK (symbol_name, file, match.file);
       // apply the address to the relocation
       *reloc_addr = match.file->load_base + match.symbol->st_value;
     }
@@ -38,20 +44,52 @@ void machine_perform_relocation (const struct MappedFile *file,
     }
   else if (type == R_386_COPY)
     {
-      struct SymbolMatch match;
-      if (!mdl_elf_symbol_lookup (symbol_name, file, &match))
-	{
-	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
-	  // if the symbol resolution has failed, it's could
-	  // be that it's not a big deal.
-	  return;
-	}
-      MDL_LOG_SYMBOL_OK (symbol_name, file, match.file);
       MDL_ASSERT (match.symbol->st_size == sym->st_size,
 		  "Symbols don't have the same size: likely a recipe for disaster.");
       mdl_memcpy (reloc_addr, 
 		  (void*)(match.file->load_base + match.symbol->st_value),
 		  match.symbol->st_size);
+    }
+  else if (type == R_386_TLS_TPOFF)
+    {
+      if (symbol_name != 0)
+	{
+	  MDL_ASSERT (match.file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+	  MDL_ASSERT (ELFW_ST_TYPE (match.symbol->st_info) == STT_TLS,
+		      "Target symbol is not a tls symbol ??");
+	  *reloc_addr += match.file->tls_offset + match.symbol->st_value;
+	}
+      else
+	{
+	  *reloc_addr += file->tls_offset + sym->st_value;
+	}
+    }
+  else if (type == R_386_TLS_DTPMOD32)
+    {
+      if (symbol_name != 0)
+	{
+	  MDL_ASSERT (match.file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+	  *reloc_addr = match.file->tls_index;
+	}
+      else
+	{
+	  *reloc_addr = file->tls_index;
+	}
+    }
+  else if (type == R_386_TLS_DTPOFF32)
+    {
+      if (symbol_name != 0)
+	{
+	  MDL_ASSERT (match.file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+	  *reloc_addr = match.symbol->st_value;
+	}
+      else
+	{
+	  *reloc_addr = sym->st_value;
+	}
     }
   else
     {
@@ -92,22 +130,18 @@ struct i386_tcbhead
   int private_futex;
 };
 
-// stole from readelf -wi /usr/lib/debug/libpthread.so.0
-// struct pthread includes struct i386_tcbhead as its first member
-#define PTHREAD_SIZE (1136)
-
 void machine_tcb_allocate_and_set (unsigned long tcb_size)
 {
-  unsigned long total_size = PTHREAD_SIZE + tcb_size;
+  unsigned long total_size = tcb_size + CONFIG_TCB_SIZE;
   unsigned long buffer = (unsigned long) mdl_malloc (total_size);
   mdl_memset ((void*)buffer, 0, total_size);
-  struct i386_tcbhead *tcb = (struct i386_tcbhead *)(buffer + tcb_size);
-  tcb->tcb = tcb;
-  tcb->self = tcb; // the tcb is the first member of struct pthread
+  unsigned long tcb = buffer + tcb_size;
+  mdl_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
+  mdl_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
   struct user_desc desc;
   mdl_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number
-  desc.base_addr = buffer + tcb_size;
+  desc.base_addr = tcb;
   desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
   desc.seg_32bit = 1;
 
@@ -133,13 +167,13 @@ void machine_tcb_allocate_and_set (unsigned long tcb_size)
 }
 void machine_tcb_set_dtv (unsigned long *dtv)
 {
-  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
-  tcb->dtv = (void*)dtv;
+  unsigned long tcb = machine_tcb_get ();
+  mdl_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
 }
 void machine_tcb_set_sysinfo (unsigned long sysinfo)
 {
-  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
-  tcb->sysinfo = sysinfo;
+  unsigned long tcb = machine_tcb_get ();
+  mdl_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
 }
 unsigned long machine_tcb_get (void)
 {
@@ -149,12 +183,16 @@ unsigned long machine_tcb_get (void)
 }
 unsigned long *machine_tcb_get_dtv (void)
 {
-  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
-  return tcb->dtv;
+  unsigned long tcb = machine_tcb_get ();
+  unsigned long dtv;
+  mdl_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
+  return (unsigned long *)dtv;
 }
 unsigned long machine_tcb_get_sysinfo (void)
 {
-  struct i386_tcbhead *tcb = (struct i386_tcbhead *) machine_tcb_get ();
-  return tcb->sysinfo;
+  unsigned long tcb = machine_tcb_get ();
+  unsigned long sysinfo;
+  mdl_memcpy (&sysinfo, (void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), sizeof (sysinfo));
+  return sysinfo;
 }
 
