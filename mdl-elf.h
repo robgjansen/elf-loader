@@ -8,9 +8,15 @@
 #if __ELF_NATIVE_CLASS == 32
 #define ELFW_R_SYM ELF32_R_SYM
 #define ELFW_R_TYPE ELF32_R_TYPE
+#define ELFW_ST_BIND(val) ELF32_ST_BIND(val)
+#define ELFW_ST_TYPE(val) ELF32_ST_TYPE(val)
+#define ELFW_ST_INFO(bind, type) ELF32_ST_INFO(bind,type)
 #else
 #define ELFW_R_SYM ELF64_R_SYM
 #define ELFW_R_TYPE ELF64_R_TYPE
+#define ELFW_ST_BIND(val) ELF64_ST_BIND(val)
+#define ELFW_ST_TYPE(val) ELF64_ST_TYPE(val)
+#define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
 #endif
 
 ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
