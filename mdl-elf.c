@@ -824,7 +824,7 @@ void mdl_elf_reloc (struct MappedFile *file)
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       mdl_elf_reloc (cur->item);
-    }  
+    }
 
   mdl_elf_iterate_rel (file, machine_perform_relocation);
   if (g_mdl.bind_now)
