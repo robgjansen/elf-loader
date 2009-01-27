@@ -46,6 +46,9 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
 					  get_system_search_dirs ());
   mdl->tls_gen = 1;
+  mdl->tls_static_size = 0;
+  mdl->tls_static_align = 0;
+  mdl->tls_n_dtv = 0;
 }
 
 void mdl_linkmap_print (void)
@@ -189,7 +192,7 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->fini_called = 0;
   file->reloced = 0;
   file->patched = 0;
-  file->is_initial = 0;
+  file->is_executable = 0;
   file->local_scope = 0;
   file->deps = 0;
   file->name = mdl_strdup (name);

@@ -305,6 +305,7 @@ static void stage2 (struct OsArgs args)
 				args.program_argv[0],
 				context);
     }
+  main_file->is_executable = 1;
   gdb_initialize (main_file);
 
   // add the interpreter itself to the link map to ensure that it is
@@ -342,10 +343,13 @@ static void stage2 (struct OsArgs args)
       }
   }
   // Then, we calculate the size of the memory needed for the 
-  // static and local tls model
+  // static and local tls model. We also initialize correctly
+  // the tls_offset field to be able to perform relocations
+  // next (the TLS relocations need the tls_offset field).
   {
     unsigned long tcb_size = 0;
     unsigned long n_dtv = 0;
+    unsigned long max_align = 0;
     struct MappedFile *cur;
     for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
       {
@@ -355,14 +359,40 @@ static void stage2 (struct OsArgs args)
 	    tcb_size = mdl_align_up (tcb_size, cur->tls_align);
 	    n_dtv++;
 	    cur->tls_offset = - tcb_size;
+	    if (cur->tls_align > max_align)
+	      {
+		max_align = cur->tls_align;
+	      }
 	  }
       }
-    machine_tcb_allocate_and_set (tcb_size);
+    g_mdl.tls_static_size = tcb_size;
+    g_mdl.tls_static_align = max_align;
+    g_mdl.tls_n_dtv = n_dtv;
+  }
+
+  // We either setup the GOT for lazy symbol resolution
+  // or we perform binding for all symbols now if LD_BIND_NOW is set
+  g_mdl.bind_now = 1;
+  {
+    struct MappedFile *cur;
+    for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      {
+	mdl_elf_reloc (cur);
+      }
+  }
+
+  // Once relocations are done, we can initialize the tls blocks
+  // and the dtv. We need to wait post-reloc because the tls
+  // template area used to initialize the tls blocks is likely 
+  // to be modified during relocation processing.
+  {
+    machine_tcb_allocate_and_set (g_mdl.tls_static_size);
     unsigned long tcb = machine_tcb_get ();
     machine_tcb_set_sysinfo (args.sysinfo);
-    unsigned long *dtv = mdl_malloc ((1+n_dtv) * sizeof (unsigned long));
+    unsigned long *dtv = mdl_malloc ((1+g_mdl.tls_n_dtv) * sizeof (unsigned long));
     dtv[0] = g_mdl.tls_gen;
     g_mdl.tls_gen++;
+    struct MappedFile *cur;
     unsigned long i; // starts at 1 because 0 contains the generation
     for (i = 1, cur = g_mdl.link_map; cur != 0; cur = cur->next)
       {
@@ -377,17 +407,6 @@ static void stage2 (struct OsArgs args)
 	  }
       }
     machine_tcb_set_dtv (dtv);
-  }
-
-  // We either setup the GOT for lazy symbol resolution
-  // or we perform binding for all symbols now if LD_BIND_NOW is set
-  g_mdl.bind_now = 1;
-  {
-    struct MappedFile *cur;
-    for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
-      {
-	mdl_elf_reloc (cur);
-      }
   }
 
   // Note that we must invoke this method to notify gdb that we have
@@ -405,6 +424,9 @@ static void stage2 (struct OsArgs args)
 	glibc_patch (cur);
       }
   }
+
+  // glibc-specific crap to avoid segfault in initializer
+  glibc_initialize ();
 
   // Finally, call init functions
   {

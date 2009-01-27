@@ -39,7 +39,15 @@ struct SymbolMatch
   const struct MappedFile *file;
   const ElfW(Sym) *symbol;
 };
+enum LookupFlag {
+  // indicates whether the symbol lookup is allowed to 
+  // find a matching symbol in the main binary. This is
+  // typically used to perform the lookup associated
+  // with a R_*_COPY relocation.
+  LOOKUP_NO_EXEC = 1
+};
 int mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
+			   enum LookupFlag flags,
 			   struct SymbolMatch *match);
 struct MappedFile *mdl_elf_main_file_new (unsigned long phnum,
 					  ElfW(Phdr)*phdr,

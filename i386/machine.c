@@ -4,6 +4,21 @@
 #include "config.h"
 #include <sys/mman.h>
 
+static int do_lookup_and_log (const char *symbol_name,
+			      const struct MappedFile *file,
+			      enum LookupFlag flags,
+			      struct SymbolMatch *match)
+{
+  if (!mdl_elf_symbol_lookup (symbol_name, file, flags, match))
+    {
+      MDL_LOG_SYMBOL_FAIL (symbol_name, file);
+      // if the symbol resolution has failed, it could
+      // be that it's not a big deal.
+      return 0;
+    }
+  MDL_LOG_SYMBOL_OK (symbol_name, file, match->file);
+  return 1;
+}
 
 void machine_perform_relocation (const struct MappedFile *file,
 				 const ElfW(Rel) *rel,
@@ -16,26 +31,16 @@ void machine_perform_relocation (const struct MappedFile *file,
 		    ELFW_R_TYPE (rel->r_info));
   unsigned long type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
-  struct SymbolMatch match;
-  if (symbol_name != 0)
-    {
-      if (!mdl_elf_symbol_lookup (symbol_name, file, &match))
-	{
-	  MDL_LOG_SYMBOL_FAIL (symbol_name, file);
-	  // if the symbol resolution has failed, it could
-	  // be that it's not a big deal.
-	  return;
-	}
-      MDL_LOG_SYMBOL_OK (symbol_name, file, match.file);
-      MDL_LOG_DEBUG ("a=0x%x, b=0x%x\n", match.symbol->st_size, sym->st_size);
-    }
-
 
   if (type == R_386_JMP_SLOT || 
       type == R_386_GLOB_DAT ||
       type == R_386_32)
     {
-      // apply the address to the relocation
+      struct SymbolMatch match;
+      if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	{
+	  return;
+	}
       *reloc_addr = match.file->load_base + match.symbol->st_value;
     }
   else if (type == R_386_RELATIVE)
@@ -44,6 +49,14 @@ void machine_perform_relocation (const struct MappedFile *file,
     }
   else if (type == R_386_COPY)
     {
+      struct SymbolMatch match;
+      // for R_*_COPY relocations, we must use the
+      // LOOKUP_NO_EXEC flag to avoid looking up the symbol
+      // in the main binary.
+      if (!do_lookup_and_log (symbol_name, file, LOOKUP_NO_EXEC, &match))
+	{
+	  return;
+	}
       MDL_ASSERT (match.symbol->st_size == sym->st_size,
 		  "Symbols don't have the same size: likely a recipe for disaster.");
       mdl_memcpy (reloc_addr, 
@@ -52,44 +65,65 @@ void machine_perform_relocation (const struct MappedFile *file,
     }
   else if (type == R_386_TLS_TPOFF)
     {
+      unsigned long v;
       if (symbol_name != 0)
 	{
+	  struct SymbolMatch match;
+	  if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	    {
+	      return;
+	    }
 	  MDL_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
 	  MDL_ASSERT (ELFW_ST_TYPE (match.symbol->st_info) == STT_TLS,
 		      "Target symbol is not a tls symbol ??");
-	  *reloc_addr += match.file->tls_offset + match.symbol->st_value;
+	  v = match.file->tls_offset + match.symbol->st_value;
 	}
       else
 	{
-	  *reloc_addr += file->tls_offset + sym->st_value;
+	  v = file->tls_offset + sym->st_value;
 	}
+      *reloc_addr += v;
     }
   else if (type == R_386_TLS_DTPMOD32)
     {
+      unsigned long v;
       if (symbol_name != 0)
 	{
+	  struct SymbolMatch match;
+	  if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	    {
+	      return;
+	    }
 	  MDL_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
-	  *reloc_addr = match.file->tls_index;
+	  v = match.file->tls_index;
 	}
       else
 	{
-	  *reloc_addr = file->tls_index;
+	  v = file->tls_index;
 	}
+      *reloc_addr = v;
     }
   else if (type == R_386_TLS_DTPOFF32)
     {
+      unsigned long v;
       if (symbol_name != 0)
 	{
+	  struct SymbolMatch match;
+	  if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	    {
+	      return;
+	    }
 	  MDL_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
-	  *reloc_addr = match.symbol->st_value;
+	  v = match.symbol->st_value;
 	}
       else
 	{
-	  *reloc_addr = sym->st_value;
+	  v = sym->st_value;
 	}
+      *reloc_addr = v;
     }
   else
     {
@@ -116,19 +150,6 @@ void machine_insert_trampoline (unsigned long from, unsigned long to)
   buffer[4] = (delta_unsigned >> 24) & 0xff;
   system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
 }
-
-struct i386_tcbhead
-{
-  void *tcb;
-  void *dtv;
-  void *self;
-  int multiple_threads;
-  uintptr_t sysinfo;
-  uintptr_t stack_guard;
-  uintptr_t pointer_guard;
-  int gscope_flag;
-  int private_futex;
-};
 
 void machine_tcb_allocate_and_set (unsigned long tcb_size)
 {

@@ -43,7 +43,9 @@ struct MappedFile
 {
   // The following fields are part of the ABI. Don't change them
   unsigned long load_base;
+  // the fullname of this file.
   char *filename;
+  // pointer to the PT_DYNAMIC area
   unsigned long dynamic;
   struct MappedFile *next;
   struct MappedFile *prev;
@@ -59,18 +61,38 @@ struct MappedFile
   unsigned long rw_size;
   unsigned long zero_start;
   unsigned long zero_size;
+  // indicates if the deps field has been initialized correctly
   uint32_t deps_initialized : 1;
+  // indicates if the has_tls field has been initialized correctly
   uint32_t tls_initialized : 1;
+  // indicates if the ELF initializers of this file
+  // have been called.
   uint32_t init_called : 1;
+  // indicates if the ELF finalizers of this file
+  // have been called.
   uint32_t fini_called : 1;
+  // indicates if this file has been relocated
   uint32_t reloced : 1;
+  // indicates if we patched this file for some
+  // nastly glibc-isms.
   uint32_t patched : 1;
+  // indicates if this file has a TLS program entry
+  // If so, all tls_-prefixed variables are valid.
   uint32_t has_tls : 1;
-  uint32_t is_initial : 1;
+  // indicates if this represents the main executable.
+  uint32_t is_executable : 1;
+  // start of TLS block template
   unsigned long tls_tmpl_start;
+  // size of TLS block template
   unsigned long tls_tmpl_size;
+  // size of TLS block zero area, located
+  // right after the area initialized with the
+  // TLS block template
   unsigned long tls_init_zero_size;
+  // alignment requirements for the TLS block area
   unsigned long tls_align;
+  // TLS module index associated to this file
+  // this is the index in each thread's DTV
   unsigned long tls_index;
   // offset from thread pointer to this module
   // this field is valid only for modules which
@@ -79,6 +101,8 @@ struct MappedFile
   enum LookupType lookup_type;
   struct Context *context;
   struct MappedFileList *local_scope;
+  // list of files this file depends upon. 
+  // equivalent to the content of DT_NEEDED.
   struct MappedFileList *deps;
 };
 
@@ -143,6 +167,9 @@ struct Mdl
   uint32_t bind_now : 1;
   struct Context *contexts;
   unsigned long tls_gen;
+  unsigned long tls_static_size;
+  unsigned long tls_static_align;
+  unsigned long tls_n_dtv;
 };
 
 
@@ -199,13 +226,13 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
 #define MDL_LOG_SYMBOL_FAIL(symbol,file)					 \
   mdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
-		  symbol, file->name)
+		  symbol, file->filename)
 #define MDL_LOG_SYMBOL_OK(symbol,from,in)					\
   mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=%s, in file=%s\n", \
-		  symbol, from->name, in->name)
-#define MDL_LOG_RELOC(rel)				      \
-  mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x\n", \
-		  ELFW_R_TYPE (rel->r_info))
+		  symbol, from->filename, in->filename)
+#define MDL_LOG_RELOC(rel)					      \
+  mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
+		  ELFW_R_TYPE (rel->r_info), rel->r_offset)
 #define MDL_ASSERT(predicate,str)		 \
   if (!(predicate))				 \
     {						 \

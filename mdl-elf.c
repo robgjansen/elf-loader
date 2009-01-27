@@ -553,6 +553,7 @@ mdl_elf_hash (const char *n)
 
 static int
 do_symbol_lookup_one (const char *name, unsigned long hash,
+		      enum LookupFlag flags,
 		      const struct MappedFile *file,
 		      struct SymbolMatch *match)
 
@@ -565,6 +566,13 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
 
   if (dt_hash == 0 || dt_strtab == 0 || dt_symtab == 0)
     {
+      return 0;
+    }
+  if (flags & LOOKUP_NO_EXEC && 
+      file->is_executable)
+    {
+      // this flag specifies that we should not lookup symbols
+      // in the main executable binary. see the definition of LOOKUP_NO_EXEC
       return 0;
     }
 
@@ -613,6 +621,7 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
 
 static int
 do_symbol_lookup (const char *name, unsigned long hash,
+		  enum LookupFlag flags,
 		  struct MappedFileList *scope,
 		  struct SymbolMatch *match)
 {
@@ -621,7 +630,7 @@ do_symbol_lookup (const char *name, unsigned long hash,
   struct MappedFileList *cur;
   for (cur = scope; cur != 0; cur = cur->next)
     {
-      int ok = do_symbol_lookup_one (name, hash, cur->item, match);
+      int ok = do_symbol_lookup_one (name, hash, flags, cur->item, match);
       if (ok)
 	{
 	  return 1;
@@ -632,6 +641,7 @@ do_symbol_lookup (const char *name, unsigned long hash,
 
 int 
 mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
+		       enum LookupFlag flags,
 		       struct SymbolMatch *match)
 {
   // calculate the hash here to avoid calculating 
@@ -639,11 +649,11 @@ mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
   unsigned long hash = mdl_elf_hash (name);
 
   // lookup the symbol in the global scope first
-  int ok = do_symbol_lookup (name, hash, file->context->global_scope, match);
+  int ok = do_symbol_lookup (name, hash, flags, file->context->global_scope, match);
   if (!ok)
     {
       // and in the local scope.
-      ok = do_symbol_lookup (name, hash, file->local_scope, match);
+      ok = do_symbol_lookup (name, hash, flags, file->local_scope, match);
     }
   return ok;
 }
@@ -652,7 +662,7 @@ mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
 {
   unsigned long hash = mdl_elf_hash (name);
   struct SymbolMatch match;
-  if (!do_symbol_lookup_one (name, hash, file, &match))
+  if (!do_symbol_lookup_one (name, hash, 0, file, &match))
     {
       return 0;
     }
@@ -808,6 +818,13 @@ void mdl_elf_reloc (struct MappedFile *file)
       return;
     }
   file->reloced = 1;
+
+  // relocate dependencies first:
+  struct MappedFileList *cur;
+  for (cur = file->deps; cur != 0; cur = cur->next)
+    {
+      mdl_elf_reloc (cur->item);
+    }  
 
   mdl_elf_iterate_rel (file, machine_perform_relocation);
   if (g_mdl.bind_now)

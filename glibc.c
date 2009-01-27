@@ -3,6 +3,7 @@
 #include "machine.h"
 #include "mdl.h"
 #include "mdl-elf.h"
+#include "config.h"
 #include <elf.h>
 #include <dlfcn.h>
 #include <link.h>
@@ -46,12 +47,14 @@ int __libc_enable_secure EXPORT = 0;
 // and how this symbol is imported by libc.so
 char **_dl_argv EXPORT;
 
-// Got these values from readelf -s /lib/libc.so.6|grep rtld
-#define RTLD_GLOBAL_SIZE 1424
-#define RTLD_GLOBAL_RO_SIZE 448
-char _rtld_global[RTLD_GLOBAL_SIZE] EXPORT;
-char _rtld_global_ro[RTLD_GLOBAL_RO_SIZE] EXPORT;
+char _rtld_global[CONFIG_RTLD_GLOBAL_SIZE] EXPORT;
+char _rtld_global_ro[CONFIG_RTLD_GLOBAL_RO_SIZE] EXPORT;
 
+static void **mdl_dl_error_catch_tsd (void)
+{
+  static void *data;
+  return &data;
+}
 
 struct dl_open_hook
 {
@@ -81,6 +84,28 @@ static int mdl_dl_addr (const void *address, Dl_info *info,
   return 0;
 }
 
+// It's hard to believe but _dl_get_tls_static_info did get this 
+// treatment in the libc so, we have to do the same if we want to
+// make sure that the pthread library can call us.
+# ifdef __i386__
+#  define internal_function   __attribute ((regparm (3), stdcall))
+# else
+#  define internal_function
+# endif
+
+// used by __pthread_initialize_minimal_internal from nptl/init.c
+void
+internal_function
+_dl_get_tls_static_info (size_t *sizep, size_t *alignp) EXPORT;
+void
+internal_function
+_dl_get_tls_static_info (size_t *sizep, size_t *alignp)
+{
+  *sizep = g_mdl.tls_static_size;
+  *alignp = g_mdl.tls_static_align;
+}
+
+
 void glibc_startup_finished (void) 
 {
   _dl_starting_up = 1;
@@ -90,6 +115,9 @@ void glibc_startup_finished (void)
 void glibc_initialize (void)
 {
   _dl_open_hook = &g_dl_open_hook;
+  void **(*fn) (void) = mdl_dl_error_catch_tsd;
+  mdl_memcpy ((void*)_rtld_global+CONFIG_DL_ERROR_CATCH_TSD_OFFSET,
+	      &fn, sizeof (fn));
 }
 
 
