@@ -5,4 +5,5 @@
 	__libc_enable_secure;
 	_dl_argv;
 	_rtld_global;
+	_dl_get_tls_static_info;
 };
