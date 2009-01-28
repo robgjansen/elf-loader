@@ -585,6 +585,15 @@ mdl_elf_lookup_begin (const char *name, unsigned long hash,
   // Second entry is number of chains
   ElfW(Word) nbuckets = dt_hash[0];
   i.chain = &dt_hash[2+nbuckets];
+  // the code below is tricky: normally, the index of the
+  // first entry we want to look at in the hash table is
+  // 2+(hash%nbuckets) relative to the dt_hash pointer.
+  // what we calculate below is the index in the hash table
+  // relative to the chain pointer and the reason we do
+  // this is that all other indexes in the hash chain
+  // are relative to the chain pointer so, using an index
+  // relative to the chain pointer all the time allows us
+  // to use the same logic in has_next all the time.
   i.current = -(nbuckets-(hash%nbuckets));
   return i;
 }
@@ -608,6 +617,10 @@ mdl_elf_lookup_has_next (const struct LookupIterator *i)
 	  // the symbol name is an index in the string table
 	  if (mdl_strisequal (i->dt_strtab + i->dt_symtab[current].st_name, i->name))
 	    {
+	      // as an optimization, to save us from iterating again
+	      // in the _next function, we set the current position
+	      // to the previous entry to find the matching entry 
+	      // immediately upon our call to _next.
 	      ((struct LookupIterator *)i)->current = prev;
 	      return 1;
 	    }
@@ -622,6 +635,9 @@ mdl_elf_lookup_has_next (const struct LookupIterator *i)
 static unsigned long
 mdl_elf_lookup_next (struct LookupIterator *i)
 {
+  // We return the entry immediately following the
+  // 'current' index and update the 'current' index
+  // to point to the next entry.
   unsigned long next = i->chain[i->current];
   i->current = next;
   return next;
