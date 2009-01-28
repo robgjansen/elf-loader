@@ -579,7 +579,6 @@ mdl_elf_lookup_begin (const char *name, unsigned long hash,
       return i;
     }
 
-
   // Then, look into the hash table itself.
   // First entry is number of buckets
   // Second entry is number of chains
@@ -644,48 +643,37 @@ mdl_elf_lookup_next (struct LookupIterator *i)
 }
 
 static int
-do_symbol_lookup_one (const char *name, unsigned long hash,
-		      enum LookupFlag flags,
-		      const struct MappedFile *file,
-		      struct SymbolMatch *match)
-
-{
-  MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->name);
-
-  if (flags & LOOKUP_NO_EXEC && 
-      file->is_executable)
-    {
-      // this flag specifies that we should not lookup symbols
-      // in the main executable binary. see the definition of LOOKUP_NO_EXEC
-      return 0;
-    }
-
-  struct LookupIterator i = mdl_elf_lookup_begin (name, hash, file);
-  while (mdl_elf_lookup_has_next (&i))
-    {
-      unsigned long index = mdl_elf_lookup_next (&i);
-      match->file = file;
-      match->symbol = &i.dt_symtab[index];
-      return 1;
-    }
-  return 0;
-}
-
-
-static int
-do_symbol_lookup (const char *name, unsigned long hash,
-		  enum LookupFlag flags,
-		  struct MappedFileList *scope,
-		  struct SymbolMatch *match)
+do_symbol_lookup_scope (const char *name, 
+			unsigned long hash,
+			const ElfW(Vernaux) *ver_needed,
+			enum LookupFlag flags,
+			struct MappedFileList *scope,
+			struct SymbolMatch *match)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
   // then, iterate scope until we find the requested symbol.
   struct MappedFileList *cur;
   for (cur = scope; cur != 0; cur = cur->next)
     {
-      int ok = do_symbol_lookup_one (name, hash, flags, cur->item, match);
-      if (ok)
+      if (flags & LOOKUP_NO_EXEC && 
+	  cur->item->is_executable)
 	{
+	  // this flag specifies that we should not lookup symbols
+	  // in the main executable binary. see the definition of LOOKUP_NO_EXEC
+	  continue;
+	}
+      struct LookupIterator i = mdl_elf_lookup_begin (name, hash, cur->item);
+      while (mdl_elf_lookup_has_next (&i))
+	{
+	  unsigned long index = mdl_elf_lookup_next (&i);
+	  if (ver_needed != 0)
+	    {
+	      // we have a matching symbol but we have a version
+	      // requirement so, we must check that the matching 
+	      // symbol's version also matches.	      
+	    }
+	  match->file = cur->item;
+	  match->symbol = &i.dt_symtab[index];
 	  return 1;
 	}
     }
@@ -693,7 +681,9 @@ do_symbol_lookup (const char *name, unsigned long hash,
 }
 
 int 
-mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
+mdl_elf_symbol_lookup (const char *name, 
+		       const struct MappedFile *file,
+		       const ElfW(Vernaux) *ver,
 		       enum LookupFlag flags,
 		       struct SymbolMatch *match)
 {
@@ -702,11 +692,13 @@ mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
   unsigned long hash = mdl_elf_hash (name);
 
   // lookup the symbol in the global scope first
-  int ok = do_symbol_lookup (name, hash, flags, file->context->global_scope, match);
+  int ok = do_symbol_lookup_scope (name, hash, ver,
+				   flags, file->context->global_scope, match);
   if (!ok)
     {
       // and in the local scope.
-      ok = do_symbol_lookup (name, hash, flags, file->local_scope, match);
+      ok = do_symbol_lookup_scope (name, hash, ver,
+				   flags, file->local_scope, match);
     }
   return ok;
 }
@@ -714,12 +706,13 @@ unsigned long
 mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
 {
   unsigned long hash = mdl_elf_hash (name);
-  struct SymbolMatch match;
-  if (!do_symbol_lookup_one (name, hash, 0, file, &match))
+  struct LookupIterator i = mdl_elf_lookup_begin (name, hash, file);
+  while (mdl_elf_lookup_has_next (&i))
     {
-      return 0;
+      unsigned long index = mdl_elf_lookup_next (&i);
+      return file->load_base + i.dt_symtab[index].st_value;
     }
-  return match.file->load_base + match.symbol->st_value;
+  return 0;
 }
 
 
@@ -790,11 +783,38 @@ unsigned long mdl_elf_get_entry_point (struct MappedFile *file)
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
   return header->e_entry + file->load_base;
 }
+static ElfW(Vernaux) *
+sym_to_vernaux (unsigned long index,
+		ElfW(Half) *dt_versym, 
+		ElfW(Verneed) *dt_verneed,
+		unsigned long dt_verneednum)
+{
+  ElfW(Vernaux) *ver = 0;
+  if (dt_versym != 0 && dt_verneed != 0 && dt_verneednum != 0)
+    {
+      // the same offset used to look in the symbol table (dt_symtab)
+      // is an offset in the version table (dt_versym).
+      // dt_versym contains a set of 15bit indexes and 
+      // 1bit flags packed into 16 bits. When the upper bit is
+      // set, the associated symbol is 'hidden', that is, it
+      // cannot be referenced from outside of the object.
+      ElfW(Half) ver_index = dt_versym[index];
+      ver_index &= 0x7fff;
+      // the values in dt_versym are indexes in dt_verneed.
+      ElfW(Verneed) *needed = &(dt_verneed[ver_index]);
+      unsigned long aux = (unsigned long) needed;
+      aux += needed->vn_aux;
+      ver = (ElfW(Vernaux)*)aux;
+    }
+  return ver;
+}
+
 void
 mdl_elf_iterate_pltrel (struct MappedFile *file, 
 			void (*cb)(const struct MappedFile *file,
 				   const ElfW(Rel) *rel,
 				   const ElfW(Sym) *sym,
+				   const ElfW(Vernaux) *ver,
 				   const char *name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
@@ -803,6 +823,9 @@ mdl_elf_iterate_pltrel (struct MappedFile *file,
   unsigned long dt_pltrelsz = mdl_elf_file_get_dynamic_v (file, DT_PLTRELSZ);
   const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
   ElfW(Sym) *dt_symtab = (ElfW(Sym)*)mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)mdl_elf_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)mdl_elf_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = mdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
   
   if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
       dt_jmprel == 0 || dt_strtab == 0 || 
@@ -815,6 +838,8 @@ mdl_elf_iterate_pltrel (struct MappedFile *file,
     {
       ElfW(Rel) *rel = &dt_jmprel[i];
       ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+      ElfW(Vernaux) *ver = sym_to_vernaux (ELFW_R_SYM (rel->r_info),
+					   dt_versym, dt_verneed, dt_verneednum);
       const char *symbol_name;
       if (sym->st_name == 0)
 	{
@@ -824,7 +849,7 @@ mdl_elf_iterate_pltrel (struct MappedFile *file,
 	{
 	  symbol_name = dt_strtab + sym->st_name;
 	}
-      (*cb) (file, rel, sym, symbol_name);
+      (*cb) (file, rel, sym, ver, symbol_name);
     }
 }
 
@@ -833,6 +858,7 @@ mdl_elf_iterate_rel (struct MappedFile *file,
 		     void (*cb)(const struct MappedFile *file,
 				const ElfW(Rel) *rel,
 				const ElfW(Sym) *sym,
+				const ElfW(Vernaux) *ver,
 				const char *symbol_name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
@@ -841,6 +867,9 @@ mdl_elf_iterate_rel (struct MappedFile *file,
   unsigned long dt_relent = mdl_elf_file_get_dynamic_v (file, DT_RELENT);
   const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
   ElfW(Sym) *dt_symtab = (ElfW(Sym)*)mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)mdl_elf_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)mdl_elf_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = mdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
   if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0 ||
       dt_strtab == 0 || dt_symtab == 0)
     {
@@ -851,6 +880,8 @@ mdl_elf_iterate_rel (struct MappedFile *file,
     {
       ElfW(Rel) *rel = &dt_rel[i];
       ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
+      ElfW(Vernaux) *ver = sym_to_vernaux (ELFW_R_SYM (rel->r_info),
+					   dt_versym, dt_verneed, dt_verneednum);
       const char *symbol_name;
       if (sym->st_name == 0)
 	{
@@ -860,7 +891,7 @@ mdl_elf_iterate_rel (struct MappedFile *file,
 	{
 	  symbol_name = dt_strtab + sym->st_name;
 	}
-      (*cb) (file, rel, sym, symbol_name);
+      (*cb) (file, rel, sym, ver, symbol_name);
     }
 }
 

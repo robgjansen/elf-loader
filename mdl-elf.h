@@ -46,7 +46,9 @@ enum LookupFlag {
   // with a R_*_COPY relocation.
   LOOKUP_NO_EXEC = 1
 };
-int mdl_elf_symbol_lookup (const char *name, const struct MappedFile *file,
+int mdl_elf_symbol_lookup (const char *name, 
+			   const struct MappedFile *file,
+			   const ElfW(Vernaux) *ver,
 			   enum LookupFlag flags,
 			   struct SymbolMatch *match);
 struct MappedFile *mdl_elf_main_file_new (unsigned long phnum,

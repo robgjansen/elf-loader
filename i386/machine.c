@@ -6,10 +6,11 @@
 
 static int do_lookup_and_log (const char *symbol_name,
 			      const struct MappedFile *file,
+			      const ElfW(Vernaux) *ver,
 			      enum LookupFlag flags,
 			      struct SymbolMatch *match)
 {
-  if (!mdl_elf_symbol_lookup (symbol_name, file, flags, match))
+  if (!mdl_elf_symbol_lookup (symbol_name, file, ver, flags, match))
     {
       MDL_LOG_SYMBOL_FAIL (symbol_name, file);
       // if the symbol resolution has failed, it could
@@ -23,6 +24,7 @@ static int do_lookup_and_log (const char *symbol_name,
 void machine_perform_relocation (const struct MappedFile *file,
 				 const ElfW(Rel) *rel,
 				 const ElfW(Sym) *sym,
+				 const ElfW(Vernaux) *ver,
 				 const char *symbol_name)
 {
   MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
@@ -37,7 +39,7 @@ void machine_perform_relocation (const struct MappedFile *file,
       type == R_386_32)
     {
       struct SymbolMatch match;
-      if (!do_lookup_and_log (symbol_name, file, 0, &match))
+      if (!do_lookup_and_log (symbol_name, file, ver, 0, &match))
 	{
 	  return;
 	}
@@ -53,7 +55,7 @@ void machine_perform_relocation (const struct MappedFile *file,
       // for R_*_COPY relocations, we must use the
       // LOOKUP_NO_EXEC flag to avoid looking up the symbol
       // in the main binary.
-      if (!do_lookup_and_log (symbol_name, file, LOOKUP_NO_EXEC, &match))
+      if (!do_lookup_and_log (symbol_name, file, ver, LOOKUP_NO_EXEC, &match))
 	{
 	  return;
 	}
@@ -69,7 +71,7 @@ void machine_perform_relocation (const struct MappedFile *file,
       if (symbol_name != 0)
 	{
 	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	  if (!do_lookup_and_log (symbol_name, file, ver, 0, &match))
 	    {
 	      return;
 	    }
@@ -91,7 +93,7 @@ void machine_perform_relocation (const struct MappedFile *file,
       if (symbol_name != 0)
 	{
 	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	  if (!do_lookup_and_log (symbol_name, file, ver, 0, &match))
 	    {
 	      return;
 	    }
@@ -111,7 +113,7 @@ void machine_perform_relocation (const struct MappedFile *file,
       if (symbol_name != 0)
 	{
 	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (symbol_name, file, 0, &match))
+	  if (!do_lookup_and_log (symbol_name, file, ver, 0, &match))
 	    {
 	      return;
 	    }
