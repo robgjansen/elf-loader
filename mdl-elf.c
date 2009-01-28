@@ -551,6 +551,82 @@ mdl_elf_hash (const char *n)
   return h;
 }
 
+struct LookupIterator
+{
+  const char *name;
+  signed long current;
+  const char *dt_strtab;
+  ElfW(Sym) *dt_symtab;
+  ElfW(Word) *chain;
+};
+
+static struct LookupIterator 
+mdl_elf_lookup_begin (const char *name, unsigned long hash,
+		      const struct MappedFile *file)
+{
+  MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->filename);
+  struct LookupIterator i;
+  i.name = name;
+  // first, gather information needed to look into the hash table
+  ElfW(Word) *dt_hash = (ElfW(Word)*) mdl_elf_file_get_dynamic_p (file, DT_HASH);
+  i.dt_strtab = (const char *) mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  i.dt_symtab = (ElfW(Sym)*) mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+
+  if (dt_hash == 0 || i.dt_strtab == 0 || i.dt_symtab == 0)
+    {
+      i.dt_strtab = 0;
+      i.dt_symtab = 0;
+      return i;
+    }
+
+
+  // Then, look into the hash table itself.
+  // First entry is number of buckets
+  // Second entry is number of chains
+  ElfW(Word) nbuckets = dt_hash[0];
+  i.chain = &dt_hash[2+nbuckets];
+  i.current = -(nbuckets-(hash%nbuckets));
+  return i;
+}
+
+static int
+mdl_elf_lookup_has_next (const struct LookupIterator *i)
+{
+  if (i->dt_strtab == 0)
+    {
+      return 0;
+    }
+  unsigned long prev = i->current;
+  unsigned long current = i->chain[i->current];
+  while (current != 0)
+    {
+      // The values stored in the hash table are
+      // an index in the symbol table.
+      if (i->dt_symtab[current].st_name != 0 && 
+	  i->dt_symtab[current].st_shndx != SHN_UNDEF)
+	{
+	  // the symbol name is an index in the string table
+	  if (mdl_strisequal (i->dt_strtab + i->dt_symtab[current].st_name, i->name))
+	    {
+	      ((struct LookupIterator *)i)->current = prev;
+	      return 1;
+	    }
+	}
+      prev = current;
+      current = i->chain[current];
+    }
+  return 0;
+}
+
+// return index in dt_symtab
+static unsigned long
+mdl_elf_lookup_next (struct LookupIterator *i)
+{
+  unsigned long next = i->chain[i->current];
+  i->current = next;
+  return next;
+}
+
 static int
 do_symbol_lookup_one (const char *name, unsigned long hash,
 		      enum LookupFlag flags,
@@ -559,15 +635,7 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
 
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->name);
-  // first, gather information needed to look into the hash table
-  ElfW(Word) *dt_hash = (ElfW(Word)*) mdl_elf_file_get_dynamic_p (file, DT_HASH);
-  const char *dt_strtab = (const char *) mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*) mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
 
-  if (dt_hash == 0 || dt_strtab == 0 || dt_symtab == 0)
-    {
-      return 0;
-    }
   if (flags & LOOKUP_NO_EXEC && 
       file->is_executable)
     {
@@ -576,44 +644,13 @@ do_symbol_lookup_one (const char *name, unsigned long hash,
       return 0;
     }
 
-  // Then, look into the hash table itself.
-  // First entry is number of buckets
-  // Second entry is number of chains
-  ElfW(Word) nbuckets = dt_hash[0];
-  unsigned long index = dt_hash[2+(hash%nbuckets)];
-  // The values stored in the hash table are
-  // an index in the symbol table.
-  if (dt_symtab[index].st_name != 0 && 
-      dt_symtab[index].st_shndx != SHN_UNDEF)
+  struct LookupIterator i = mdl_elf_lookup_begin (name, hash, file);
+  while (mdl_elf_lookup_has_next (&i))
     {
-      // the symbol name is an index in the string table
-      // and the symbol value is a virtual address relative to
-      // the load base
-      if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
-	{
-	  match->file = file;
-	  match->symbol = &dt_symtab[index];
-	  return 1;
-	}
-    }
-
-  // The entry in the bucket does not match, so, we search
-  // the hash table chains. The chain associated with our bucket
-  // starts at the index returned by our bucket
-  ElfW(Word) *chain = &dt_hash[2+nbuckets];
-  while (chain[index] != 0)
-    {
-      index = chain[index];
-      if (dt_symtab[index].st_name != 0 && 
-	  dt_symtab[index].st_shndx != SHN_UNDEF)
-	{
-	  if (mdl_strisequal (dt_strtab + dt_symtab[index].st_name, name))
-	    {
-	      match->file = file;
-	      match->symbol = &dt_symtab[index];
-	      return 1;
-	    }
-	}
+      unsigned long index = mdl_elf_lookup_next (&i);
+      match->file = file;
+      match->symbol = &i.dt_symtab[index];
+      return 1;
     }
   return 0;
 }
