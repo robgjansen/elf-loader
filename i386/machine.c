@@ -16,7 +16,7 @@ static int do_lookup_and_log (const char *symbol_name,
       // be that it's not a big deal.
       return 0;
     }
-  MDL_LOG_SYMBOL_OK (symbol_name, file, match->file);
+  MDL_LOG_SYMBOL_OK (symbol_name, file, match);
   return 1;
 }
 

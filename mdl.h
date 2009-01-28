@@ -224,12 +224,13 @@ void mdl_log_printf (enum MdlLog log, const char *str, ...);
   mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__)
 #define MDL_LOG_ERROR(str,...) \
   mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
-#define MDL_LOG_SYMBOL_FAIL(symbol,file)					 \
+#define MDL_LOG_SYMBOL_FAIL(symbol,file)				\
   mdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
 		  symbol, file->filename)
-#define MDL_LOG_SYMBOL_OK(symbol,from,in)					\
-  mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=%s, in file=%s\n", \
-		  symbol, from->filename, in->filename)
+#define MDL_LOG_SYMBOL_OK(symbol_name,from,match)			\
+  mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=\"%s\", in file=\"%s\":0x%x\n", \
+		  symbol_name, from->filename, match->file->filename,	\
+		  match->file->load_base + match->symbol->st_value)
 #define MDL_LOG_RELOC(rel)					      \
   mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
 		  ELFW_R_TYPE (rel->r_info), rel->r_offset)
