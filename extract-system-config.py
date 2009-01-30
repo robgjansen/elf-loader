@@ -2,6 +2,8 @@
 
 import sys
 import re
+import getopt
+import os
 
 
 class Data:
@@ -15,7 +17,8 @@ class DebugData:
             self.ref = 0
             self.level = 0
             self.attributes = {}
-    def __init__(self, file):
+    def __init__(self, debug_filename):
+        file = os.popen ('readelf -wi ' + debug_filename, 'r')
         self.__lines = file.readlines ()
         self.__current = 0
         self.__re1 = re.compile ('<([^>]+)><([^>]+)>:[^A]*Abbrev Number:.*\d+.*\((\w+)\)')
@@ -122,46 +125,75 @@ class DebugData:
             return None
         return self.find_member (member, item)
 
-debug = DebugData (sys.stdin)
+        
+def usage():
+    print ''
 
-data = debug.get_struct_size ('rtld_global')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_RTLD_GLOBAL_SIZE ' + str(data.data)
+def main(argv):
+    config_filename = ''
+    debug_filename = ''
+    try:
+        opts, args = getopt.getopt(argv, 'hc:d:',
+                                   ['help', 'config=', 'debug='])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage()
+            sys.exit()
+        elif opt in ('-c', '--config'):
+            config_filename = arg
+        elif opt in ('-d', '--debug'):
+            debug_filename = arg
 
-data = debug.get_struct_size ('rtld_global_ro')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_RTLD_GLOBAL_RO_SIZE ' + str(data.data)
+    debug = DebugData (debug_filename)
+    config = open (config_filename, 'w')
+    data = debug.get_struct_size ('rtld_global')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_RTLD_GLOBAL_SIZE ' + str(data.data) + '\n')
 
-data = debug.get_struct_member_offset ('rtld_global', '_dl_error_catch_tsd')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_DL_ERROR_CATCH_TSD_OFFSET ' + str(data.data)
+    data = debug.get_struct_size ('rtld_global_ro')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_RTLD_GLOBAL_RO_SIZE ' + str(data.data) + '\n')
 
-data = debug.get_struct_size ('pthread')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_TCB_SIZE ' + str(data.data)
+    data = debug.get_struct_member_offset ('rtld_global', '_dl_error_catch_tsd')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_DL_ERROR_CATCH_TSD_OFFSET ' + str(data.data) + '\n')
 
-data = debug.get_typedef_member_offset ('tcbhead_t', 'tcb')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_TCB_TCB_OFFSET ' + str(data.data)
+    data = debug.get_struct_size ('pthread')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_TCB_SIZE ' + str(data.data) + '\n')
 
-data = debug.get_typedef_member_offset ('tcbhead_t', 'dtv')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_TCB_DTV_OFFSET ' + str(data.data)
+    data = debug.get_typedef_member_offset ('tcbhead_t', 'tcb')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_TCB_TCB_OFFSET ' + str(data.data) + '\n')
 
-data = debug.get_typedef_member_offset ('tcbhead_t', 'self')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_TCB_SELF_OFFSET ' + str(data.data)
+    data = debug.get_typedef_member_offset ('tcbhead_t', 'dtv')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_TCB_DTV_OFFSET ' + str(data.data) + '\n')
 
-data = debug.get_typedef_member_offset ('tcbhead_t', 'sysinfo')
-if data is None:
-    sys.exit (1)
-print '#define CONFIG_TCB_SYSINFO_OFFSET ' + str(data.data)
+    data = debug.get_typedef_member_offset ('tcbhead_t', 'self')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_TCB_SELF_OFFSET ' + str(data.data) + '\n')
+
+    data = debug.get_typedef_member_offset ('tcbhead_t', 'sysinfo')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_TCB_SYSINFO_OFFSET ' + str(data.data) + '\n')
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
+
+
+
 
 
