@@ -642,15 +642,96 @@ mdl_elf_lookup_next (struct LookupIterator *i)
   return next;
 }
 
+// we have a matching symbol but we have a version
+// requirement so, we must check that the matching 
+// symbol's version also matches.	      
+static int
+symbol_version_matches (const struct MappedFile *in,
+			const struct MappedFile *from,
+			const ElfW(Vernaux) *ver_needed,
+			unsigned long index)
+{
+  if (ver_needed == 0)
+    {
+      // if we have no version requirement, the first matching symbol is ok.
+      return 1;
+    }
+  const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (in, DT_STRTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)mdl_elf_file_get_dynamic_p (in, DT_VERSYM);
+  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)mdl_elf_file_get_dynamic_p (in, DT_VERDEF);
+  unsigned long dt_verdefnum = mdl_elf_file_get_dynamic_v (in, DT_VERDEFNUM);
+  if (dt_versym == 0)
+    {
+      // if we have no version definition which could match the requested
+      // version, this is not a matching symbol.
+      return 0;
+    }
+  uint16_t ver_index = dt_versym[index];
+  if (ver_index == 0)
+    {
+      // this is a symbol with local scope
+      // it's ok if the reference is within the same file.
+      return in == from;
+    }
+  if (ver_index == 1)
+    {
+      // this is a symbol with global scope. 'base' version definition.
+      // XXX: I don't know what this means.
+      return 0;
+    }
+  if (dt_verdef == 0 || dt_verdefnum == 0)
+    {
+      // if there is no verdef array which could match the requested
+      // version, this is not a matching symbol.
+      return 0;
+    }
+  if (ver_index & 0x8000)
+    {
+      // if the high bit is set, this means that it is a 'hidden' symbol
+      // which means that it can't be referenced from outside of its binary.
+      if (in != from)
+	{
+	  // the matching symbol we found is hidden and is located
+	  // in a different binary. Not ok.
+	  return 0;
+	}
+    }
+  MDL_LOG_DEBUG ("index=%x/%x, %x:%x\n", ver_index, dt_verdefnum,
+		 dt_versym, dt_verdef);
+  ElfW(Verdef) *cur, *prev;
+  for (prev = 0, cur = dt_verdef; cur != prev;
+       prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
+    {
+      MDL_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
+      if (cur->vd_ndx == ver_index &&
+	  cur->vd_hash == ver_needed->vna_hash)
+	{
+	  // the hash values of the version names are equal.
+	  ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
+	  const char *from_dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (from, DT_STRTAB);
+	  if (mdl_strisequal (dt_strtab + verdaux->vda_name, 
+			      from_dt_strtab + ver_needed->vna_name))
+	    {
+	      // the version names are equal.
+	      return 1;
+	    }
+	}
+    }
+  // the versions don't match.
+  return 0;
+}
+
 static int
 do_symbol_lookup_scope (const char *name, 
 			unsigned long hash,
+			const struct MappedFile *file,
 			const ElfW(Vernaux) *ver_needed,
 			enum LookupFlag flags,
 			struct MappedFileList *scope,
 			struct SymbolMatch *match)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
+
   // then, iterate scope until we find the requested symbol.
   struct MappedFileList *cur;
   for (cur = scope; cur != 0; cur = cur->next)
@@ -666,15 +747,12 @@ do_symbol_lookup_scope (const char *name,
       while (mdl_elf_lookup_has_next (&i))
 	{
 	  unsigned long index = mdl_elf_lookup_next (&i);
-	  if (ver_needed != 0)
+	  if (symbol_version_matches (cur->item, file, ver_needed, index))
 	    {
-	      // we have a matching symbol but we have a version
-	      // requirement so, we must check that the matching 
-	      // symbol's version also matches.	      
+	      match->file = cur->item;
+	      match->symbol = &i.dt_symtab[index];
+	      return 1;
 	    }
-	  match->file = cur->item;
-	  match->symbol = &i.dt_symtab[index];
-	  return 1;
 	}
     }
   return 0;
@@ -692,12 +770,12 @@ mdl_elf_symbol_lookup (const char *name,
   unsigned long hash = mdl_elf_hash (name);
 
   // lookup the symbol in the global scope first
-  int ok = do_symbol_lookup_scope (name, hash, ver,
+  int ok = do_symbol_lookup_scope (name, hash, file, ver,
 				   flags, file->context->global_scope, match);
   if (!ok)
     {
       // and in the local scope.
-      ok = do_symbol_lookup_scope (name, hash, ver,
+      ok = do_symbol_lookup_scope (name, hash, file, ver,
 				   flags, file->local_scope, match);
     }
   return ok;
@@ -789,7 +867,6 @@ sym_to_vernaux (unsigned long index,
 		ElfW(Verneed) *dt_verneed,
 		unsigned long dt_verneednum)
 {
-  ElfW(Vernaux) *ver = 0;
   if (dt_versym != 0 && dt_verneed != 0 && dt_verneednum != 0)
     {
       // the same offset used to look in the symbol table (dt_symtab)
@@ -798,15 +875,31 @@ sym_to_vernaux (unsigned long index,
       // 1bit flags packed into 16 bits. When the upper bit is
       // set, the associated symbol is 'hidden', that is, it
       // cannot be referenced from outside of the object.
-      ElfW(Half) ver_index = dt_versym[index];
-      ver_index &= 0x7fff;
-      // the values in dt_versym are indexes in dt_verneed.
-      ElfW(Verneed) *needed = &(dt_verneed[ver_index]);
-      unsigned long aux = (unsigned long) needed;
-      aux += needed->vn_aux;
-      ver = (ElfW(Vernaux)*)aux;
+      ElfW(Half) ver_ndx = dt_versym[index];
+      if (ver_ndx & 0x8000)
+	{
+	  return 0;
+	}
+      // search the version needed whose vd_ndx is equal to ver_ndx.
+      ElfW(Verneed) *cur, *prev;
+      for (cur = dt_verneed, prev = 0; 
+	   cur != prev; 
+	   prev = cur, cur = (ElfW(Verneed) *)(((unsigned long)cur)+cur->vn_next))
+	{
+	  MDL_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
+	  ElfW(Vernaux) *cur_aux, *prev_aux;
+	  for (cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur)+cur->vn_aux), prev_aux = 0;
+	       cur_aux != prev_aux; 
+	       prev_aux = cur_aux, cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur_aux)+cur_aux->vna_next))
+	    {
+	      if (cur_aux->vna_other == ver_ndx)
+		{
+		  return cur_aux;
+		}
+	    }
+	}
     }
-  return ver;
+  return 0;
 }
 
 void
