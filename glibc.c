@@ -8,12 +8,14 @@
 #include <dlfcn.h>
 #include <link.h>
 
+
 #define EXPORT __attribute__ ((visibility("default")))
+#define WEAK __attribute__ ((weak))
 
 // Set to zero until just before main is invoked
 // at which point it must be set to 1. Specifically,
 // it is zero during the .init function execution.
-int _dl_starting_up EXPORT = 0 ;
+EXPORT int _dl_starting_up = 0 ;
 // Set to the end of the main stack (the stack allocated
 // by the kernel). Must be constant. Is used by libpthread 
 // _and_ the ELF loader to make the main stack executable
@@ -35,47 +37,55 @@ int _dl_starting_up EXPORT = 0 ;
 // __builtin_frame_address(0) from the top-level dynamic loader
 // entry point.
 //
-void *__libc_stack_end EXPORT = 0;
+EXPORT void *__libc_stack_end = 0;
 // If set to 1, indicates that we are running with super privileges.
 // If so, the ELF loader won't use LD_LIBRARY_PATH, and the libc will
 // enable a couple of extra security checks.
 // By default, we don't set secure mode, contrary to the libc.
 // Theoretically, this variable would be set based on a couple of
 // checks on eid/egid, etc.
-int __libc_enable_secure EXPORT = 0;
+EXPORT int __libc_enable_secure = 0;
 // Obviously, points to the program argv. I can't figure out why
 // and how this symbol is imported by libc.so
-char **_dl_argv EXPORT;
+EXPORT char **_dl_argv;
 
-char _rtld_global[CONFIG_RTLD_GLOBAL_SIZE] EXPORT;
-char _rtld_global_ro[CONFIG_RTLD_GLOBAL_RO_SIZE] EXPORT;
+EXPORT char _rtld_global_ro[CONFIG_RTLD_GLOBAL_RO_SIZE];
+// We have to define first a local symbol to ensure that all references
+// to this symbol do not go through the GOT.
+static char _rtld_local[CONFIG_RTLD_GLOBAL_SIZE];
+// and, then, we define the exported symbol as an alias to the local symbol.
+extern __typeof (_rtld_local) _rtld_global __attribute__ ((alias("_rtld_local"), 
+							   visibility("default")));
+
+
+EXPORT WEAK void *calloc(size_t nmemb, size_t size)
+{
+  MDL_ASSERT (0, "calloc called");
+  return 0;
+}
+EXPORT WEAK void *malloc(size_t size)
+{
+  MDL_ASSERT (0, "malloc called");
+  return 0;
+}
+EXPORT WEAK void free(void *ptr)
+{
+  MDL_ASSERT (0, "free called");
+}
+EXPORT WEAK void *realloc(void *ptr, size_t size)
+{
+  MDL_ASSERT (0, "realloc called");
+  return 0;
+}
+//_r_debug;
+//__libc_memalign;
+
 
 static void **mdl_dl_error_catch_tsd (void)
 {
   static void *data;
   return &data;
 }
-
-struct dl_open_hook
-{
-  void *(*dlopen_mode) (const char *name, int mode);
-  void *(*dlsym) (void *map, const char *name);
-  int (*dlclose) (void *map);
-} * _dl_open_hook = 0;
-void *mdl_dlopen_mode (const char *name, int mode)
-{
-  return 0;
-}
-void *mdl_dlsym (void *map, const char *name)
-{
-  return 0;
-}
-int mdl_dlclose (void *map)
-{
-  return 0;
-}
-static struct dl_open_hook g_dl_open_hook = {mdl_dlopen_mode, mdl_dlsym, mdl_dlclose};
-
 
 static int mdl_dl_addr (const void *address, Dl_info *info,
 			struct link_map **mapp, const ElfW(Sym) **symbolp)
@@ -96,9 +106,7 @@ static int mdl_dl_addr (const void *address, Dl_info *info,
 // used by __pthread_initialize_minimal_internal from nptl/init.c
 void
 internal_function
-_dl_get_tls_static_info (size_t *sizep, size_t *alignp) EXPORT;
-void
-internal_function
+ EXPORT
 _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
 {
   *sizep = g_mdl.tls_static_size;
@@ -114,9 +122,9 @@ void glibc_startup_finished (void)
 
 void glibc_initialize (void)
 {
-  _dl_open_hook = &g_dl_open_hook;
   void **(*fn) (void) = mdl_dl_error_catch_tsd;
-  mdl_memcpy ((void*)_rtld_global+CONFIG_DL_ERROR_CATCH_TSD_OFFSET,
+  char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
+  mdl_memcpy ((void*)dst,
 	      &fn, sizeof (fn));
 }
 
