@@ -56,6 +56,7 @@ int main (int argc, char *argv[])
       exit (3);
     }
   ElfW(Verdef) *cur, *prev;
+  int local_passthru_printed = 0;
   for (prev = 0, cur = verdef;
        cur != prev; 
        prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
@@ -88,7 +89,11 @@ int main (int argc, char *argv[])
 	}
       if (cur->vd_cnt == 1)
 	{
-	  printf ("};\n");
+	  if (!local_passthru_printed)
+	    {
+	      local_passthru_printed = 1;
+	      printf ("local:*;\n};\n");
+	    }
 	}
       else
 	{
