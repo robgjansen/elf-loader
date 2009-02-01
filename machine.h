@@ -10,7 +10,7 @@ void machine_perform_relocation (const struct MappedFile *file,
 				 const ElfW(Sym) *sym,
 				 const ElfW(Vernaux) *ver,
 				 const char *symbol_name);
-void machine_start_trampoline (int argc, const char **argv, const char **envp,
+void machine_start_trampoline (void *entry_point_struct, int skip_argc,
 			       void (*dl_fini) (void), void (*entry_point) (void));
 void machine_insert_trampoline (unsigned long from, unsigned long to);
 

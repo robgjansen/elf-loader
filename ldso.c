@@ -1,126 +1,13 @@
 #include "system.h"
-#include "dprintf.h"
 #include "mdl.h"
 #include "mdl-elf.h"
 #include "glibc.h"
 #include "gdb.h"
 #include "machine.h"
+#include "stage2.h"
 #include <elf.h>
 #include <link.h>
 
-#define READ_INT(p)				\
-  ({int v = *((int*)p);				\
-    p+=sizeof(int);				\
-    v;})
-
-#define READ_POINTER(p)				\
-  ({char * v = *((char**)p);			\
-    p+=sizeof(char*);				\
-    v;})
-
-struct OsArgs
-{
-  unsigned long interpreter_load_base;
-  ElfW(Phdr) *program_phdr;
-  unsigned long program_phnum;
-  unsigned long sysinfo;
-  int program_argc;
-  const char **program_argv;
-  const char **program_envp;
-};
-
-static struct OsArgs
-get_os_args (unsigned long *args)
-{
-  struct OsArgs os_args;
-  unsigned long tmp;
-  ElfW(auxv_t) *auxvt, *auxvt_tmp;
-  tmp = (unsigned long)(args+1);
-  os_args.program_argc = READ_INT (tmp); // skip argc
-  DPRINTF("argc=0x%x\n", os_args.program_argc);
-  os_args.program_argv = (const char **)tmp;
-  tmp += sizeof(char *)*(os_args.program_argc+1); // skip argv
-  os_args.program_envp = (const char **)tmp;
-  while (READ_POINTER (tmp) != 0) {} // skip envp
-  auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
-  // search interpreter load base
-  os_args.interpreter_load_base = 0;
-  os_args.program_phdr = 0;
-  os_args.program_phnum = 0;
-  auxvt_tmp = auxvt;
-  while (auxvt_tmp->a_type != AT_NULL)
-    {
-      if (auxvt_tmp->a_type == AT_BASE)
-	{
-	  os_args.interpreter_load_base = auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_PHDR)
-	{
-	  os_args.program_phdr = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_PHNUM)
-	{
-	  os_args.program_phnum = auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_SYSINFO)
-	{
-	  os_args.sysinfo = auxvt_tmp->a_un.a_val;
-	}
-      auxvt_tmp++;
-    }
-  DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
-  if (os_args.interpreter_load_base == 0 ||
-      os_args.program_phdr == 0 ||
-      os_args.program_phnum == 0 ||
-      os_args.sysinfo == 0)
-    {
-      system_exit (-3);
-    }
-  return os_args;
-}
-
-// relocate entries in DT_REL
-static void
-relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
-{
-  ElfW(Dyn) *tmp = dynamic;
-  ElfW(Rel) *dt_rel = 0;
-  uint32_t dt_relsz = 0;
-  uint32_t dt_relent = 0;
-  // search DT_REL, DT_RELSZ, DT_RELENT
-  while (tmp->d_tag != DT_NULL && (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0))
-    {
-      //DEBUG_HEX(tmp->d_tag);
-      if (tmp->d_tag == DT_REL)
-	{
-	  dt_rel = (ElfW(Rel) *)(load_base + tmp->d_un.d_ptr);
-	}
-      else if (tmp->d_tag == DT_RELSZ)
-	{
-	  dt_relsz = tmp->d_un.d_val;
-	}
-      else if (tmp->d_tag == DT_RELENT)
-	{
-	  dt_relent = tmp->d_un.d_val;
-	}
-      tmp++;
-    }
-  DPRINTF ("dtrel=0x%x, dt_relsz=%d, dt_relent=%d\n", 
-	   dt_rel, dt_relsz, dt_relent);
-  if (dt_rel != 0 && dt_relsz != 0 && dt_relent != 0)
-    {
-      // relocate entries in dt_rel. We could check the type below
-      // but since we are relocating the dynamic loader itself
-      // here, the entries will always be of type R_386_RELATIVE.
-      uint32_t i;
-      for (i = 0; i < dt_relsz; i+=dt_relent)
-	{
-	  ElfW(Rel) *tmp = (ElfW(Rel)*)(((uint8_t*)dt_rel) + i);
-	  ElfW(Addr) *reloc_addr = (void *)(load_base + tmp->r_offset);
-	  *reloc_addr += (ElfW(Addr))load_base;
-	}
-    }
-}
 
 static struct MappedFile *
 interpreter_new (unsigned long load_base, struct Context *context)
@@ -253,8 +140,12 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
   char *soname = (char *)(dt_strtab + dt_soname);
   return mdl_strisequal (soname, LDSO_SONAME);
 }
-static void stage2 (struct OsArgs args)
+
+struct Stage2Result 
+stage2 (struct TrampolineInformation *trampoline_information,
+	struct OsArgs args)
 {
+  struct Stage2Result result;
   mdl_initialize (args.interpreter_load_base);
 
   setup_env_vars (args.program_envp);
@@ -269,18 +160,17 @@ static void stage2 (struct OsArgs args)
       MDL_ASSERT (args.program_argc >= 2, "Not enough arguments to run loader");
 
       const char *program = args.program_argv[1];
-      args.program_argv++;
-      args.program_argc--;
       // We need to do what the kernel usually does for us, that is,
       // search the file, and map it in memory
       char *filename = mdl_elf_search_file (program);
       MDL_ASSERT (filename != 0, "Could not find main binary");
-      context = mdl_context_new (args.program_argc,
-				 args.program_argv,
+      context = mdl_context_new (args.program_argc - 1,
+				 args.program_argv + 1,
 				 args.program_envp);
 
       // the filename for the main exec is "" for gdb.
       main_file = mdl_elf_map_single (context, program, "");
+      result.n_argv_skipped = 1;
     }
   else
     {
@@ -304,6 +194,7 @@ static void stage2 (struct OsArgs args)
 				"",
 				args.program_argv[0],
 				context);
+      result.n_argv_skipped = 0;
     }
   main_file->is_executable = 1;
   gdb_initialize (main_file);
@@ -443,24 +334,12 @@ static void stage2 (struct OsArgs args)
       MDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);
       goto error;
     }
-  void (*entry_fn) (void) = (void (*)(void)) entry;
   glibc_startup_finished ();
-  machine_start_trampoline (args.program_argc, args.program_argv, args.program_envp,
-			    0, entry_fn);
-  system_exit (0);
+
+  result.entry_point = entry;
+  return result;
 error:
   system_exit (-6);
+  return result; // quiet compiler
 }
 
-void stage1 (void)
-{
-  void *stack = __builtin_frame_address (0);
-  struct OsArgs os_args = get_os_args (stack);
-  // The linker defines the symbol _DYNAMIC to point to the start of the 
-  // PT_DYNAMIC area which has been mapped by the OS loader as part of the
-  // rw PT_LOAD segment.
-  void *dynamic = _DYNAMIC;
-  dynamic += os_args.interpreter_load_base;
-  relocate_dt_rel (dynamic, os_args.interpreter_load_base);
-  stage2 (os_args);
-}

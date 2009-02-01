@@ -10,7 +10,7 @@ PWD=$(shell pwd)
 all: ldso elfedit hello hello-ldso
 
 LDSO_OBJECTS=\
-ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/start-trampoline.o
+stage1.o ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o
 
 # dependency rules.
 i386/machine.o: config.h
@@ -23,7 +23,7 @@ ldso: $(LDSO_OBJECTS)
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso:
-	$(LD) $(LDFLAGS) -e stage1 -shared -nostdlib $(VISIBILITY) --version-script=ldso.version --dynamic-linker=ldso --soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
+	$(LD) $(LDFLAGS) -e stage0 -shared -nostdlib $(VISIBILITY) --version-script=ldso.version --dynamic-linker=ldso --soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
 
 # we have two generated files and need to build them.
 ldso.version: readversiondef
