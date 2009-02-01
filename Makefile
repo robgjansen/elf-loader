@@ -10,7 +10,7 @@ PWD=$(shell pwd)
 all: ldso elfedit hello hello-ldso
 
 LDSO_OBJECTS=\
-stage1.o ldso.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o
+stage1.o stage2.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o
 
 # dependency rules.
 i386/machine.o: config.h
