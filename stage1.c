@@ -27,18 +27,12 @@ os_args_read (unsigned long entry_point_struct)
   os_args.program_envp = (const char **)tmp;
   while (READ_POINTER (tmp) != 0) {} // skip envp
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
-  // search interpreter load base
-  os_args.interpreter_load_base = 0;
   os_args.program_phdr = 0;
   os_args.program_phnum = 0;
   auxvt_tmp = auxvt;
   while (auxvt_tmp->a_type != AT_NULL)
     {
-      if (auxvt_tmp->a_type == AT_BASE)
-	{
-	  os_args.interpreter_load_base = auxvt_tmp->a_un.a_val;
-	}
-      else if (auxvt_tmp->a_type == AT_PHDR)
+      if (auxvt_tmp->a_type == AT_PHDR)
 	{
 	  os_args.program_phdr = (ElfW(Phdr) *)auxvt_tmp->a_un.a_val;
 	}
@@ -52,9 +46,7 @@ os_args_read (unsigned long entry_point_struct)
 	}
       auxvt_tmp++;
     }
-  DPRINTF ("interpreter load base: 0x%x\n", os_args.interpreter_load_base);
-  if (os_args.interpreter_load_base == 0 ||
-      os_args.program_phdr == 0 ||
+  if (os_args.program_phdr == 0 ||
       os_args.program_phnum == 0 ||
       os_args.sysinfo == 0)
     {
@@ -94,8 +86,10 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
   if (dt_rel != 0 && dt_relsz != 0 && dt_relent != 0)
     {
       // relocate entries in dt_rel. We could check the type below
-      // but since we are relocating the dynamic loader itself
-      // here, the entries will always be of type R_386_RELATIVE.
+      // but since we are relocating the dynamic loader itself here,
+      // the entries will always be of type R_XXX_RELATIVE.
+      // i.e., we work under the assumption that they will be. If 
+      // they are not, BAD things will happen.
       uint32_t i;
       for (i = 0; i < dt_relsz; i+=dt_relent)
 	{
@@ -111,14 +105,24 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 struct TrampolineInformation * 
 stage1 (struct TrampolineInformation*trampoline_information)
 {
+  // Note that os_args_read could return the AT_BASE value to give
+  // us the load_base of the interpreter but this value is unreliable
+  // when the loader is used as an executable so, we have to calculate
+  // it by hand and the caller is expected to do just that.
   struct OsArgs os_args = os_args_read (trampoline_information->entry_point_struct);
-  // The linker defines the symbol _DYNAMIC to point to the start of the 
-  // PT_DYNAMIC area which has been mapped by the OS loader as part of the
-  // rw PT_LOAD segment.
+  // The linker defines the symbol _DYNAMIC to give you the offset from
+  // the load base to the start of the PT_DYNAMIC area which has been 
+  // mapped by the OS loader as part of the rw PT_LOAD segment.
   void *dynamic = _DYNAMIC;
-  dynamic += os_args.interpreter_load_base;
-  relocate_dt_rel (dynamic, os_args.interpreter_load_base);
+  dynamic += trampoline_information->load_base;
+  relocate_dt_rel (dynamic, trampoline_information->load_base);
+
+  // Now that we have relocated this binary, we can access global variables
+  // so, we switch to stage2 to complete the loader initialization.
   struct Stage2Result result = stage2 (trampoline_information, os_args);
+
+  // We are all done, so we update the caller's data structure to be able
+  // jump in the program's entry point.
   trampoline_information->entry_point = result.entry_point;
   trampoline_information->dl_fini = 0;
   // adjust the entry point structure to get rid of skipped 

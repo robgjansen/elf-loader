@@ -112,7 +112,7 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
 
   MDL_ASSERT (phdr->p_type == PT_PHDR,
 	      "The first program header is not a PT_PHDR");
-  // If we assume that the first program in the program header table is the PT_HDR
+  // If we assume that the first program in the program header table is the PT_PHDR
   // The load base of the main program is easy to calculate as the difference
   // between the PT_PHDR vaddr and its real address in memory.
   unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
@@ -146,7 +146,7 @@ stage2 (struct TrampolineInformation *trampoline_information,
 	struct OsArgs args)
 {
   struct Stage2Result result;
-  mdl_initialize (args.interpreter_load_base);
+  mdl_initialize (trampoline_information->load_base);
 
   setup_env_vars (args.program_envp);
 
@@ -204,7 +204,8 @@ stage2 (struct TrampolineInformation *trampoline_information,
   // the main binary because gdb assumes that the first entry in the
   // link map is the main binary itself. We don't add it to the global 
   // scope.
-  struct MappedFile *interpreter = interpreter_new (args.interpreter_load_base, context);
+  struct MappedFile *interpreter = interpreter_new (trampoline_information->load_base,
+						    context);
 
   struct MappedFileList *global_scope = 0;
 
