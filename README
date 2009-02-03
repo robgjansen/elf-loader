@@ -1,0 +1,38 @@
+      An ELF dynamic linker/loader
+      ----------------------------
+
+1) What is this ?
+-----------------
+
+This is an ELF dynamic linker/loader. Its purpose is
+to be a binary-compatible replacement of /lib/ld-linux.so.2
+on a large variety of linux distributions for i386/x86-64
+systems. Support for other hardware platforms is not planned
+but non-intrusive patches are welcome :)
+
+2) What is its purpose ?
+------------------------
+
+I need more features from the dynamic loader than what is
+provided by the default glibc loader. I could have tried to
+hack the glibc loader but since I did not know enough about
+the details of how a loader work, and given the horrid 
+complexity/lack of documentation of the glibc loader, it 
+seemed easier to implement a new loader with the features I
+needed.
+
+3) What is its status ?
+-----------------------
+
+Right now, this loader can load and run a variety of simple
+non-multithreaded command-line programs which make no use of 
+dlopen/dclose. ls and cp have been tested.
+
+4) What is the TODO ?
+---------------------
+
+The current roadmap calls for the implementation of:
+  - libdl.so (dlopen/dlclose/etc.)
+  - multithreaded support (including TLS)
+  - port to x86-64
+  - addition of the new features I need
