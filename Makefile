@@ -1,6 +1,8 @@
 #DEBUG=-DDEBUG_ENABLE
+#OPT=-O2
 LDSO_SONAME=ldso
-CFLAGS=-g3 -Wall $(DEBUG)
+CFLAGS=-g3 -Wall $(DEBUG) $(OPT)
+LDFLAGS=$(OPT)
 VISIBILITY=-fvisibility=hidden
 
 #we need libgcc for 64bit arithmetic functions
@@ -10,7 +12,7 @@ PWD=$(shell pwd)
 all: ldso elfedit hello hello-ldso
 
 LDSO_OBJECTS=\
-interp.o stage1.o stage2.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o
+stage1.o stage2.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
 
 # dependency rules.
 i386/machine.o: config.h
@@ -26,7 +28,7 @@ ldso:
 # note: we should be using -nostartfiles below but doing so makes the linker
 # stop to map the ELF header and program headers in the resulting PT_LOAD entry
 # which is problematic.
-	$(LD) $(LDFLAGS) --entry=stage0  -nostdlib -shared --version-script=ldso.version --soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
+	$(LD) $(LDFLAGS) --entry=stage0 -nostdlib -shared --version-script=ldso.version --soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
 
 # we have two generated files and need to build them.
 ldso.version: readversiondef

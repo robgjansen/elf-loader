@@ -18,9 +18,9 @@ L1:	leal -L1(%ebx),%ebx
 	# allocated on the stack
 	pushl %esp
 	call stage1
-	movl 4(%eax),%esp
-	movl 8(%eax),%esi
-	movl 12(%eax),%edx
+	movl 16(%esp),%edx
+	movl 12(%esp),%esi
+	movl 8(%esp),%esp
 	xorl %eax, %eax
 	jmp *%esi
 	

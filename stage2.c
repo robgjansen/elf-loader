@@ -110,6 +110,7 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
   MDL_ASSERT (mdl_elf_file_get_info (phnum,phdr, &info),
 	      "Unable to obtain information about main program");
 
+  // we search the first PT_LOAD 
   MDL_ASSERT (phdr->p_type == PT_PHDR,
 	      "The first program header is not a PT_PHDR");
   // If we assume that the first program in the program header table is the PT_PHDR
@@ -141,60 +142,59 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
   return mdl_strisequal (soname, LDSO_SONAME);
 }
 
-struct Stage2Result 
-stage2 (struct TrampolineInformation *trampoline_information,
-	struct OsArgs args)
+struct Stage2Output
+stage2 (struct Stage2Input input)
 {
-  struct Stage2Result result;
-  mdl_initialize (trampoline_information->load_base);
+  struct Stage2Output output;
+  mdl_initialize (input.interpreter_load_base);
 
-  setup_env_vars (args.program_envp);
+  setup_env_vars (input.program_envp);
 
   struct MappedFile *main_file;
   struct Context *context;
-  if (is_loader (args.program_phnum, args.program_phdr))
+  if (is_loader (input.program_phnum, input.program_phdr))
     {
       // the interpreter is run as a normal program. We behave like the libc
       // interpreter and assume that this means that the name of the program
       // to run is the first argument in the argv.
-      MDL_ASSERT (args.program_argc >= 2, "Not enough arguments to run loader");
+      MDL_ASSERT (input.program_argc >= 2, "Not enough arguments to run loader");
 
-      const char *program = args.program_argv[1];
+      const char *program = input.program_argv[1];
       // We need to do what the kernel usually does for us, that is,
       // search the file, and map it in memory
       char *filename = mdl_elf_search_file (program);
       MDL_ASSERT (filename != 0, "Could not find main binary");
-      context = mdl_context_new (args.program_argc - 1,
-				 args.program_argv + 1,
-				 args.program_envp);
+      context = mdl_context_new (input.program_argc - 1,
+				 input.program_argv + 1,
+				 input.program_envp);
 
       // the filename for the main exec is "" for gdb.
       main_file = mdl_elf_map_single (context, program, "");
-      result.n_argv_skipped = 1;
+      output.n_argv_skipped = 1;
     }
   else
     {
       // here, the file is already mapped so, we just create the 
       // right data structure
       struct FileInfo info;
-      MDL_ASSERT (mdl_elf_file_get_info (args.program_phnum, args.program_phdr, &info),
+      MDL_ASSERT (mdl_elf_file_get_info (input.program_phnum, input.program_phdr, &info),
 		  "Unable to obtain information about main program");
 
       // The load base of the main program is easy to calculate as the difference
       // between the PT_PHDR vaddr and its real address in memory.
-      unsigned long load_base = ((unsigned long)args.program_phdr) - args.program_phdr->p_vaddr;
+      unsigned long load_base = ((unsigned long)input.program_phdr) - input.program_phdr->p_vaddr;
 
-      context = mdl_context_new (args.program_argc,
-				 args.program_argv,
-				 args.program_envp);
+      context = mdl_context_new (input.program_argc,
+				 input.program_argv,
+				 input.program_envp);
 
       // the filename for the main exec is "" for gdb.
       main_file = mdl_file_new (load_base,
 				&info,
 				"",
-				args.program_argv[0],
+				input.program_argv[0],
 				context);
-      result.n_argv_skipped = 0;
+      output.n_argv_skipped = 0;
     }
   main_file->is_executable = 1;
   gdb_initialize (main_file);
@@ -204,7 +204,7 @@ stage2 (struct TrampolineInformation *trampoline_information,
   // the main binary because gdb assumes that the first entry in the
   // link map is the main binary itself. We don't add it to the global 
   // scope.
-  struct MappedFile *interpreter = interpreter_new (trampoline_information->load_base,
+  struct MappedFile *interpreter = interpreter_new (input.interpreter_load_base,
 						    context);
 
   struct MappedFileList *global_scope = 0;
@@ -212,7 +212,7 @@ stage2 (struct TrampolineInformation *trampoline_information,
   // we add the main binary to the global scope
   global_scope = mdl_file_list_append_one (0, main_file);
 
-  global_scope = do_ld_preload (context, global_scope, args.program_envp);
+  global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
   MDL_ASSERT (mdl_elf_map_deps (main_file), 
 	      "Unable to map dependencies of main file");
@@ -280,7 +280,7 @@ stage2 (struct TrampolineInformation *trampoline_information,
   {
     machine_tcb_allocate_and_set (g_mdl.tls_static_size);
     unsigned long tcb = machine_tcb_get ();
-    machine_tcb_set_sysinfo (args.sysinfo);
+    machine_tcb_set_sysinfo (input.sysinfo);
     unsigned long *dtv = mdl_malloc ((1+g_mdl.tls_n_dtv) * sizeof (unsigned long));
     dtv[0] = g_mdl.tls_gen;
     g_mdl.tls_gen++;
@@ -337,10 +337,10 @@ stage2 (struct TrampolineInformation *trampoline_information,
     }
   glibc_startup_finished ();
 
-  result.entry_point = entry;
-  return result;
+  output.entry_point = entry;
+  return output;
 error:
   system_exit (-6);
-  return result; // quiet compiler
+  return output; // quiet compiler
 }
 
