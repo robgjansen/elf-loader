@@ -36,9 +36,7 @@ void mdl_initialize (unsigned long interpreter_load_base)
   mdl->state = MDL_CONSISTENT;
   mdl->interpreter_load_base = interpreter_load_base;
   mdl->logging = MDL_LOG_ERR | MDL_LOG_AST | MDL_LOG_PRINT;
-  mdl->search_dirs = 0;
   alloc_initialize (&(mdl->alloc));
-  mdl->search_dirs = 0;
   mdl->bind_now = 0; // by default, do lazy binding
   mdl->contexts = 0;
 
@@ -284,6 +282,10 @@ void mdl_set_logging (const char *debug_str)
 	{
 	  logging |= MDL_LOG_REL;
 	}
+      else if (mdl_strisequal (cur->str, "help"))
+	{
+	  MDL_LOG_ERROR ("Available logging levels: debug, function, error, assert, symbol-fail, symbol-ok, reloc\n", 1);
+	}
     }
   g_mdl.logging |= logging;
   mdl_str_list_free (list);
@@ -302,7 +304,7 @@ void mdl_free (void *buffer, size_t size)
 }
 int mdl_strisequal (const char *a, const char *b)
 {
-  MDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
+  //MDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
   while (*a != 0 && *b != 0)
     {
       if (*a != *b)
@@ -316,7 +318,7 @@ int mdl_strisequal (const char *a, const char *b)
 }
 int mdl_strlen (const char *str)
 {
-  MDL_LOG_FUNCTION ("str=%s", str);
+  //MDL_LOG_FUNCTION ("str=%s", str);
   int len = 0;
   while (str[len] != 0)
     {
@@ -326,7 +328,7 @@ int mdl_strlen (const char *str)
 }
 char *mdl_strdup (const char *str)
 {
-  MDL_LOG_FUNCTION ("str=%s", str);
+  //MDL_LOG_FUNCTION ("str=%s", str);
   int len = mdl_strlen (str);
   char *retval = mdl_malloc (len+1);
   mdl_memcpy (retval, str, len+1);
@@ -334,7 +336,7 @@ char *mdl_strdup (const char *str)
 }
 void mdl_memcpy (void *d, const void *s, size_t len)
 {
-  MDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
+  //MDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
   int tmp = len;
   char *dst = d;
   const char *src = s;

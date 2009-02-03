@@ -87,6 +87,13 @@ struct StringList *mdl_elf_get_dt_needed (struct MappedFile *file)
 char *mdl_elf_search_file (const char *name)
 {
   MDL_LOG_FUNCTION ("name=%s", name);
+  if (mdl_strisequal (name, "libdl.so") ||
+      mdl_strisequal (name, "libdl.so.2"))
+    {
+      // we replace libdl.so with our own libmdl.so
+      name = "libmdl.so";
+    }
+
   struct StringList *cur;
   for (cur = g_mdl.search_dirs; cur != 0; cur = cur->next)
     {

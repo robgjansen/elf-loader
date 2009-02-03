@@ -9,7 +9,8 @@ VISIBILITY=-fvisibility=hidden
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
 
-all: ldso elfedit hello hello-ldso
+all: ldso elfedit
+	$(MAKE) -C test
 
 LDSO_OBJECTS=\
 stage1.o stage2.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
@@ -17,8 +18,7 @@ stage1.o stage2.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc
 # dependency rules.
 i386/machine.o: config.h
 glibc.o: config.h
-ldso: $(LDSO_OBJECTS) ldso.version
-ldso: $(LDSO_OBJECTS)
+ldso: $(LDSO_OBJECTS) ldso.version libmdl.so
 # build rules.
 %.o:%.c
 	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/i386 -fpic $(VISIBILITY) -o $@ -c $<
@@ -41,12 +41,13 @@ readversiondef.o: readversiondef.c
 readversiondef: readversiondef.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-hello.o: hello.c
-	$(CC) $(CFLAGS) -o $@ -c $<
-hello-ldso: hello.o
-	$(CC) $(LDFLAGS) -Wl,--dynamic-linker=ldso -o $@ $^
-hello: hello.o
-	$(CC) $(LDFLAGS) -o $@ $^
+libmdl.version: readversiondef
+	./readversiondef /lib/libdl.so.2 > $@
+libmdl.o: libmdl.c
+	$(CC) $(CFLAGS) $(VISIBILITY) -fpic -o $@ -c $< 
+libmdl.so: libmdl.o libmdl.version
+	$(CC) $(LDFLAGS) -nostdlib -shared -Wl,--version-script=libmdl.version -o $@ $<
+
 elfedit.o: elfedit.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 elfedit: elfedit.o
@@ -54,7 +55,8 @@ elfedit: elfedit.o
 
 clean: 
 	-rm -f elfedit readversiondef core hello hello-ldso 2> /dev/null
-	-rm -f ldso *.o  i386/*.o 2>/dev/null
+	-rm -f ldso libmdl.so *.o  i386/*.o 2>/dev/null
 	-rm -f *~ i386/*~ 2>/dev/null
 	-rm -f \#* i386/\#* 2>/dev/null
 	-rm -f config.h ldso.version 2>/dev/null
+	$(MAKE) -C test clean
