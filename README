@@ -36,3 +36,5 @@ The current roadmap calls for the implementation of:
   - multithreaded support (including TLS)
   - port to x86-64
   - addition of the new features I need
+  - add lazy symbol relocation support (optimization)
+  - fix gdb support to debug programs not loaded with PT_INTERP
