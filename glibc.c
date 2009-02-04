@@ -130,7 +130,7 @@ void glibc_initialize (void)
 
 
 
-void glibc_patch (struct MappedFile *file)
+void glibc_patch (struct VdlFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->patched)
@@ -142,7 +142,7 @@ void glibc_patch (struct MappedFile *file)
   file->patched = 1;
 
   // iterate over all deps first before initialization.
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       glibc_patch (cur->item);

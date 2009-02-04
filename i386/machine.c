@@ -5,7 +5,7 @@
 #include <sys/mman.h>
 
 static int do_lookup_and_log (const char *symbol_name,
-			      const struct MappedFile *file,
+			      const struct VdlFile *file,
 			      const ElfW(Vernaux) *ver,
 			      enum LookupFlag flags,
 			      struct SymbolMatch *match)
@@ -21,7 +21,7 @@ static int do_lookup_and_log (const char *symbol_name,
   return 1;
 }
 
-void machine_perform_relocation (const struct MappedFile *file,
+void machine_perform_relocation (const struct VdlFile *file,
 				 const ElfW(Rel) *rel,
 				 const ElfW(Sym) *sym,
 				 const ElfW(Vernaux) *ver,

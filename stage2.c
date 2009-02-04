@@ -9,7 +9,7 @@
 #include <link.h>
 
 
-static struct MappedFile *
+static struct VdlFile *
 interpreter_new (unsigned long load_base, struct Context *context)
 {
   /* We make many assumptions here:
@@ -30,7 +30,7 @@ interpreter_new (unsigned long load_base, struct Context *context)
       MDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
       goto error;
     }
-  struct MappedFile *file = vdl_file_new (load_base, &info, 
+  struct VdlFile *file = vdl_file_new (load_base, &info, 
 					  LDSO_SONAME,
 					  LDSO_SONAME,
 					  context);
@@ -48,8 +48,8 @@ interpreter_new (unsigned long load_base, struct Context *context)
   return 0;
 }
 
-static struct MappedFileList *
-do_ld_preload (struct Context *context, struct MappedFileList *scope, const char **envp)
+static struct VdlFileList *
+do_ld_preload (struct Context *context, struct VdlFileList *scope, const char **envp)
 {
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the dependencies of the main 
@@ -68,7 +68,7 @@ do_ld_preload (struct Context *context, struct MappedFileList *scope, const char
 	  goto error;
 	}
       // map it in memory.
-      struct MappedFile *ld_preload_file = vdl_elf_map_single (context, ld_preload_filename, 
+      struct VdlFile *ld_preload_file = vdl_elf_map_single (context, ld_preload_filename, 
 							       ld_preload);
       if (ld_preload_file == 0)
 	{
@@ -150,7 +150,7 @@ stage2 (struct Stage2Input input)
 
   setup_env_vars (input.program_envp);
 
-  struct MappedFile *main_file;
+  struct VdlFile *main_file;
   struct Context *context;
   if (is_loader (input.program_phnum, input.program_phdr))
     {
@@ -204,10 +204,10 @@ stage2 (struct Stage2Input input)
   // the main binary because gdb assumes that the first entry in the
   // link map is the main binary itself. We don't add it to the global 
   // scope.
-  struct MappedFile *interpreter = interpreter_new (input.interpreter_load_base,
+  struct VdlFile *interpreter = interpreter_new (input.interpreter_load_base,
 						    context);
 
-  struct MappedFileList *global_scope = 0;
+  struct VdlFileList *global_scope = 0;
 
   // we add the main binary to the global scope
   global_scope = vdl_file_list_append_one (0, main_file);
@@ -219,7 +219,7 @@ stage2 (struct Stage2Input input)
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
-  struct MappedFileList *all_deps = vdl_elf_gather_all_deps_breadth_first (main_file);
+  struct VdlFileList *all_deps = vdl_elf_gather_all_deps_breadth_first (main_file);
   global_scope = vdl_file_list_append (global_scope, all_deps);
   vdl_file_list_unicize (global_scope);
   context->global_scope = global_scope;
@@ -228,7 +228,7 @@ stage2 (struct Stage2Input input)
   // do this before relocation because the TLS-type relocations 
   // need this tls information.
   {
-    struct MappedFile *cur;
+    struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
 	vdl_elf_tls (cur);
@@ -242,7 +242,7 @@ stage2 (struct Stage2Input input)
     unsigned long tcb_size = 0;
     unsigned long n_dtv = 0;
     unsigned long max_align = 0;
-    struct MappedFile *cur;
+    struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
 	if (cur->has_tls)
@@ -266,7 +266,7 @@ stage2 (struct Stage2Input input)
   // or we perform binding for all symbols now if LD_BIND_NOW is set
   g_vdl.bind_now = 1;
   {
-    struct MappedFile *cur;
+    struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
 	vdl_elf_reloc (cur);
@@ -284,7 +284,7 @@ stage2 (struct Stage2Input input)
     unsigned long *dtv = vdl_malloc ((1+g_vdl.tls_n_dtv) * sizeof (unsigned long));
     dtv[0] = g_vdl.tls_gen;
     g_vdl.tls_gen++;
-    struct MappedFile *cur;
+    struct VdlFile *cur;
     unsigned long i; // starts at 1 because 0 contains the generation
     for (i = 1, cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
@@ -310,7 +310,7 @@ stage2 (struct Stage2Input input)
   // patch glibc functions which need to be overriden.
   // This is really a hack I am not very proud of.
   {
-    struct MappedFile *cur;
+    struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
 	glibc_patch (cur);
@@ -322,7 +322,7 @@ stage2 (struct Stage2Input input)
 
   // Finally, call init functions
   {
-    struct MappedFile *cur;
+    struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
 	vdl_elf_call_init (cur);

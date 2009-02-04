@@ -51,7 +51,7 @@ void vdl_initialize (unsigned long interpreter_load_base)
 
 void vdl_linkmap_print (void)
 {
-  struct MappedFile *cur;
+  struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
       vdl_log_printf (MDL_LOG_PRINT, 
@@ -144,7 +144,7 @@ static void vdl_context_delete (struct Context *context)
 }
 
 static void
-append_file (struct MappedFile *item)
+append_file (struct VdlFile *item)
 {
   MDL_LOG_FUNCTION ("item=%p", item);
   if (g_vdl.link_map == 0)
@@ -152,7 +152,7 @@ append_file (struct MappedFile *item)
       g_vdl.link_map = item;
       return;
     }
-  struct MappedFile *cur = g_vdl.link_map;
+  struct VdlFile *cur = g_vdl.link_map;
   while (cur->next != 0)
     {
       cur = cur->next;
@@ -161,13 +161,13 @@ append_file (struct MappedFile *item)
   item->prev = cur;
   item->next = 0;
 }
-struct MappedFile *vdl_file_new (unsigned long load_base,
+struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const struct FileInfo *info,
 				 const char *filename, 
 				 const char *name,
 				 struct Context *context)
 {
-  struct MappedFile *file = vdl_new (struct MappedFile);
+  struct VdlFile *file = vdl_new (struct VdlFile);
 
   file->load_base = load_base;
   file->filename = vdl_strdup (filename);
@@ -200,11 +200,11 @@ struct MappedFile *vdl_file_new (unsigned long load_base,
   return file;
 }
 
-static void vdl_file_ref (struct MappedFile *file)
+static void vdl_file_ref (struct VdlFile *file)
 {
   file->count++;
 }
-static void vdl_file_unref (struct MappedFile *file)
+static void vdl_file_unref (struct VdlFile *file)
 {
   file->count--;
   if (file->count == 0)
@@ -214,7 +214,7 @@ static void vdl_file_unref (struct MappedFile *file)
       // remove file from global link map
       // and count number of files in the same context
       uint32_t context_count = 0;
-      struct MappedFile *cur;
+      struct VdlFile *cur;
       for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
 	{
 	  if (cur->context == file->context)
@@ -520,19 +520,19 @@ struct StringList *vdl_str_list_reverse (struct StringList *list)
   return ret;
 }
 
-void vdl_file_list_free (struct MappedFileList *list)
+void vdl_file_list_free (struct VdlFileList *list)
 {
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
       vdl_file_unref (cur->item);
       vdl_delete (cur);
     }
 }
-struct MappedFileList *vdl_file_list_copy (struct MappedFileList *list)
+struct VdlFileList *vdl_file_list_copy (struct VdlFileList *list)
 {
-  struct MappedFileList *copy = 0;
-  struct MappedFileList *cur;
+  struct VdlFileList *copy = 0;
+  struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
       copy = vdl_file_list_append_one (copy, cur->item);
@@ -540,59 +540,59 @@ struct MappedFileList *vdl_file_list_copy (struct MappedFileList *list)
   return copy;
 }
 
-struct MappedFileList *vdl_file_list_append_one (struct MappedFileList *list, 
-						 struct MappedFile *item)
+struct VdlFileList *vdl_file_list_append_one (struct VdlFileList *list, 
+						 struct VdlFile *item)
 {
   vdl_file_ref (item);
   if (list == 0)
     {
-      list = vdl_new (struct MappedFileList);
+      list = vdl_new (struct VdlFileList);
       list->next = 0;
       list->item = item;
       return list;
     }
-  struct MappedFileList *cur = list;
+  struct VdlFileList *cur = list;
   while (cur->next != 0)
     {
       cur = cur->next;
     }
-  cur->next = vdl_new (struct MappedFileList);
+  cur->next = vdl_new (struct VdlFileList);
   cur->next->item = item;
   cur->next->next = 0;
   return list;
 }
-static struct MappedFileList *
-vdl_file_list_get_end (struct MappedFileList *start)
+static struct VdlFileList *
+vdl_file_list_get_end (struct VdlFileList *start)
 {
   if (start == 0)
     {
       return 0;
     }
-  struct MappedFileList *cur = start;
+  struct VdlFileList *cur = start;
   while (cur->next != 0)
     {
       cur = cur->next;
     }
   return cur;
 }
-struct MappedFileList *vdl_file_list_append (struct MappedFileList *start, 
-					     struct MappedFileList *last)
+struct VdlFileList *vdl_file_list_append (struct VdlFileList *start, 
+					     struct VdlFileList *last)
 {
   if (start == 0)
     {
       return last;
     }
-  struct MappedFileList *end = vdl_file_list_get_end (start);
+  struct VdlFileList *end = vdl_file_list_get_end (start);
   end->next = last;
   return start;
 }
 
-void vdl_file_list_unicize (struct MappedFileList *list)
+void vdl_file_list_unicize (struct VdlFileList *list)
 {
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      struct MappedFileList *tmp, *prev;
+      struct VdlFileList *tmp, *prev;
       for (prev = cur, tmp = cur->next; tmp != 0; prev = tmp, tmp = tmp->next)
 	{
 	  if (cur == tmp)

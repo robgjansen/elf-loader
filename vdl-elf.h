@@ -21,22 +21,22 @@
 
 ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 char *vdl_elf_search_file (const char *name);
-struct MappedFile *vdl_elf_map_single (struct Context *context, 
+struct VdlFile *vdl_elf_map_single (struct Context *context, 
 				       const char *filename, 
 				       const char *name);
-int vdl_elf_map_deps (struct MappedFile *item);
+int vdl_elf_map_deps (struct VdlFile *item);
 int vdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
 			   struct FileInfo *info);
-struct MappedFileList *vdl_elf_gather_all_deps_breadth_first (struct MappedFile *file);
+struct VdlFileList *vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file);
 unsigned long vdl_elf_hash (const char *n);
-void vdl_elf_call_init (struct MappedFile *file);
-unsigned long vdl_elf_get_entry_point (struct MappedFile *file);
-void vdl_elf_reloc (struct MappedFile *file);
-ElfW(Dyn) *vdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag);
+void vdl_elf_call_init (struct VdlFile *file);
+unsigned long vdl_elf_get_entry_point (struct VdlFile *file);
+void vdl_elf_reloc (struct VdlFile *file);
+ElfW(Dyn) *vdl_elf_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 struct SymbolMatch
 {
-  const struct MappedFile *file;
+  const struct VdlFile *file;
   const ElfW(Sym) *symbol;
 };
 enum LookupFlag {
@@ -47,18 +47,18 @@ enum LookupFlag {
   LOOKUP_NO_EXEC = 1
 };
 int vdl_elf_symbol_lookup (const char *name, 
-			   const struct MappedFile *file,
+			   const struct VdlFile *file,
 			   const ElfW(Vernaux) *ver,
 			   enum LookupFlag flags,
 			   struct SymbolMatch *match);
-struct MappedFile *vdl_elf_main_file_new (unsigned long phnum,
+struct VdlFile *vdl_elf_main_file_new (unsigned long phnum,
 					  ElfW(Phdr)*phdr,
 					  int argc, 
 					  const char **argv, 
 					  const char **envp);
-unsigned long vdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file);
+unsigned long vdl_elf_symbol_lookup_local (const char *name, const struct VdlFile *file);
 
-void vdl_elf_tls (struct MappedFile *file);
+void vdl_elf_tls (struct VdlFile *file);
 void vdl_elf_tcb_initialize (unsigned long sysinfo);
 
 #endif /* MDL_ELF_H */

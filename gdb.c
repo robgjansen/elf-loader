@@ -13,7 +13,7 @@ static int _r_debug_state (void)
   return 1;
 }
 
-void gdb_initialize (struct MappedFile *file)
+void gdb_initialize (struct VdlFile *file)
 {
   // The breakpoint member is not really used by gdb.
   // instead, gdb hardcodes the name _r_debug_state.

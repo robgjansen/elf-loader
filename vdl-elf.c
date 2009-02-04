@@ -8,7 +8,7 @@
 #define vdl_max(a,b)(((a)>(b))?(a):(b))
 
 ElfW(Dyn) *
-vdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
+vdl_elf_file_get_dynamic (const struct VdlFile *file, unsigned long tag)
 {
   ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
   while (cur->d_tag != DT_NULL)
@@ -23,7 +23,7 @@ vdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
 }
 
 static unsigned long
-vdl_elf_file_get_dynamic_v (const struct MappedFile *file, unsigned long tag)
+vdl_elf_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag)
 {
   ElfW(Dyn) *dyn = vdl_elf_file_get_dynamic (file, tag);
   if (dyn == 0)
@@ -34,7 +34,7 @@ vdl_elf_file_get_dynamic_v (const struct MappedFile *file, unsigned long tag)
 }
 
 static unsigned long
-vdl_elf_file_get_dynamic_p (const struct MappedFile *file, unsigned long tag)
+vdl_elf_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
 {
   ElfW(Dyn) *dyn = vdl_elf_file_get_dynamic (file, tag);
   if (dyn == 0)
@@ -59,7 +59,7 @@ ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
   return 0;
 }
 
-struct StringList *vdl_elf_get_dt_needed (struct MappedFile *file)
+struct StringList *vdl_elf_get_dt_needed (struct VdlFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   unsigned long dt_strtab = vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
@@ -110,7 +110,7 @@ char *vdl_elf_search_file (const char *name)
     }
   return 0;
 }
-struct MappedFile *vdl_elf_map_single (struct Context *context, 
+struct VdlFile *vdl_elf_map_single (struct Context *context, 
 				       const char *filename, 
 				       const char *name)
 {
@@ -250,7 +250,7 @@ struct MappedFile *vdl_elf_map_single (struct Context *context,
       goto error;
     }
 
-  struct MappedFile *file = vdl_file_new (load_base, &info, 
+  struct VdlFile *file = vdl_file_new (load_base, &info, 
 					  filename, name,
 					  context);
   file->st_dev = st_buf.st_dev;
@@ -298,12 +298,12 @@ convert_name (const char *name)
   return name;
 }
 
-static struct MappedFile *
+static struct VdlFile *
 find_by_name (struct Context *context,
 	      const char *name)
 {
   name = convert_name (name);
-  struct MappedFile *cur;
+  struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
       if (vdl_strisequal (cur->name, name))
@@ -313,11 +313,11 @@ find_by_name (struct Context *context,
     }
   return 0;
 }
-static struct MappedFile *
+static struct VdlFile *
 find_by_dev_ino (struct Context *context, 
 		 dev_t dev, ino_t ino)
 {
-  struct MappedFile *cur;
+  struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
       if (cur->context == context &&
@@ -330,7 +330,7 @@ find_by_dev_ino (struct Context *context,
   return 0;
 }
 
-int vdl_elf_map_deps (struct MappedFile *item)
+int vdl_elf_map_deps (struct VdlFile *item)
 {
   MDL_LOG_FUNCTION ("file=%s", item->name);
 
@@ -344,13 +344,13 @@ int vdl_elf_map_deps (struct MappedFile *item)
   struct StringList *dt_needed = vdl_elf_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
-  struct MappedFileList *deps = 0;
+  struct VdlFileList *deps = 0;
   struct StringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
       // if the file is already mapped within this context,
       // get it and add it to deps
-      struct MappedFile *dep = find_by_name (item->context, cur->str);
+      struct VdlFile *dep = find_by_name (item->context, cur->str);
       if (dep != 0)
 	{
 	  deps = vdl_file_list_append_one (deps, dep);
@@ -397,7 +397,7 @@ int vdl_elf_map_deps (struct MappedFile *item)
   vdl_str_list_free (dt_needed);
 
   // then, recursively map the deps of each dep.
-  struct MappedFileList *dep;
+  struct VdlFileList *dep;
   for (dep = deps; dep != 0; dep = dep->next)
     {
       if (!vdl_elf_map_deps (dep->item))
@@ -523,19 +523,19 @@ int vdl_elf_file_get_info (uint32_t phnum,
   return 0;
 }
 
-struct MappedFileList *
-vdl_elf_gather_all_deps_breadth_first (struct MappedFile *file)
+struct VdlFileList *
+vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
 
-  struct MappedFileList *list, *cur;
+  struct VdlFileList *list, *cur;
 
-  list = vdl_new (struct MappedFileList);
+  list = vdl_new (struct VdlFileList);
   list->item = file;
   list->next = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      struct MappedFileList *copy = vdl_file_list_copy (cur->item->deps);
+      struct VdlFileList *copy = vdl_file_list_copy (cur->item->deps);
       cur = vdl_file_list_append (cur, copy);
     }
 
@@ -569,7 +569,7 @@ struct LookupIterator
 
 static struct LookupIterator 
 vdl_elf_lookup_begin (const char *name, unsigned long hash,
-		      const struct MappedFile *file)
+		      const struct VdlFile *file)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->filename);
   struct LookupIterator i;
@@ -653,8 +653,8 @@ vdl_elf_lookup_next (struct LookupIterator *i)
 // requirement so, we must check that the matching 
 // symbol's version also matches.	      
 static int
-symbol_version_matches (const struct MappedFile *in,
-			const struct MappedFile *from,
+symbol_version_matches (const struct VdlFile *in,
+			const struct VdlFile *from,
 			const ElfW(Vernaux) *ver_needed,
 			unsigned long index)
 {
@@ -731,16 +731,16 @@ symbol_version_matches (const struct MappedFile *in,
 static int
 do_symbol_lookup_scope (const char *name, 
 			unsigned long hash,
-			const struct MappedFile *file,
+			const struct VdlFile *file,
 			const ElfW(Vernaux) *ver_needed,
 			enum LookupFlag flags,
-			struct MappedFileList *scope,
+			struct VdlFileList *scope,
 			struct SymbolMatch *match)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
 
   // then, iterate scope until we find the requested symbol.
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = scope; cur != 0; cur = cur->next)
     {
       if (flags & LOOKUP_NO_EXEC && 
@@ -767,7 +767,7 @@ do_symbol_lookup_scope (const char *name,
 
 int 
 vdl_elf_symbol_lookup (const char *name, 
-		       const struct MappedFile *file,
+		       const struct VdlFile *file,
 		       const ElfW(Vernaux) *ver,
 		       enum LookupFlag flags,
 		       struct SymbolMatch *match)
@@ -788,7 +788,7 @@ vdl_elf_symbol_lookup (const char *name,
   return ok;
 }
 unsigned long 
-vdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
+vdl_elf_symbol_lookup_local (const char *name, const struct VdlFile *file)
 {
   unsigned long hash = vdl_elf_hash (name);
   struct LookupIterator i = vdl_elf_lookup_begin (name, hash, file);
@@ -809,7 +809,7 @@ vdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
 typedef void (*init_function) (int, char **, char **);
 
 static void
-vdl_elf_call_init_one (struct MappedFile *file)
+vdl_elf_call_init_one (struct VdlFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   // Gather information from the .dynamic section
@@ -839,7 +839,7 @@ vdl_elf_call_init_one (struct MappedFile *file)
     }
 }
 
-void vdl_elf_call_init (struct MappedFile *file)
+void vdl_elf_call_init (struct VdlFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->init_called)
@@ -851,7 +851,7 @@ void vdl_elf_call_init (struct MappedFile *file)
   file->init_called = 1;
 
   // iterate over all deps first before initialization.
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       vdl_elf_call_init (cur->item);
@@ -860,7 +860,7 @@ void vdl_elf_call_init (struct MappedFile *file)
   // Now that all deps are initialized, initialize ourselves.
   vdl_elf_call_init_one (file);  
 }
-unsigned long vdl_elf_get_entry_point (struct MappedFile *file)
+unsigned long vdl_elf_get_entry_point (struct VdlFile *file)
 {
   // This piece of code assumes that the ELF header starts at the
   // first byte of the ro map. This is verified in vdl_elf_file_get_info
@@ -910,8 +910,8 @@ sym_to_vernaux (unsigned long index,
 }
 
 void
-vdl_elf_iterate_pltrel (struct MappedFile *file, 
-			void (*cb)(const struct MappedFile *file,
+vdl_elf_iterate_pltrel (struct VdlFile *file, 
+			void (*cb)(const struct VdlFile *file,
 				   const ElfW(Rel) *rel,
 				   const ElfW(Sym) *sym,
 				   const ElfW(Vernaux) *ver,
@@ -954,8 +954,8 @@ vdl_elf_iterate_pltrel (struct MappedFile *file,
 }
 
 void
-vdl_elf_iterate_rel (struct MappedFile *file, 
-		     void (*cb)(const struct MappedFile *file,
+vdl_elf_iterate_rel (struct VdlFile *file, 
+		     void (*cb)(const struct VdlFile *file,
 				const ElfW(Rel) *rel,
 				const ElfW(Sym) *sym,
 				const ElfW(Vernaux) *ver,
@@ -995,7 +995,7 @@ vdl_elf_iterate_rel (struct MappedFile *file,
     }
 }
 
-void vdl_elf_reloc (struct MappedFile *file)
+void vdl_elf_reloc (struct VdlFile *file)
 {
   if (file->reloced)
     {
@@ -1004,7 +1004,7 @@ void vdl_elf_reloc (struct MappedFile *file)
   file->reloced = 1;
 
   // relocate dependencies first:
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       vdl_elf_reloc (cur->item);
@@ -1019,7 +1019,7 @@ void vdl_elf_reloc (struct MappedFile *file)
   else
     {
       // setup lazy binding by setting the GOT entries 2 and 3.
-      // Entry 2 is set to a pointer to the associated MappedFile
+      // Entry 2 is set to a pointer to the associated VdlFile
       // Entry 3 is set to the asm trampoline vdl_symbol_lookup_asm
       // which calls vdl_symbol_lookup.
     }
@@ -1038,7 +1038,7 @@ vdl_elf_allocate_tls_index (void)
   ul_max = ~ul_max;
   for (i = 1; i < ul_max; i++)
     {
-      struct MappedFile *cur;
+      struct VdlFile *cur;
       for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
 	{
 	  if (cur->has_tls && cur->tls_index == i)
@@ -1055,7 +1055,7 @@ vdl_elf_allocate_tls_index (void)
   return 0; // quiet compiler
 }
 
-void vdl_elf_tls (struct MappedFile *file)
+void vdl_elf_tls (struct VdlFile *file)
 {
   if (file->tls_initialized)
     {
@@ -1078,7 +1078,7 @@ void vdl_elf_tls (struct MappedFile *file)
   file->tls_align = pt_tls->p_align;
   file->tls_index = vdl_elf_allocate_tls_index ();
 
-  struct MappedFileList *cur;
+  struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       vdl_elf_tls (cur->item);

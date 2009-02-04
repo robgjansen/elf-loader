@@ -6,10 +6,10 @@
 #include "alloc.h"
 #include "system.h"
 
-struct MappedFileList
+struct VdlFileList
 {
-  struct MappedFile *item;
-  struct MappedFileList *next;
+  struct VdlFile *item;
+  struct VdlFileList *next;
 };
 
 enum LookupType
@@ -39,7 +39,7 @@ struct FileInfo
   unsigned long memset_zero_size;
 };
 
-struct MappedFile
+struct VdlFile
 {
   // The following fields are part of the ABI. Don't change them
   unsigned long load_base;
@@ -47,8 +47,8 @@ struct MappedFile
   char *filename;
   // pointer to the PT_DYNAMIC area
   unsigned long dynamic;
-  struct MappedFile *next;
-  struct MappedFile *prev;
+  struct VdlFile *next;
+  struct VdlFile *prev;
 
   // The following fields are not part of the ABI
   uint32_t count;
@@ -100,10 +100,10 @@ struct MappedFile
   signed long tls_offset;
   enum LookupType lookup_type;
   struct Context *context;
-  struct MappedFileList *local_scope;
+  struct VdlFileList *local_scope;
   // list of files this file depends upon. 
   // equivalent to the content of DT_NEEDED.
-  struct MappedFileList *deps;
+  struct VdlFileList *deps;
 };
 
 struct StringList
@@ -131,7 +131,7 @@ struct Context
 {
   struct Context *prev;
   struct Context *next;
-  struct MappedFileList *global_scope;
+  struct VdlFileList *global_scope;
   // return the symbol to lookup instead of the input symbol
   const char *(*remap_symbol) (const char *name);
   // return the library to lookup instead of the input library
@@ -151,7 +151,7 @@ struct Mdl
 {
   // the following fields are part of the gdb/libc ABI. Don't touch them.
   int version; // always 1
-  struct MappedFile *link_map;
+  struct VdlFile *link_map;
   int (*breakpoint)(void);
   enum MdlState state;
   unsigned long interpreter_load_base;
@@ -178,7 +178,7 @@ extern struct Mdl g_vdl;
 // control setup of core data structures
 void vdl_initialize (unsigned long interpreter_load_base);
 struct Context *vdl_context_new (int argc, const char **argv, const char **envp);
-struct MappedFile *vdl_file_new (unsigned long load_base,
+struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const struct FileInfo *info,
 				 const char *filename, 
 				 const char *name,
@@ -244,13 +244,13 @@ void vdl_log_printf (enum MdlLog log, const char *str, ...);
 
 
 // manipulate lists of files
-void vdl_file_list_free (struct MappedFileList *list);
-struct MappedFileList *vdl_file_list_copy (struct MappedFileList *list);
-struct MappedFileList *vdl_file_list_append_one (struct MappedFileList *list, 
-						 struct MappedFile *item);
-struct MappedFileList *vdl_file_list_append (struct MappedFileList *start, 
-					     struct MappedFileList *end);
-void vdl_file_list_unicize (struct MappedFileList *list);
+void vdl_file_list_free (struct VdlFileList *list);
+struct VdlFileList *vdl_file_list_copy (struct VdlFileList *list);
+struct VdlFileList *vdl_file_list_append_one (struct VdlFileList *list, 
+						 struct VdlFile *item);
+struct VdlFileList *vdl_file_list_append (struct VdlFileList *start, 
+					     struct VdlFileList *end);
+void vdl_file_list_unicize (struct VdlFileList *list);
 unsigned long vdl_align_down (unsigned long v, unsigned long align);
 unsigned long vdl_align_up (unsigned long v, unsigned long align);
 
