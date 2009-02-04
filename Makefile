@@ -13,12 +13,12 @@ all: ldso elfedit
 	$(MAKE) -C test
 
 LDSO_OBJECTS=\
-stage1.o stage2.o avprintf-cb.o dprintf.o mdl.o system.o alloc.o mdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
+stage1.o stage2.o avprintf-cb.o dprintf.o vdl.o system.o alloc.o vdl-elf.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
 
 # dependency rules.
 i386/machine.o: config.h
 glibc.o: config.h
-ldso: $(LDSO_OBJECTS) ldso.version libmdl.so
+ldso: $(LDSO_OBJECTS) ldso.version libvdl.so
 # build rules.
 %.o:%.c
 	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/i386 -fpic $(VISIBILITY) -o $@ -c $<
@@ -41,12 +41,12 @@ readversiondef.o: readversiondef.c
 readversiondef: readversiondef.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-libmdl.version: readversiondef
+libvdl.version: readversiondef
 	./readversiondef /lib/libdl.so.2 > $@
-libmdl.o: libmdl.c
+libvdl.o: libvdl.c
 	$(CC) $(CFLAGS) $(VISIBILITY) -fpic -o $@ -c $< 
-libmdl.so: libmdl.o libmdl.version
-	$(CC) $(LDFLAGS) -nostdlib -shared -Wl,--version-script=libmdl.version -o $@ $<
+libvdl.so: libvdl.o libvdl.version
+	$(CC) $(LDFLAGS) -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
 
 elfedit.o: elfedit.c
 	$(CC) $(CFLAGS) -o $@ -c $<

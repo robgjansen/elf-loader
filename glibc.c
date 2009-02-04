@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
 #include "glibc.h"
 #include "machine.h"
-#include "mdl.h"
-#include "mdl-elf.h"
+#include "vdl.h"
+#include "vdl-elf.h"
 #include "config.h"
 #include <elf.h>
 #include <dlfcn.h>
@@ -81,13 +81,13 @@ EXPORT WEAK void *realloc(void *ptr, size_t size)
 //__libc_memalign;
 
 
-static void **mdl_dl_error_catch_tsd (void)
+static void **vdl_dl_error_catch_tsd (void)
 {
   static void *data;
   return &data;
 }
 
-static int mdl_dl_addr (const void *address, Dl_info *info,
+static int vdl_dl_addr (const void *address, Dl_info *info,
 			struct link_map **mapp, const ElfW(Sym) **symbolp)
 {
   MDL_LOG_FUNCTION ("address=%p, info=%p, mapp=%p, symbolp=%p", address, info, mapp, symbolp);
@@ -109,8 +109,8 @@ internal_function
  EXPORT
 _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
 {
-  *sizep = g_mdl.tls_static_size;
-  *alignp = g_mdl.tls_static_align;
+  *sizep = g_vdl.tls_static_size;
+  *alignp = g_vdl.tls_static_align;
 }
 
 
@@ -122,9 +122,9 @@ void glibc_startup_finished (void)
 
 void glibc_initialize (void)
 {
-  void **(*fn) (void) = mdl_dl_error_catch_tsd;
+  void **(*fn) (void) = vdl_dl_error_catch_tsd;
   char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
-  mdl_memcpy ((void*)dst,
+  vdl_memcpy ((void*)dst,
 	      &fn, sizeof (fn));
 }
 
@@ -148,9 +148,9 @@ void glibc_patch (struct MappedFile *file)
       glibc_patch (cur->item);
     }
 
-  unsigned long addr = mdl_elf_symbol_lookup_local ("_dl_addr", file);
+  unsigned long addr = vdl_elf_symbol_lookup_local ("_dl_addr", file);
   if (addr != 0)
     {
-      machine_insert_trampoline (addr, (unsigned long) &mdl_dl_addr);
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dl_addr);
     }
 }

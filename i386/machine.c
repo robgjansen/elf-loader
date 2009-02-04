@@ -1,6 +1,6 @@
 #include "machine.h"
-#include "mdl-elf.h"
-#include "mdl.h"
+#include "vdl-elf.h"
+#include "vdl.h"
 #include "config.h"
 #include <sys/mman.h>
 
@@ -10,7 +10,7 @@ static int do_lookup_and_log (const char *symbol_name,
 			      enum LookupFlag flags,
 			      struct SymbolMatch *match)
 {
-  if (!mdl_elf_symbol_lookup (symbol_name, file, ver, flags, match))
+  if (!vdl_elf_symbol_lookup (symbol_name, file, ver, flags, match))
     {
       MDL_LOG_SYMBOL_FAIL (symbol_name, file);
       // if the symbol resolution has failed, it could
@@ -61,7 +61,7 @@ void machine_perform_relocation (const struct MappedFile *file,
 	}
       MDL_ASSERT (match.symbol->st_size == sym->st_size,
 		  "Symbols don't have the same size: likely a recipe for disaster.");
-      mdl_memcpy (reloc_addr, 
+      vdl_memcpy (reloc_addr, 
 		  (void*)(match.file->load_base + match.symbol->st_value),
 		  match.symbol->st_size);
     }
@@ -156,13 +156,13 @@ void machine_insert_trampoline (unsigned long from, unsigned long to)
 void machine_tcb_allocate_and_set (unsigned long tcb_size)
 {
   unsigned long total_size = tcb_size + CONFIG_TCB_SIZE;
-  unsigned long buffer = (unsigned long) mdl_malloc (total_size);
-  mdl_memset ((void*)buffer, 0, total_size);
+  unsigned long buffer = (unsigned long) vdl_malloc (total_size);
+  vdl_memset ((void*)buffer, 0, total_size);
   unsigned long tcb = buffer + tcb_size;
-  mdl_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
-  mdl_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
   struct user_desc desc;
-  mdl_memset (&desc, 0, sizeof (desc));
+  vdl_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number
   desc.base_addr = tcb;
   desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
@@ -191,12 +191,12 @@ void machine_tcb_allocate_and_set (unsigned long tcb_size)
 void machine_tcb_set_dtv (unsigned long *dtv)
 {
   unsigned long tcb = machine_tcb_get ();
-  mdl_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
 }
 void machine_tcb_set_sysinfo (unsigned long sysinfo)
 {
   unsigned long tcb = machine_tcb_get ();
-  mdl_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
 }
 unsigned long machine_tcb_get (void)
 {
@@ -208,14 +208,14 @@ unsigned long *machine_tcb_get_dtv (void)
 {
   unsigned long tcb = machine_tcb_get ();
   unsigned long dtv;
-  mdl_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
+  vdl_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
   return (unsigned long *)dtv;
 }
 unsigned long machine_tcb_get_sysinfo (void)
 {
   unsigned long tcb = machine_tcb_get ();
   unsigned long sysinfo;
-  mdl_memcpy (&sysinfo, (void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), sizeof (sysinfo));
+  vdl_memcpy (&sysinfo, (void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), sizeof (sysinfo));
   return sysinfo;
 }
 

@@ -1,14 +1,14 @@
-#include "mdl-elf.h"
-#include "mdl.h"
+#include "vdl-elf.h"
+#include "vdl.h"
 #include "system.h"
 #include "machine.h"
 #include <unistd.h>
 #include <sys/mman.h>
 
-#define mdl_max(a,b)(((a)>(b))?(a):(b))
+#define vdl_max(a,b)(((a)>(b))?(a):(b))
 
 ElfW(Dyn) *
-mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
+vdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
 {
   ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
   while (cur->d_tag != DT_NULL)
@@ -23,9 +23,9 @@ mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag)
 }
 
 static unsigned long
-mdl_elf_file_get_dynamic_v (const struct MappedFile *file, unsigned long tag)
+vdl_elf_file_get_dynamic_v (const struct MappedFile *file, unsigned long tag)
 {
-  ElfW(Dyn) *dyn = mdl_elf_file_get_dynamic (file, tag);
+  ElfW(Dyn) *dyn = vdl_elf_file_get_dynamic (file, tag);
   if (dyn == 0)
     {
       return 0;
@@ -34,9 +34,9 @@ mdl_elf_file_get_dynamic_v (const struct MappedFile *file, unsigned long tag)
 }
 
 static unsigned long
-mdl_elf_file_get_dynamic_p (const struct MappedFile *file, unsigned long tag)
+vdl_elf_file_get_dynamic_p (const struct MappedFile *file, unsigned long tag)
 {
-  ElfW(Dyn) *dyn = mdl_elf_file_get_dynamic (file, tag);
+  ElfW(Dyn) *dyn = vdl_elf_file_get_dynamic (file, tag);
   if (dyn == 0)
     {
       return 0;
@@ -44,7 +44,7 @@ mdl_elf_file_get_dynamic_p (const struct MappedFile *file, unsigned long tag)
   return file->load_base + dyn->d_un.d_ptr;
 }
 
-ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
+ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
 {
   MDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
   ElfW(Phdr) *cur;
@@ -59,10 +59,10 @@ ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
   return 0;
 }
 
-struct StringList *mdl_elf_get_dt_needed (struct MappedFile *file)
+struct StringList *vdl_elf_get_dt_needed (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
-  unsigned long dt_strtab = mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  unsigned long dt_strtab = vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
   if (dt_strtab == 0)
     {
       return 0;
@@ -75,8 +75,8 @@ struct StringList *mdl_elf_get_dt_needed (struct MappedFile *file)
       if (cur->d_tag == DT_NEEDED)
 	{
 	  const char *str = (const char *)(dt_strtab + cur->d_un.d_val);
-	  struct StringList *tmp = mdl_new (struct StringList);
-	  tmp->str = mdl_strdup (str);
+	  struct StringList *tmp = vdl_new (struct StringList);
+	  tmp->str = vdl_strdup (str);
 	  tmp->next = ret;
 	  ret = tmp;
 	  MDL_LOG_DEBUG ("needed=%s\n", str);
@@ -84,33 +84,33 @@ struct StringList *mdl_elf_get_dt_needed (struct MappedFile *file)
     }
   return ret;
 }
-char *mdl_elf_search_file (const char *name)
+char *vdl_elf_search_file (const char *name)
 {
   MDL_LOG_FUNCTION ("name=%s", name);
-  if (mdl_strisequal (name, "libdl.so") ||
-      mdl_strisequal (name, "libdl.so.2"))
+  if (vdl_strisequal (name, "libdl.so") ||
+      vdl_strisequal (name, "libdl.so.2"))
     {
-      // we replace libdl.so with our own libmdl.so
-      name = "libmdl.so";
+      // we replace libdl.so with our own libvdl.so
+      name = "libvdl.so";
     }
 
   struct StringList *cur;
-  for (cur = g_mdl.search_dirs; cur != 0; cur = cur->next)
+  for (cur = g_vdl.search_dirs; cur != 0; cur = cur->next)
     {
-      char *fullname = mdl_strconcat (cur->str, "/", name, 0);
-      if (mdl_exists (fullname))
+      char *fullname = vdl_strconcat (cur->str, "/", name, 0);
+      if (vdl_exists (fullname))
 	{
 	  return fullname;
 	}
-      mdl_free (fullname, mdl_strlen (fullname)+1);
+      vdl_free (fullname, vdl_strlen (fullname)+1);
     }
-  if (mdl_exists (name))
+  if (vdl_exists (name))
     {
-      return mdl_strdup (name);
+      return vdl_strdup (name);
     }
   return 0;
 }
-struct MappedFile *mdl_elf_map_single (struct Context *context, 
+struct MappedFile *vdl_elf_map_single (struct Context *context, 
 				       const char *filename, 
 				       const char *name)
 {
@@ -151,7 +151,7 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       goto error;
     }
 
-  phdr = mdl_malloc (header.e_phnum * header.e_phentsize);
+  phdr = vdl_malloc (header.e_phnum * header.e_phentsize);
   if (system_lseek (fd, header.e_phoff, SEEK_SET) == -1)
     {
       MDL_LOG_ERROR ("lseek failed to go to off=0x%x\n", header.e_phoff);
@@ -164,7 +164,7 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       goto error;
     }
 
-  if (!mdl_elf_file_get_info (header.e_phnum, phdr, &info))
+  if (!vdl_elf_file_get_info (header.e_phnum, phdr, &info))
     {
       MDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
@@ -178,8 +178,8 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
 
   // calculate the size of the total mapping required
   unsigned long end = info.ro_start + info.ro_size;
-  end = mdl_max (end, info.rw_start + info.rw_size);
-  end = mdl_max (end, info.zero_start + info.zero_size);
+  end = vdl_max (end, info.rw_start + info.rw_size);
+  end = vdl_max (end, info.zero_start + info.zero_size);
   map_size = end-info.ro_start;
 
   // We perform a single initial mmap to reserve all the virtual space we need
@@ -219,7 +219,7 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
     }
 
   // zero the end of rw map
-  mdl_memset ((void*)(load_base + info.memset_zero_start), 0, info.memset_zero_size);
+  vdl_memset ((void*)(load_base + info.memset_zero_start), 0, info.memset_zero_size);
 
   // first, unmap the extended file mapping for the zero pages.
   system_munmap ((void*)(load_base + info.zero_start),
@@ -250,13 +250,13 @@ struct MappedFile *mdl_elf_map_single (struct Context *context,
       goto error;
     }
 
-  struct MappedFile *file = mdl_file_new (load_base, &info, 
+  struct MappedFile *file = vdl_file_new (load_base, &info, 
 					  filename, name,
 					  context);
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
-  mdl_free (phdr, header.e_phnum * header.e_phentsize);
+  vdl_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
   return file;
 error:
@@ -266,7 +266,7 @@ error:
     }
   if (phdr != 0)
     {
-      mdl_free (phdr, header.e_phnum * header.e_phentsize);
+      vdl_free (phdr, header.e_phnum * header.e_phentsize);
     }
   if (ro_start != 0)
     {
@@ -290,7 +290,7 @@ convert_name (const char *name)
   int i; 
   for (i = 0; i < (sizeof (hardcoded_names)/sizeof (struct HardcodedName)); i++)
     {
-      if (mdl_strisequal (hardcoded_names[i].original, name))
+      if (vdl_strisequal (hardcoded_names[i].original, name))
 	{
 	  return hardcoded_names[i].converted;
 	}
@@ -304,9 +304,9 @@ find_by_name (struct Context *context,
 {
   name = convert_name (name);
   struct MappedFile *cur;
-  for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      if (mdl_strisequal (cur->name, name))
+      if (vdl_strisequal (cur->name, name))
 	{
 	  return cur;
 	}
@@ -318,7 +318,7 @@ find_by_dev_ino (struct Context *context,
 		 dev_t dev, ino_t ino)
 {
   struct MappedFile *cur;
-  for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
       if (cur->context == context &&
 	  cur->st_dev == dev &&
@@ -330,7 +330,7 @@ find_by_dev_ino (struct Context *context,
   return 0;
 }
 
-int mdl_elf_map_deps (struct MappedFile *item)
+int vdl_elf_map_deps (struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("file=%s", item->name);
 
@@ -341,7 +341,7 @@ int mdl_elf_map_deps (struct MappedFile *item)
   item->deps_initialized = 1;
 
   // get list of deps for the input file.
-  struct StringList *dt_needed = mdl_elf_get_dt_needed (item);
+  struct StringList *dt_needed = vdl_elf_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
   struct MappedFileList *deps = 0;
@@ -353,11 +353,11 @@ int mdl_elf_map_deps (struct MappedFile *item)
       struct MappedFile *dep = find_by_name (item->context, cur->str);
       if (dep != 0)
 	{
-	  deps = mdl_file_list_append_one (deps, dep);
+	  deps = vdl_file_list_append_one (deps, dep);
 	  continue;
 	}
       // Search the file in the filesystem
-      char *filename = mdl_elf_search_file (cur->str);
+      char *filename = vdl_elf_search_file (cur->str);
       if (filename == 0)
 	{
 	  MDL_LOG_ERROR ("Could not find %s\n", cur->str);
@@ -368,7 +368,7 @@ int mdl_elf_map_deps (struct MappedFile *item)
       if (system_fstat (filename, &buf) == -1)
 	{
 	  MDL_LOG_ERROR ("Cannot stat %s\n", filename);
-	  mdl_free (filename, mdl_strlen (filename)+1);
+	  vdl_free (filename, vdl_strlen (filename)+1);
 	  goto error;
 	}
       // If you create a symlink to a binary and link to the
@@ -382,25 +382,25 @@ int mdl_elf_map_deps (struct MappedFile *item)
       dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
-	  deps = mdl_file_list_append_one (deps, dep);
-	  mdl_free (filename, mdl_strlen (filename)+1);
+	  deps = vdl_file_list_append_one (deps, dep);
+	  vdl_free (filename, vdl_strlen (filename)+1);
 	  continue;
 	}
       // The file is really not yet mapped so, we have to map it
-      dep = mdl_elf_map_single (item->context, filename, cur->str);
+      dep = vdl_elf_map_single (item->context, filename, cur->str);
       
       // add the new file to the list of dependencies
-      deps = mdl_file_list_append_one (deps, dep);
+      deps = vdl_file_list_append_one (deps, dep);
 
-      mdl_free (filename, mdl_strlen (filename)+1);
+      vdl_free (filename, vdl_strlen (filename)+1);
     }
-  mdl_str_list_free (dt_needed);
+  vdl_str_list_free (dt_needed);
 
   // then, recursively map the deps of each dep.
   struct MappedFileList *dep;
   for (dep = deps; dep != 0; dep = dep->next)
     {
-      if (!mdl_elf_map_deps (dep->item))
+      if (!vdl_elf_map_deps (dep->item))
 	{
 	  goto error;
 	}
@@ -411,14 +411,14 @@ int mdl_elf_map_deps (struct MappedFile *item)
 
   return 1;
  error:
-  mdl_str_list_free (dt_needed);
+  vdl_str_list_free (dt_needed);
   if (deps != 0)
     {
-      mdl_file_list_free (deps);
+      vdl_file_list_free (deps);
     }
   return 0;
 }
-int mdl_elf_file_get_info (uint32_t phnum,
+int vdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
 			   struct FileInfo *info)
 {
@@ -490,14 +490,14 @@ int mdl_elf_file_get_info (uint32_t phnum,
     }
 
 
-  unsigned long ro_start = mdl_align_down (ro->p_vaddr, ro->p_align);
-  unsigned long ro_size = mdl_align_up (ro->p_memsz, ro->p_align);
-  unsigned long rw_start = mdl_align_down (rw->p_vaddr, rw->p_align);
-  unsigned long rw_size = mdl_align_up (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
-  unsigned long zero_size = mdl_align_up (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
-  unsigned long zero_start = mdl_align_up (rw->p_vaddr + rw->p_filesz, rw->p_align);
-  unsigned long ro_file_offset = mdl_align_down (ro->p_offset, ro->p_align);
-  unsigned long rw_file_offset = mdl_align_down (rw->p_offset, rw->p_align);
+  unsigned long ro_start = vdl_align_down (ro->p_vaddr, ro->p_align);
+  unsigned long ro_size = vdl_align_up (ro->p_memsz, ro->p_align);
+  unsigned long rw_start = vdl_align_down (rw->p_vaddr, rw->p_align);
+  unsigned long rw_size = vdl_align_up (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
+  unsigned long zero_size = vdl_align_up (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
+  unsigned long zero_start = vdl_align_up (rw->p_vaddr + rw->p_filesz, rw->p_align);
+  unsigned long ro_file_offset = vdl_align_down (ro->p_offset, ro->p_align);
+  unsigned long rw_file_offset = vdl_align_down (rw->p_offset, rw->p_align);
   unsigned long memset_zero_start = rw->p_vaddr+rw->p_filesz;
   unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
   if (ro_start + ro_size != rw_start)
@@ -524,26 +524,26 @@ int mdl_elf_file_get_info (uint32_t phnum,
 }
 
 struct MappedFileList *
-mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file)
+vdl_elf_gather_all_deps_breadth_first (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
 
   struct MappedFileList *list, *cur;
 
-  list = mdl_new (struct MappedFileList);
+  list = vdl_new (struct MappedFileList);
   list->item = file;
   list->next = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      struct MappedFileList *copy = mdl_file_list_copy (cur->item->deps);
-      cur = mdl_file_list_append (cur, copy);
+      struct MappedFileList *copy = vdl_file_list_copy (cur->item->deps);
+      cur = vdl_file_list_append (cur, copy);
     }
 
   return list;
 }
 
 unsigned long
-mdl_elf_hash (const char *n)
+vdl_elf_hash (const char *n)
 {
   // Copy/paste from the ELF specification (figure 2-9)
   const unsigned char *name = (const unsigned char *) n;
@@ -568,16 +568,16 @@ struct LookupIterator
 };
 
 static struct LookupIterator 
-mdl_elf_lookup_begin (const char *name, unsigned long hash,
+vdl_elf_lookup_begin (const char *name, unsigned long hash,
 		      const struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->filename);
   struct LookupIterator i;
   i.name = name;
   // first, gather information needed to look into the hash table
-  ElfW(Word) *dt_hash = (ElfW(Word)*) mdl_elf_file_get_dynamic_p (file, DT_HASH);
-  i.dt_strtab = (const char *) mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  i.dt_symtab = (ElfW(Sym)*) mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_elf_file_get_dynamic_p (file, DT_HASH);
+  i.dt_strtab = (const char *) vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  i.dt_symtab = (ElfW(Sym)*) vdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
 
   if (dt_hash == 0 || i.dt_strtab == 0 || i.dt_symtab == 0)
     {
@@ -605,7 +605,7 @@ mdl_elf_lookup_begin (const char *name, unsigned long hash,
 }
 
 static int
-mdl_elf_lookup_has_next (const struct LookupIterator *i)
+vdl_elf_lookup_has_next (const struct LookupIterator *i)
 {
   if (i->dt_strtab == 0)
     {
@@ -621,7 +621,7 @@ mdl_elf_lookup_has_next (const struct LookupIterator *i)
 	  i->dt_symtab[current].st_shndx != SHN_UNDEF)
 	{
 	  // the symbol name is an index in the string table
-	  if (mdl_strisequal (i->dt_strtab + i->dt_symtab[current].st_name, i->name))
+	  if (vdl_strisequal (i->dt_strtab + i->dt_symtab[current].st_name, i->name))
 	    {
 	      // as an optimization, to save us from iterating again
 	      // in the _next function, we set the current position
@@ -639,7 +639,7 @@ mdl_elf_lookup_has_next (const struct LookupIterator *i)
 
 // return index in dt_symtab
 static unsigned long
-mdl_elf_lookup_next (struct LookupIterator *i)
+vdl_elf_lookup_next (struct LookupIterator *i)
 {
   // We return the entry immediately following the
   // 'current' index and update the 'current' index
@@ -663,10 +663,10 @@ symbol_version_matches (const struct MappedFile *in,
       // if we have no version requirement, the first matching symbol is ok.
       return 1;
     }
-  const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (in, DT_STRTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)mdl_elf_file_get_dynamic_p (in, DT_VERSYM);
-  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)mdl_elf_file_get_dynamic_p (in, DT_VERDEF);
-  unsigned long dt_verdefnum = mdl_elf_file_get_dynamic_v (in, DT_VERDEFNUM);
+  const char *dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (in, DT_STRTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_elf_file_get_dynamic_p (in, DT_VERSYM);
+  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)vdl_elf_file_get_dynamic_p (in, DT_VERDEF);
+  unsigned long dt_verdefnum = vdl_elf_file_get_dynamic_v (in, DT_VERDEFNUM);
   if (dt_versym == 0)
     {
       // if we have no version definition which could match the requested
@@ -715,8 +715,8 @@ symbol_version_matches (const struct MappedFile *in,
 	{
 	  // the hash values of the version names are equal.
 	  ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
-	  const char *from_dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (from, DT_STRTAB);
-	  if (mdl_strisequal (dt_strtab + verdaux->vda_name, 
+	  const char *from_dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (from, DT_STRTAB);
+	  if (vdl_strisequal (dt_strtab + verdaux->vda_name, 
 			      from_dt_strtab + ver_needed->vna_name))
 	    {
 	      // the version names are equal.
@@ -750,10 +750,10 @@ do_symbol_lookup_scope (const char *name,
 	  // in the main executable binary. see the definition of LOOKUP_NO_EXEC
 	  continue;
 	}
-      struct LookupIterator i = mdl_elf_lookup_begin (name, hash, cur->item);
-      while (mdl_elf_lookup_has_next (&i))
+      struct LookupIterator i = vdl_elf_lookup_begin (name, hash, cur->item);
+      while (vdl_elf_lookup_has_next (&i))
 	{
-	  unsigned long index = mdl_elf_lookup_next (&i);
+	  unsigned long index = vdl_elf_lookup_next (&i);
 	  if (symbol_version_matches (cur->item, file, ver_needed, index))
 	    {
 	      match->file = cur->item;
@@ -766,7 +766,7 @@ do_symbol_lookup_scope (const char *name,
 }
 
 int 
-mdl_elf_symbol_lookup (const char *name, 
+vdl_elf_symbol_lookup (const char *name, 
 		       const struct MappedFile *file,
 		       const ElfW(Vernaux) *ver,
 		       enum LookupFlag flags,
@@ -774,7 +774,7 @@ mdl_elf_symbol_lookup (const char *name,
 {
   // calculate the hash here to avoid calculating 
   // it twice in both calls to symbol_lookup
-  unsigned long hash = mdl_elf_hash (name);
+  unsigned long hash = vdl_elf_hash (name);
 
   // lookup the symbol in the global scope first
   int ok = do_symbol_lookup_scope (name, hash, file, ver,
@@ -788,13 +788,13 @@ mdl_elf_symbol_lookup (const char *name,
   return ok;
 }
 unsigned long 
-mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
+vdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
 {
-  unsigned long hash = mdl_elf_hash (name);
-  struct LookupIterator i = mdl_elf_lookup_begin (name, hash, file);
-  while (mdl_elf_lookup_has_next (&i))
+  unsigned long hash = vdl_elf_hash (name);
+  struct LookupIterator i = vdl_elf_lookup_begin (name, hash, file);
+  while (vdl_elf_lookup_has_next (&i))
     {
-      unsigned long index = mdl_elf_lookup_next (&i);
+      unsigned long index = vdl_elf_lookup_next (&i);
       return file->load_base + i.dt_symtab[index].st_value;
     }
   return 0;
@@ -809,13 +809,13 @@ mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file)
 typedef void (*init_function) (int, char **, char **);
 
 static void
-mdl_elf_call_init_one (struct MappedFile *file)
+vdl_elf_call_init_one (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   // Gather information from the .dynamic section
-  unsigned long dt_init = mdl_elf_file_get_dynamic_p (file, DT_INIT);
-  unsigned long dt_init_array = mdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAY);
-  unsigned long dt_init_arraysz = mdl_elf_file_get_dynamic_v (file, DT_INIT_ARRAYSZ);
+  unsigned long dt_init = vdl_elf_file_get_dynamic_p (file, DT_INIT);
+  unsigned long dt_init_array = vdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAY);
+  unsigned long dt_init_arraysz = vdl_elf_file_get_dynamic_v (file, DT_INIT_ARRAYSZ);
   // First, invoke the old-style DT_INIT function.
   // The address of the function to call is stored in
   // the DT_INIT tag, here: dt_init.
@@ -839,7 +839,7 @@ mdl_elf_call_init_one (struct MappedFile *file)
     }
 }
 
-void mdl_elf_call_init (struct MappedFile *file)
+void vdl_elf_call_init (struct MappedFile *file)
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->init_called)
@@ -854,16 +854,16 @@ void mdl_elf_call_init (struct MappedFile *file)
   struct MappedFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      mdl_elf_call_init (cur->item);
+      vdl_elf_call_init (cur->item);
     }
 
   // Now that all deps are initialized, initialize ourselves.
-  mdl_elf_call_init_one (file);  
+  vdl_elf_call_init_one (file);  
 }
-unsigned long mdl_elf_get_entry_point (struct MappedFile *file)
+unsigned long vdl_elf_get_entry_point (struct MappedFile *file)
 {
   // This piece of code assumes that the ELF header starts at the
-  // first byte of the ro map. This is verified in mdl_elf_file_get_info
+  // first byte of the ro map. This is verified in vdl_elf_file_get_info
   // so we are safe with this assumption.
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
   return header->e_entry + file->load_base;
@@ -910,7 +910,7 @@ sym_to_vernaux (unsigned long index,
 }
 
 void
-mdl_elf_iterate_pltrel (struct MappedFile *file, 
+vdl_elf_iterate_pltrel (struct MappedFile *file, 
 			void (*cb)(const struct MappedFile *file,
 				   const ElfW(Rel) *rel,
 				   const ElfW(Sym) *sym,
@@ -918,14 +918,14 @@ mdl_elf_iterate_pltrel (struct MappedFile *file,
 				   const char *name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)mdl_elf_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = mdl_elf_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = mdl_elf_file_get_dynamic_v (file, DT_PLTRELSZ);
-  const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)mdl_elf_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)mdl_elf_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = mdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
+  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)vdl_elf_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_elf_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_elf_file_get_dynamic_v (file, DT_PLTRELSZ);
+  const char *dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_elf_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_elf_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = vdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
   
   if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
       dt_jmprel == 0 || dt_strtab == 0 || 
@@ -954,7 +954,7 @@ mdl_elf_iterate_pltrel (struct MappedFile *file,
 }
 
 void
-mdl_elf_iterate_rel (struct MappedFile *file, 
+vdl_elf_iterate_rel (struct MappedFile *file, 
 		     void (*cb)(const struct MappedFile *file,
 				const ElfW(Rel) *rel,
 				const ElfW(Sym) *sym,
@@ -962,14 +962,14 @@ mdl_elf_iterate_rel (struct MappedFile *file,
 				const char *symbol_name))
 {
   MDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_rel = (ElfW(Rel)*)mdl_elf_file_get_dynamic_p (file, DT_REL);
-  unsigned long dt_relsz = mdl_elf_file_get_dynamic_v (file, DT_RELSZ);
-  unsigned long dt_relent = mdl_elf_file_get_dynamic_v (file, DT_RELENT);
-  const char *dt_strtab = (const char *)mdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)mdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)mdl_elf_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)mdl_elf_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = mdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
+  ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_elf_file_get_dynamic_p (file, DT_REL);
+  unsigned long dt_relsz = vdl_elf_file_get_dynamic_v (file, DT_RELSZ);
+  unsigned long dt_relent = vdl_elf_file_get_dynamic_v (file, DT_RELENT);
+  const char *dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_elf_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_elf_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = vdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
   if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0 ||
       dt_strtab == 0 || dt_symtab == 0)
     {
@@ -995,7 +995,7 @@ mdl_elf_iterate_rel (struct MappedFile *file,
     }
 }
 
-void mdl_elf_reloc (struct MappedFile *file)
+void vdl_elf_reloc (struct MappedFile *file)
 {
   if (file->reloced)
     {
@@ -1007,26 +1007,26 @@ void mdl_elf_reloc (struct MappedFile *file)
   struct MappedFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      mdl_elf_reloc (cur->item);
+      vdl_elf_reloc (cur->item);
     }
 
-  mdl_elf_iterate_rel (file, machine_perform_relocation);
-  if (g_mdl.bind_now)
+  vdl_elf_iterate_rel (file, machine_perform_relocation);
+  if (g_vdl.bind_now)
     {
       // perform PLT relocs _now_
-      mdl_elf_iterate_pltrel (file, machine_perform_relocation);
+      vdl_elf_iterate_pltrel (file, machine_perform_relocation);
     }
   else
     {
       // setup lazy binding by setting the GOT entries 2 and 3.
       // Entry 2 is set to a pointer to the associated MappedFile
-      // Entry 3 is set to the asm trampoline mdl_symbol_lookup_asm
-      // which calls mdl_symbol_lookup.
+      // Entry 3 is set to the asm trampoline vdl_symbol_lookup_asm
+      // which calls vdl_symbol_lookup.
     }
 }
 
 static unsigned long
-mdl_elf_allocate_tls_index (void)
+vdl_elf_allocate_tls_index (void)
 {
   // This is the slowest but simplest implementation possible
   // For each possible module index, we try to find a module
@@ -1039,7 +1039,7 @@ mdl_elf_allocate_tls_index (void)
   for (i = 1; i < ul_max; i++)
     {
       struct MappedFile *cur;
-      for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
 	{
 	  if (cur->has_tls && cur->tls_index == i)
 	    {
@@ -1055,7 +1055,7 @@ mdl_elf_allocate_tls_index (void)
   return 0; // quiet compiler
 }
 
-void mdl_elf_tls (struct MappedFile *file)
+void vdl_elf_tls (struct MappedFile *file)
 {
   if (file->tls_initialized)
     {
@@ -1065,7 +1065,7 @@ void mdl_elf_tls (struct MappedFile *file)
 
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_start;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_start + header->e_phoff);
-  ElfW(Phdr) *pt_tls = mdl_elf_search_phdr (phdr, header->e_phnum, PT_TLS);
+  ElfW(Phdr) *pt_tls = vdl_elf_search_phdr (phdr, header->e_phnum, PT_TLS);
   if (pt_tls == 0)
     {
       file->has_tls = 0;
@@ -1076,11 +1076,11 @@ void mdl_elf_tls (struct MappedFile *file)
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;
-  file->tls_index = mdl_elf_allocate_tls_index ();
+  file->tls_index = vdl_elf_allocate_tls_index ();
 
   struct MappedFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      mdl_elf_tls (cur->item);
+      vdl_elf_tls (cur->item);
     }
 }

@@ -3,7 +3,7 @@
 
 #include <elf.h>
 #include <link.h>
-#include "mdl.h"
+#include "vdl.h"
 
 #if __ELF_NATIVE_CLASS == 32
 #define ELFW_R_SYM ELF32_R_SYM
@@ -19,21 +19,21 @@
 #define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
 #endif
 
-ElfW(Phdr) *mdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
-char *mdl_elf_search_file (const char *name);
-struct MappedFile *mdl_elf_map_single (struct Context *context, 
+ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
+char *vdl_elf_search_file (const char *name);
+struct MappedFile *vdl_elf_map_single (struct Context *context, 
 				       const char *filename, 
 				       const char *name);
-int mdl_elf_map_deps (struct MappedFile *item);
-int mdl_elf_file_get_info (uint32_t phnum,
+int vdl_elf_map_deps (struct MappedFile *item);
+int vdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
 			   struct FileInfo *info);
-struct MappedFileList *mdl_elf_gather_all_deps_breadth_first (struct MappedFile *file);
-unsigned long mdl_elf_hash (const char *n);
-void mdl_elf_call_init (struct MappedFile *file);
-unsigned long mdl_elf_get_entry_point (struct MappedFile *file);
-void mdl_elf_reloc (struct MappedFile *file);
-ElfW(Dyn) *mdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag);
+struct MappedFileList *vdl_elf_gather_all_deps_breadth_first (struct MappedFile *file);
+unsigned long vdl_elf_hash (const char *n);
+void vdl_elf_call_init (struct MappedFile *file);
+unsigned long vdl_elf_get_entry_point (struct MappedFile *file);
+void vdl_elf_reloc (struct MappedFile *file);
+ElfW(Dyn) *vdl_elf_file_get_dynamic (const struct MappedFile *file, unsigned long tag);
 struct SymbolMatch
 {
   const struct MappedFile *file;
@@ -46,19 +46,19 @@ enum LookupFlag {
   // with a R_*_COPY relocation.
   LOOKUP_NO_EXEC = 1
 };
-int mdl_elf_symbol_lookup (const char *name, 
+int vdl_elf_symbol_lookup (const char *name, 
 			   const struct MappedFile *file,
 			   const ElfW(Vernaux) *ver,
 			   enum LookupFlag flags,
 			   struct SymbolMatch *match);
-struct MappedFile *mdl_elf_main_file_new (unsigned long phnum,
+struct MappedFile *vdl_elf_main_file_new (unsigned long phnum,
 					  ElfW(Phdr)*phdr,
 					  int argc, 
 					  const char **argv, 
 					  const char **envp);
-unsigned long mdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file);
+unsigned long vdl_elf_symbol_lookup_local (const char *name, const struct MappedFile *file);
 
-void mdl_elf_tls (struct MappedFile *file);
-void mdl_elf_tcb_initialize (unsigned long sysinfo);
+void vdl_elf_tls (struct MappedFile *file);
+void vdl_elf_tcb_initialize (unsigned long sysinfo);
 
 #endif /* MDL_ELF_H */

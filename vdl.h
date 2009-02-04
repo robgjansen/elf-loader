@@ -161,8 +161,8 @@ struct Mdl
   // in DT_NEEDED entries.
   struct StringList *search_dirs;
   // The data structure used by the memory allocator
-  // all heap memory allocations through mdl_alloc
-  // and mdl_free end up here.
+  // all heap memory allocations through vdl_alloc
+  // and vdl_free end up here.
   struct Alloc alloc;
   uint32_t bind_now : 1;
   struct Context *contexts;
@@ -173,86 +173,86 @@ struct Mdl
 };
 
 
-extern struct Mdl g_mdl;
+extern struct Mdl g_vdl;
 
 // control setup of core data structures
-void mdl_initialize (unsigned long interpreter_load_base);
-struct Context *mdl_context_new (int argc, const char **argv, const char **envp);
-struct MappedFile *mdl_file_new (unsigned long load_base,
+void vdl_initialize (unsigned long interpreter_load_base);
+struct Context *vdl_context_new (int argc, const char **argv, const char **envp);
+struct MappedFile *vdl_file_new (unsigned long load_base,
 				 const struct FileInfo *info,
 				 const char *filename, 
 				 const char *name,
 				 struct Context *context);
 
-void mdl_linkmap_print (void);
+void vdl_linkmap_print (void);
 
 // expect a ':' separated list
-void mdl_set_logging (const char *debug_str);
+void vdl_set_logging (const char *debug_str);
 
 // allocate/free memory
-void *mdl_malloc (size_t size);
-void mdl_free (void *buffer, size_t size);
-#define mdl_new(type) \
-  (type *) mdl_malloc (sizeof (type))
-#define mdl_delete(v) \
-  mdl_free (v, sizeof(*v))
+void *vdl_malloc (size_t size);
+void vdl_free (void *buffer, size_t size);
+#define vdl_new(type) \
+  (type *) vdl_malloc (sizeof (type))
+#define vdl_delete(v) \
+  vdl_free (v, sizeof(*v))
 
 // string manipulation functions
-int mdl_strisequal (const char *a, const char *b);
-int mdl_strlen (const char *str);
-char *mdl_strdup (const char *str);
-void mdl_memcpy (void *dst, const void *src, size_t len);
-void mdl_memset(void *s, int c, size_t n);
-char *mdl_strconcat (const char *str, ...);
-const char *mdl_getenv (const char **envp, const char *value);
+int vdl_strisequal (const char *a, const char *b);
+int vdl_strlen (const char *str);
+char *vdl_strdup (const char *str);
+void vdl_memcpy (void *dst, const void *src, size_t len);
+void vdl_memset(void *s, int c, size_t n);
+char *vdl_strconcat (const char *str, ...);
+const char *vdl_getenv (const char **envp, const char *value);
 
 // convenience function
-int mdl_exists (const char *filename);
+int vdl_exists (const char *filename);
 
 // manipulate string lists.
-struct StringList *mdl_strsplit (const char *value, char separator);
-void mdl_str_list_free (struct StringList *list);
-struct StringList *mdl_str_list_reverse (struct StringList *list);
-struct StringList * mdl_str_list_append (struct StringList *start, struct StringList *end);
+struct StringList *vdl_strsplit (const char *value, char separator);
+void vdl_str_list_free (struct StringList *list);
+struct StringList *vdl_str_list_reverse (struct StringList *list);
+struct StringList * vdl_str_list_append (struct StringList *start, struct StringList *end);
 
 // logging
-void mdl_log_printf (enum MdlLog log, const char *str, ...);
+void vdl_log_printf (enum MdlLog log, const char *str, ...);
 #define MDL_LOG_FUNCTION(str,...)					\
-  mdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
+  vdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
 		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define MDL_LOG_DEBUG(str,...) \
-  mdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__)
+  vdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__)
 #define MDL_LOG_ERROR(str,...) \
-  mdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
+  vdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
 #define MDL_LOG_SYMBOL_FAIL(symbol,file)				\
-  mdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
+  vdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
 		  symbol, file->filename)
 #define MDL_LOG_SYMBOL_OK(symbol_name,from,match)			\
-  mdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=\"%s\", in file=\"%s\":0x%x\n", \
+  vdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=\"%s\", in file=\"%s\":0x%x\n", \
 		  symbol_name, from->filename, match->file->filename,	\
 		  match->file->load_base + match->symbol->st_value)
 #define MDL_LOG_RELOC(rel)					      \
-  mdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
+  vdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
 		  ELFW_R_TYPE (rel->r_info), rel->r_offset)
 #define MDL_ASSERT(predicate,str)		 \
   if (!(predicate))				 \
     {						 \
-      mdl_log_printf (MDL_LOG_AST, "%s\n", str); \
+      vdl_log_printf (MDL_LOG_AST, "%s\n", str); \
       system_exit (-1);				 \
     }
 
 
 
 // manipulate lists of files
-void mdl_file_list_free (struct MappedFileList *list);
-struct MappedFileList *mdl_file_list_copy (struct MappedFileList *list);
-struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list, 
+void vdl_file_list_free (struct MappedFileList *list);
+struct MappedFileList *vdl_file_list_copy (struct MappedFileList *list);
+struct MappedFileList *vdl_file_list_append_one (struct MappedFileList *list, 
 						 struct MappedFile *item);
-struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
+struct MappedFileList *vdl_file_list_append (struct MappedFileList *start, 
 					     struct MappedFileList *end);
-void mdl_file_list_unicize (struct MappedFileList *list);
-unsigned long mdl_align_down (unsigned long v, unsigned long align);
-unsigned long mdl_align_up (unsigned long v, unsigned long align);
+void vdl_file_list_unicize (struct MappedFileList *list);
+unsigned long vdl_align_down (unsigned long v, unsigned long align);
+unsigned long vdl_align_up (unsigned long v, unsigned long align);
 
 
 

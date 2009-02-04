@@ -1,10 +1,10 @@
-#include "mdl.h"
+#include "vdl.h"
 #include "alloc.h"
 #include "system.h"
 #include "avprintf-cb.h"
 #include <stdarg.h>
 
-struct Mdl g_mdl;
+struct Mdl g_vdl;
 
 static struct StringList *
 get_system_search_dirs (void)
@@ -17,72 +17,72 @@ get_system_search_dirs (void)
   int i;
   for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
     {
-      struct StringList *tmp = mdl_new (struct StringList);
-      tmp->str = mdl_strdup (dirs[i]);
+      struct StringList *tmp = vdl_new (struct StringList);
+      tmp->str = vdl_strdup (dirs[i]);
       tmp->next = list;
       list = tmp;
     }
-  list = mdl_str_list_reverse (list);
+  list = vdl_str_list_reverse (list);
   return list;
 }
 
 
-void mdl_initialize (unsigned long interpreter_load_base)
+void vdl_initialize (unsigned long interpreter_load_base)
 {
-  struct Mdl *mdl = &g_mdl;
-  mdl->version = 1;
-  mdl->link_map = 0;
-  mdl->breakpoint = 0;
-  mdl->state = MDL_CONSISTENT;
-  mdl->interpreter_load_base = interpreter_load_base;
-  mdl->logging = MDL_LOG_ERR | MDL_LOG_AST | MDL_LOG_PRINT;
-  alloc_initialize (&(mdl->alloc));
-  mdl->bind_now = 0; // by default, do lazy binding
-  mdl->contexts = 0;
+  struct Mdl *vdl = &g_vdl;
+  vdl->version = 1;
+  vdl->link_map = 0;
+  vdl->breakpoint = 0;
+  vdl->state = MDL_CONSISTENT;
+  vdl->interpreter_load_base = interpreter_load_base;
+  vdl->logging = MDL_LOG_ERR | MDL_LOG_AST | MDL_LOG_PRINT;
+  alloc_initialize (&(vdl->alloc));
+  vdl->bind_now = 0; // by default, do lazy binding
+  vdl->contexts = 0;
 
   // populate search dirs from system directories
-  mdl->search_dirs = mdl_str_list_append (mdl->search_dirs, 
+  vdl->search_dirs = vdl_str_list_append (vdl->search_dirs, 
 					  get_system_search_dirs ());
-  mdl->tls_gen = 1;
-  mdl->tls_static_size = 0;
-  mdl->tls_static_align = 0;
-  mdl->tls_n_dtv = 0;
+  vdl->tls_gen = 1;
+  vdl->tls_static_size = 0;
+  vdl->tls_static_align = 0;
+  vdl->tls_n_dtv = 0;
 }
 
-void mdl_linkmap_print (void)
+void vdl_linkmap_print (void)
 {
   struct MappedFile *cur;
-  for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      mdl_log_printf (MDL_LOG_PRINT, 
+      vdl_log_printf (MDL_LOG_PRINT, 
 		      "load_base=0x%x , ro_start=0x%x , ro_end=0x%x , file=%s\n", 
 		      cur->load_base, cur->ro_start, cur->ro_start + cur->ro_size, 
 		      cur->filename);
     }
 }
 
-struct Context *mdl_context_new (int argc, const char **argv, const char **envp)
+struct Context *vdl_context_new (int argc, const char **argv, const char **envp)
 {
   MDL_LOG_FUNCTION ("argc=%d", argc);
 
-  struct Context *context = mdl_new (struct Context);
+  struct Context *context = vdl_new (struct Context);
   context->global_scope = 0;
   // prepend to context list.
-  if (g_mdl.contexts != 0)
+  if (g_vdl.contexts != 0)
     {
-      g_mdl.contexts->prev = context;
+      g_vdl.contexts->prev = context;
     }
-  context->next = g_mdl.contexts;
+  context->next = g_vdl.contexts;
   context->prev = 0;
-  g_mdl.contexts = context;
+  g_vdl.contexts = context;
   // store argc safely
   context->argc = argc;
   // create a private copy of argv
-  context->argv = mdl_malloc (sizeof (char*)*(argc+1));
+  context->argv = vdl_malloc (sizeof (char*)*(argc+1));
   int i;
   for (i = 0; i < argc; i++)
     {
-      context->argv[i] = mdl_strdup (argv[i]);
+      context->argv[i] = vdl_strdup (argv[i]);
     }
   context->argv[argc] = 0;
   // calculate size of envp
@@ -96,7 +96,7 @@ struct Context *mdl_context_new (int argc, const char **argv, const char **envp)
       i++;
     }
   // create a private copy of envp
-  context->envp = mdl_malloc (sizeof (char *)*i);
+  context->envp = vdl_malloc (sizeof (char *)*i);
   context->envp[i] = 0;
   i = 0;
   while (1)
@@ -105,15 +105,15 @@ struct Context *mdl_context_new (int argc, const char **argv, const char **envp)
 	{
 	  break;
 	}
-      context->envp[i] = mdl_strdup (envp[i]);
+      context->envp[i] = vdl_strdup (envp[i]);
       i++;
     }
   return context;
 }
-static void mdl_context_delete (struct Context *context)
+static void vdl_context_delete (struct Context *context)
 {
   // get rid of associated global scope
-  mdl_file_list_free (context->global_scope);
+  vdl_file_list_free (context->global_scope);
   context->global_scope = 0;
   // unlink from main context list
   if (context->prev != 0)
@@ -130,29 +130,29 @@ static void mdl_context_delete (struct Context *context)
   int i;
   for (i = 0; i < context->argc; i++)
     {
-      mdl_free (context->argv[i], mdl_strlen (context->argv[i])+1);
+      vdl_free (context->argv[i], vdl_strlen (context->argv[i])+1);
     }
-  mdl_free (context->argv, sizeof (char *)*context->argc);
+  vdl_free (context->argv, sizeof (char *)*context->argc);
   // delete envp
   char **cur;
   for (cur = context->envp, i = 0; *cur != 0; cur++, i++)
     {
-      mdl_free (*cur, mdl_strlen (*cur)+1);
+      vdl_free (*cur, vdl_strlen (*cur)+1);
     }
-  mdl_free (context->envp, sizeof(char *)*i);
-  mdl_delete (context);
+  vdl_free (context->envp, sizeof(char *)*i);
+  vdl_delete (context);
 }
 
 static void
 append_file (struct MappedFile *item)
 {
   MDL_LOG_FUNCTION ("item=%p", item);
-  if (g_mdl.link_map == 0)
+  if (g_vdl.link_map == 0)
     {
-      g_mdl.link_map = item;
+      g_vdl.link_map = item;
       return;
     }
-  struct MappedFile *cur = g_mdl.link_map;
+  struct MappedFile *cur = g_vdl.link_map;
   while (cur->next != 0)
     {
       cur = cur->next;
@@ -161,16 +161,16 @@ append_file (struct MappedFile *item)
   item->prev = cur;
   item->next = 0;
 }
-struct MappedFile *mdl_file_new (unsigned long load_base,
+struct MappedFile *vdl_file_new (unsigned long load_base,
 				 const struct FileInfo *info,
 				 const char *filename, 
 				 const char *name,
 				 struct Context *context)
 {
-  struct MappedFile *file = mdl_new (struct MappedFile);
+  struct MappedFile *file = vdl_new (struct MappedFile);
 
   file->load_base = load_base;
-  file->filename = mdl_strdup (filename);
+  file->filename = vdl_strdup (filename);
   file->dynamic = info->dynamic + load_base;
   file->next = 0;
   file->prev = 0;
@@ -193,29 +193,29 @@ struct MappedFile *mdl_file_new (unsigned long load_base,
   file->is_executable = 0;
   file->local_scope = 0;
   file->deps = 0;
-  file->name = mdl_strdup (name);
+  file->name = vdl_strdup (name);
 
   append_file (file);
 
   return file;
 }
 
-static void mdl_file_ref (struct MappedFile *file)
+static void vdl_file_ref (struct MappedFile *file)
 {
   file->count++;
 }
-static void mdl_file_unref (struct MappedFile *file)
+static void vdl_file_unref (struct MappedFile *file)
 {
   file->count--;
   if (file->count == 0)
     {
-      mdl_file_list_free (file->deps);
+      vdl_file_list_free (file->deps);
       file->deps = 0;
       // remove file from global link map
       // and count number of files in the same context
       uint32_t context_count = 0;
       struct MappedFile *cur;
-      for (cur = g_mdl.link_map; cur != 0; cur = cur->next)
+      for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
 	{
 	  if (cur->context == file->context)
 	    {
@@ -231,9 +231,9 @@ static void mdl_file_unref (struct MappedFile *file)
 	}
       if (context_count <= 1)
 	{
-	  mdl_context_delete (file->context);
+	  vdl_context_delete (file->context);
 	}
-      mdl_delete (file);
+      vdl_delete (file);
     }
 }
 
@@ -242,67 +242,67 @@ static void mdl_file_unref (struct MappedFile *file)
 // Helper functions
 ///////////////////////////////////////////////////////////
 
-void mdl_set_logging (const char *debug_str)
+void vdl_set_logging (const char *debug_str)
 {
   MDL_LOG_FUNCTION ("debug=%s", debug_str);
   if (debug_str == 0)
     {
       return;
     }
-  struct StringList *list = mdl_strsplit (debug_str, ':');
+  struct StringList *list = vdl_strsplit (debug_str, ':');
   struct StringList *cur;
   uint32_t logging = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      if (mdl_strisequal (cur->str, "debug"))
+      if (vdl_strisequal (cur->str, "debug"))
 	{
 	  logging |= MDL_LOG_DBG;
 	}
-      else if (mdl_strisequal (cur->str, "function"))
+      else if (vdl_strisequal (cur->str, "function"))
 	{
 	  logging |= MDL_LOG_FUNC;
 	}
-      else if (mdl_strisequal (cur->str, "error"))
+      else if (vdl_strisequal (cur->str, "error"))
 	{
 	  logging |= MDL_LOG_ERR;
 	}
-      else if (mdl_strisequal (cur->str, "assert"))
+      else if (vdl_strisequal (cur->str, "assert"))
 	{
 	  logging |= MDL_LOG_AST;
 	}
-      else if (mdl_strisequal (cur->str, "symbol-fail"))
+      else if (vdl_strisequal (cur->str, "symbol-fail"))
 	{
 	  logging |= MDL_LOG_SYM_FAIL;
 	}
-      else if (mdl_strisequal (cur->str, "symbol-ok"))
+      else if (vdl_strisequal (cur->str, "symbol-ok"))
 	{
 	  logging |= MDL_LOG_SYM_OK;
 	}
-      else if (mdl_strisequal (cur->str, "reloc"))
+      else if (vdl_strisequal (cur->str, "reloc"))
 	{
 	  logging |= MDL_LOG_REL;
 	}
-      else if (mdl_strisequal (cur->str, "help"))
+      else if (vdl_strisequal (cur->str, "help"))
 	{
 	  MDL_LOG_ERROR ("Available logging levels: debug, function, error, assert, symbol-fail, symbol-ok, reloc\n", 1);
 	}
     }
-  g_mdl.logging |= logging;
-  mdl_str_list_free (list);
+  g_vdl.logging |= logging;
+  vdl_str_list_free (list);
 }
 
 
-void *mdl_malloc (size_t size)
+void *vdl_malloc (size_t size)
 {
   MDL_LOG_FUNCTION ("size=%d", size);
-  return (void*)alloc_malloc (&g_mdl.alloc, size);
+  return (void*)alloc_malloc (&g_vdl.alloc, size);
 }
-void mdl_free (void *buffer, size_t size)
+void vdl_free (void *buffer, size_t size)
 {
   MDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
-  alloc_free (&g_mdl.alloc, (uint8_t *)buffer, size);
+  alloc_free (&g_vdl.alloc, (uint8_t *)buffer, size);
 }
-int mdl_strisequal (const char *a, const char *b)
+int vdl_strisequal (const char *a, const char *b)
 {
   //MDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
   while (*a != 0 && *b != 0)
@@ -316,7 +316,7 @@ int mdl_strisequal (const char *a, const char *b)
     }
   return *a == *b;
 }
-int mdl_strlen (const char *str)
+int vdl_strlen (const char *str)
 {
   //MDL_LOG_FUNCTION ("str=%s", str);
   int len = 0;
@@ -326,15 +326,15 @@ int mdl_strlen (const char *str)
     }
   return len;
 }
-char *mdl_strdup (const char *str)
+char *vdl_strdup (const char *str)
 {
   //MDL_LOG_FUNCTION ("str=%s", str);
-  int len = mdl_strlen (str);
-  char *retval = mdl_malloc (len+1);
-  mdl_memcpy (retval, str, len+1);
+  int len = vdl_strlen (str);
+  char *retval = vdl_malloc (len+1);
+  vdl_memcpy (retval, str, len+1);
   return retval;
 }
-void mdl_memcpy (void *d, const void *s, size_t len)
+void vdl_memcpy (void *d, const void *s, size_t len)
 {
   //MDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
   int tmp = len;
@@ -348,7 +348,7 @@ void mdl_memcpy (void *d, const void *s, size_t len)
       tmp--;
     }
 }
-void mdl_memset(void *d, int c, size_t n)
+void vdl_memset(void *d, int c, size_t n)
 {
   char *dst = d;
   size_t i;
@@ -357,34 +357,34 @@ void mdl_memset(void *d, int c, size_t n)
       dst[i] = c;
     }
 }
-char *mdl_strconcat (const char *str, ...)
+char *vdl_strconcat (const char *str, ...)
 {
   MDL_LOG_FUNCTION ("str=%s", str);
   va_list l1, l2;
   uint32_t size;
   char *cur, *retval, *tmp;
-  size = mdl_strlen (str);
+  size = vdl_strlen (str);
   va_start (l1, str);
   va_copy (l2, l1);
   // calculate size of final string
   cur = va_arg (l1, char *);
   while (cur != 0)
     {
-      size += mdl_strlen (cur);
+      size += vdl_strlen (cur);
       cur = va_arg (l1, char *);
     }
   va_end (l1);
-  retval = mdl_malloc (size + 1);
+  retval = vdl_malloc (size + 1);
   // copy first string
   tmp = retval;
-  mdl_memcpy (tmp, str, mdl_strlen (str));
-  tmp += mdl_strlen (str);
+  vdl_memcpy (tmp, str, vdl_strlen (str));
+  tmp += vdl_strlen (str);
   // concatenate the other strings.
   cur = va_arg (l2, char *);
   while (cur != 0)
     {
-      mdl_memcpy (tmp, cur, mdl_strlen (cur));
-      tmp += mdl_strlen(cur);
+      vdl_memcpy (tmp, cur, vdl_strlen (cur));
+      tmp += vdl_strlen(cur);
       cur = va_arg (l2, char *);
     }
   // append final 0
@@ -392,7 +392,7 @@ char *mdl_strconcat (const char *str, ...)
   va_end (l2);
   return retval;
 }
-int mdl_exists (const char *filename)
+int vdl_exists (const char *filename)
 {
   MDL_LOG_FUNCTION ("filename=%s", filename);
   struct stat buf;
@@ -406,17 +406,17 @@ static void avprintf_callback (char c, void *context)
       system_write (2, &c, 1);
     }
 }
-void mdl_log_printf (enum MdlLog log, const char *str, ...)
+void vdl_log_printf (enum MdlLog log, const char *str, ...)
 {
   va_list list;
   va_start (list, str);
-  if (g_mdl.logging & log)
+  if (g_vdl.logging & log)
     {
       avprintf_cb (avprintf_callback, 0, str, list);
     }
   va_end (list);
 }
-const char *mdl_getenv (const char **envp, const char *value)
+const char *vdl_getenv (const char **envp, const char *value)
 {
   MDL_LOG_FUNCTION ("envp=%p, value=%s", envp, value);
   while (*envp != 0)
@@ -443,7 +443,7 @@ const char *mdl_getenv (const char **envp, const char *value)
     }
   return 0;
 }
-struct StringList *mdl_strsplit (const char *value, char separator)
+struct StringList *vdl_strsplit (const char *value, char separator)
 {
   MDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
   struct StringList *list = 0;
@@ -463,9 +463,9 @@ struct StringList *mdl_strsplit (const char *value, char separator)
 	  cur++;
 	}
       prev_len = cur-prev;
-      next = mdl_new (struct StringList);
-      next->str = mdl_malloc (prev_len+1);
-      mdl_memcpy (next->str, prev, prev_len);
+      next = vdl_new (struct StringList);
+      next->str = vdl_malloc (prev_len+1);
+      vdl_memcpy (next->str, prev, prev_len);
       next->str[prev_len] = 0;
       next->next = list;
       list = next;
@@ -476,20 +476,20 @@ struct StringList *mdl_strsplit (const char *value, char separator)
       cur++;
       prev = cur;
     }
-  return mdl_str_list_reverse (list);
+  return vdl_str_list_reverse (list);
 }
-void mdl_str_list_free (struct StringList *list)
+void vdl_str_list_free (struct StringList *list)
 {
   MDL_LOG_FUNCTION ("list=%p", list);
   struct StringList *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
-      mdl_free (cur->str, mdl_strlen (cur->str));
+      vdl_free (cur->str, vdl_strlen (cur->str));
       next = cur->next;
-      mdl_delete (cur);
+      vdl_delete (cur);
     }
 }
-struct StringList *mdl_str_list_append (struct StringList *start, struct StringList *end)
+struct StringList *vdl_str_list_append (struct StringList *start, struct StringList *end)
 {
   MDL_LOG_FUNCTION ("start=%p, end=%p", start, end);
   struct StringList *cur, *prev;
@@ -507,7 +507,7 @@ struct StringList *mdl_str_list_append (struct StringList *start, struct StringL
       return start;
     }
 }
-struct StringList *mdl_str_list_reverse (struct StringList *list)
+struct StringList *vdl_str_list_reverse (struct StringList *list)
 {
   MDL_LOG_FUNCTION ("list=%p", list);
   struct StringList *ret = 0, *cur, *next;
@@ -520,33 +520,33 @@ struct StringList *mdl_str_list_reverse (struct StringList *list)
   return ret;
 }
 
-void mdl_file_list_free (struct MappedFileList *list)
+void vdl_file_list_free (struct MappedFileList *list)
 {
   struct MappedFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      mdl_file_unref (cur->item);
-      mdl_delete (cur);
+      vdl_file_unref (cur->item);
+      vdl_delete (cur);
     }
 }
-struct MappedFileList *mdl_file_list_copy (struct MappedFileList *list)
+struct MappedFileList *vdl_file_list_copy (struct MappedFileList *list)
 {
   struct MappedFileList *copy = 0;
   struct MappedFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      copy = mdl_file_list_append_one (copy, cur->item);
+      copy = vdl_file_list_append_one (copy, cur->item);
     }
   return copy;
 }
 
-struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list, 
+struct MappedFileList *vdl_file_list_append_one (struct MappedFileList *list, 
 						 struct MappedFile *item)
 {
-  mdl_file_ref (item);
+  vdl_file_ref (item);
   if (list == 0)
     {
-      list = mdl_new (struct MappedFileList);
+      list = vdl_new (struct MappedFileList);
       list->next = 0;
       list->item = item;
       return list;
@@ -556,13 +556,13 @@ struct MappedFileList *mdl_file_list_append_one (struct MappedFileList *list,
     {
       cur = cur->next;
     }
-  cur->next = mdl_new (struct MappedFileList);
+  cur->next = vdl_new (struct MappedFileList);
   cur->next->item = item;
   cur->next->next = 0;
   return list;
 }
 static struct MappedFileList *
-mdl_file_list_get_end (struct MappedFileList *start)
+vdl_file_list_get_end (struct MappedFileList *start)
 {
   if (start == 0)
     {
@@ -575,19 +575,19 @@ mdl_file_list_get_end (struct MappedFileList *start)
     }
   return cur;
 }
-struct MappedFileList *mdl_file_list_append (struct MappedFileList *start, 
+struct MappedFileList *vdl_file_list_append (struct MappedFileList *start, 
 					     struct MappedFileList *last)
 {
   if (start == 0)
     {
       return last;
     }
-  struct MappedFileList *end = mdl_file_list_get_end (start);
+  struct MappedFileList *end = vdl_file_list_get_end (start);
   end->next = last;
   return start;
 }
 
-void mdl_file_list_unicize (struct MappedFileList *list)
+void vdl_file_list_unicize (struct MappedFileList *list)
 {
   struct MappedFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
@@ -599,13 +599,13 @@ void mdl_file_list_unicize (struct MappedFileList *list)
 	    {
 	      // if we have a duplicate, we eliminate it from the list
 	      prev->next = tmp->next;
-	      mdl_file_unref (cur->item);
-	      mdl_delete (cur);
+	      vdl_file_unref (cur->item);
+	      vdl_delete (cur);
 	    }
 	}
     }
 }
-unsigned long mdl_align_down (unsigned long v, unsigned long align)
+unsigned long vdl_align_down (unsigned long v, unsigned long align)
 {
   if ((v % align) == 0)
     {
@@ -614,7 +614,7 @@ unsigned long mdl_align_down (unsigned long v, unsigned long align)
   unsigned long aligned = v - (v % align);
   return aligned;
 }
-unsigned long mdl_align_up (unsigned long v, unsigned long align)
+unsigned long vdl_align_up (unsigned long v, unsigned long align)
 {
   if ((v % align) == 0)
     {

@@ -3,7 +3,7 @@
 
 #include <elf.h>
 #include <link.h>
-#include "mdl.h"
+#include "vdl.h"
 
 void machine_perform_relocation (const struct MappedFile *file,
 				 const ElfW(Rel) *rel,
