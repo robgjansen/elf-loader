@@ -1,6 +1,7 @@
 #include "system.h"
 #include "vdl.h"
 #include "vdl-elf.h"
+#include "vdl-utils.h"
 #include "glibc.h"
 #include "gdb.h"
 #include "machine.h"

@@ -1,5 +1,6 @@
 #include "vdl-elf.h"
 #include "vdl.h"
+#include "vdl-utils.h"
 #include "system.h"
 #include "machine.h"
 #include <unistd.h>

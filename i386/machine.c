@@ -1,6 +1,7 @@
 #include "machine.h"
 #include "vdl-elf.h"
 #include "vdl.h"
+#include "vdl-utils.h"
 #include "config.h"
 #include <sys/mman.h>
 

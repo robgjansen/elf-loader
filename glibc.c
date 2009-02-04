@@ -3,6 +3,7 @@
 #include "machine.h"
 #include "vdl.h"
 #include "vdl-elf.h"
+#include "vdl-utils.h"
 #include "config.h"
 #include <elf.h>
 #include <dlfcn.h>
