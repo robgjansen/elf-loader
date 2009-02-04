@@ -46,7 +46,7 @@ vdl_elf_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
 
 ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
 {
-  MDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
+  VDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
   ElfW(Phdr) *cur;
   int i;
   for (cur = phdr, i = 0; i < phnum; cur++, i++)
@@ -59,9 +59,9 @@ ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
   return 0;
 }
 
-struct StringList *vdl_elf_get_dt_needed (struct VdlFile *file)
+struct VdlStringList *vdl_elf_get_dt_needed (struct VdlFile *file)
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
   unsigned long dt_strtab = vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
   if (dt_strtab == 0)
     {
@@ -69,24 +69,24 @@ struct StringList *vdl_elf_get_dt_needed (struct VdlFile *file)
     }
   ElfW(Dyn) *dynamic = (ElfW(Dyn)*)file->dynamic;
   ElfW(Dyn)*cur;
-  struct StringList *ret = 0;
+  struct VdlStringList *ret = 0;
   for (cur = dynamic; cur->d_tag != DT_NULL; cur++)
     {
       if (cur->d_tag == DT_NEEDED)
 	{
 	  const char *str = (const char *)(dt_strtab + cur->d_un.d_val);
-	  struct StringList *tmp = vdl_new (struct StringList);
+	  struct VdlStringList *tmp = vdl_new (struct VdlStringList);
 	  tmp->str = vdl_strdup (str);
 	  tmp->next = ret;
 	  ret = tmp;
-	  MDL_LOG_DEBUG ("needed=%s\n", str);
+	  VDL_LOG_DEBUG ("needed=%s\n", str);
 	}
     }
   return ret;
 }
 char *vdl_elf_search_file (const char *name)
 {
-  MDL_LOG_FUNCTION ("name=%s", name);
+  VDL_LOG_FUNCTION ("name=%s", name);
   if (vdl_strisequal (name, "libdl.so") ||
       vdl_strisequal (name, "libdl.so.2"))
     {
@@ -94,7 +94,7 @@ char *vdl_elf_search_file (const char *name)
       name = "libvdl.so";
     }
 
-  struct StringList *cur;
+  struct VdlStringList *cur;
   for (cur = g_vdl.search_dirs; cur != 0; cur = cur->next)
     {
       char *fullname = vdl_strconcat (cur->str, "/", name, 0);
@@ -110,11 +110,11 @@ char *vdl_elf_search_file (const char *name)
     }
   return 0;
 }
-struct VdlFile *vdl_elf_map_single (struct Context *context, 
+struct VdlFile *vdl_elf_map_single (struct VdlContext *context, 
 				       const char *filename, 
 				       const char *name)
 {
-  MDL_LOG_FUNCTION ("contex=%p, filename=%s, name=%s", context, filename, name);
+  VDL_LOG_FUNCTION ("contex=%p, filename=%s, name=%s", context, filename, name);
   ElfW(Ehdr) header;
   ElfW(Phdr) *phdr = 0;
   size_t bytes_read;
@@ -123,56 +123,56 @@ struct VdlFile *vdl_elf_map_single (struct Context *context,
   unsigned long rw_start = 0;
   unsigned long zero_start = 0;
   unsigned long map_size = 0;
-  struct FileInfo info;
+  struct VdlFileInfo info;
 
   fd = system_open_ro (filename);
   if (fd == -1)
     {
-      MDL_LOG_ERROR ("Could not open ro target file: %s\n", filename);
+      VDL_LOG_ERROR ("Could not open ro target file: %s\n", filename);
       goto error;
     }
 
   bytes_read = system_read (fd, &header, sizeof (header));
   if (bytes_read == -1 || bytes_read != sizeof (header))
     {
-      MDL_LOG_ERROR ("Could not read header read=%d\n", bytes_read);
+      VDL_LOG_ERROR ("Could not read header read=%d\n", bytes_read);
       goto error;
     }
   // check that the header size is correct
   if (header.e_ehsize != sizeof (header))
     {
-      MDL_LOG_ERROR ("header size invalid, %d!=%d\n", header.e_ehsize, sizeof(header));
+      VDL_LOG_ERROR ("header size invalid, %d!=%d\n", header.e_ehsize, sizeof(header));
       goto error;
     }
   if (header.e_type != ET_EXEC &&
       header.e_type != ET_DYN)
     {
-      MDL_LOG_ERROR ("header type unsupported, type=0x%x\n", header.e_type);
+      VDL_LOG_ERROR ("header type unsupported, type=0x%x\n", header.e_type);
       goto error;
     }
 
   phdr = vdl_malloc (header.e_phnum * header.e_phentsize);
   if (system_lseek (fd, header.e_phoff, SEEK_SET) == -1)
     {
-      MDL_LOG_ERROR ("lseek failed to go to off=0x%x\n", header.e_phoff);
+      VDL_LOG_ERROR ("lseek failed to go to off=0x%x\n", header.e_phoff);
       goto error;
     }
   bytes_read = system_read (fd, phdr, header.e_phnum * header.e_phentsize);
   if (bytes_read == -1 || bytes_read != header.e_phnum * header.e_phentsize)
     {
-      MDL_LOG_ERROR ("read failed: read=%d\n", bytes_read);
+      VDL_LOG_ERROR ("read failed: read=%d\n", bytes_read);
       goto error;
     }
 
   if (!vdl_elf_file_get_info (header.e_phnum, phdr, &info))
     {
-      MDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
+      VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
   if (header.e_phoff <info.ro_file_offset || 
       header.e_phoff + header.e_phnum * header.e_phentsize > info.ro_file_offset + info.ro_size)
     {
-      MDL_LOG_ERROR ("program header table not included in ro map in %s\n", filename);
+      VDL_LOG_ERROR ("program header table not included in ro map in %s\n", filename);
       goto error;
     }
 
@@ -193,14 +193,14 @@ struct VdlFile *vdl_elf_map_single (struct Context *context,
 					  fd, info.ro_file_offset);
   if (ro_start == -1)
     {
-      MDL_LOG_ERROR ("Unable to perform mapping for %s\n", filename);
+      VDL_LOG_ERROR ("Unable to perform mapping for %s\n", filename);
       goto error;
     }
   // calculate the offset between the start address we asked for and the one we got
   unsigned long load_base = ro_start - info.ro_start;
   if (fixed && load_base != 0)
     {
-      MDL_LOG_ERROR ("We need a fixed address and we did not get it in %s\n", filename);
+      VDL_LOG_ERROR ("We need a fixed address and we did not get it in %s\n", filename);
       goto error;
     }
   // Now, unmap the rw area
@@ -214,7 +214,7 @@ struct VdlFile *vdl_elf_map_single (struct Context *context,
 					  fd, info.rw_file_offset);
   if (rw_start == -1)
     {
-      MDL_LOG_ERROR ("Unable to perform rw mapping for %s\n", filename);
+      VDL_LOG_ERROR ("Unable to perform rw mapping for %s\n", filename);
       goto error;
     }
 
@@ -230,7 +230,7 @@ struct VdlFile *vdl_elf_map_single (struct Context *context,
 					    PROT_READ | PROT_WRITE, 
 					    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
 					    -1, 0);
-  MDL_LOG_DEBUG ("maps: ro=0x%x:0x%x, rw=0x%x:0x%x, zero=0x%x:0x%x, memset_zero_start=0x%x:0x%x, "
+  VDL_LOG_DEBUG ("maps: ro=0x%x:0x%x, rw=0x%x:0x%x, zero=0x%x:0x%x, memset_zero_start=0x%x:0x%x, "
 		 "ro_offset=0x%x, rw_offset=0x%x\n", 
 		 load_base + info.ro_start, info.ro_size,
 		 load_base + info.rw_start, info.rw_size,
@@ -239,14 +239,14 @@ struct VdlFile *vdl_elf_map_single (struct Context *context,
 		 info.ro_file_offset, info.rw_file_offset);
   if (zero_start == -1)
     {
-      MDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
+      VDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
       goto error;
     }
 
   struct stat st_buf;
   if (system_fstat (filename, &st_buf) == -1)
     {
-      MDL_LOG_ERROR ("Unable to stat file %s\n", filename);
+      VDL_LOG_ERROR ("Unable to stat file %s\n", filename);
       goto error;
     }
 
@@ -278,7 +278,7 @@ error:
 static const char *
 convert_name (const char *name)
 {
-  MDL_LOG_FUNCTION ("name=%s", name);
+  VDL_LOG_FUNCTION ("name=%s", name);
   // these are hardcoded name conversions to ensure that
   // we can replace the libc loader.
   const struct HardcodedName {
@@ -299,7 +299,7 @@ convert_name (const char *name)
 }
 
 static struct VdlFile *
-find_by_name (struct Context *context,
+find_by_name (struct VdlContext *context,
 	      const char *name)
 {
   name = convert_name (name);
@@ -314,7 +314,7 @@ find_by_name (struct Context *context,
   return 0;
 }
 static struct VdlFile *
-find_by_dev_ino (struct Context *context, 
+find_by_dev_ino (struct VdlContext *context, 
 		 dev_t dev, ino_t ino)
 {
   struct VdlFile *cur;
@@ -332,7 +332,7 @@ find_by_dev_ino (struct Context *context,
 
 int vdl_elf_map_deps (struct VdlFile *item)
 {
-  MDL_LOG_FUNCTION ("file=%s", item->name);
+  VDL_LOG_FUNCTION ("file=%s", item->name);
 
   if (item->deps_initialized)
     {
@@ -341,11 +341,11 @@ int vdl_elf_map_deps (struct VdlFile *item)
   item->deps_initialized = 1;
 
   // get list of deps for the input file.
-  struct StringList *dt_needed = vdl_elf_get_dt_needed (item);
+  struct VdlStringList *dt_needed = vdl_elf_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
   struct VdlFileList *deps = 0;
-  struct StringList *cur;
+  struct VdlStringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
       // if the file is already mapped within this context,
@@ -360,14 +360,14 @@ int vdl_elf_map_deps (struct VdlFile *item)
       char *filename = vdl_elf_search_file (cur->str);
       if (filename == 0)
 	{
-	  MDL_LOG_ERROR ("Could not find %s\n", cur->str);
+	  VDL_LOG_ERROR ("Could not find %s\n", cur->str);
 	  goto error;
 	}
       // get information about file.
       struct stat buf;
       if (system_fstat (filename, &buf) == -1)
 	{
-	  MDL_LOG_ERROR ("Cannot stat %s\n", filename);
+	  VDL_LOG_ERROR ("Cannot stat %s\n", filename);
 	  vdl_free (filename, vdl_strlen (filename)+1);
 	  goto error;
 	}
@@ -420,9 +420,9 @@ int vdl_elf_map_deps (struct VdlFile *item)
 }
 int vdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
-			   struct FileInfo *info)
+			   struct VdlFileInfo *info)
 {
-  MDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
+  VDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
   ElfW(Phdr) *ro = 0, *rw = 0, *dynamic = 0, *cur;
   int i;
   for (i = 0, cur = phdr; i < phnum; i++, cur++)
@@ -433,7 +433,7 @@ int vdl_elf_file_get_info (uint32_t phnum,
 	    {
 	      if (rw != 0)
 		{
-		  MDL_LOG_ERROR ("file has more than one RW PT_LOAD\n", 1);
+		  VDL_LOG_ERROR ("file has more than one RW PT_LOAD\n", 1);
 		  goto error;
 		}
 	      rw = cur;
@@ -442,7 +442,7 @@ int vdl_elf_file_get_info (uint32_t phnum,
 	    {
 	      if (ro != 0)
 		{
-		  MDL_LOG_ERROR ("file has more than one RO PT_LOAD\n", 1);
+		  VDL_LOG_ERROR ("file has more than one RO PT_LOAD\n", 1);
 		  goto error;
 		}
 	      ro = cur;
@@ -455,37 +455,37 @@ int vdl_elf_file_get_info (uint32_t phnum,
     }
   if (ro == 0 || rw == 0 || dynamic == 0)
     {
-      MDL_LOG_ERROR ("file is missing a critical program header "
+      VDL_LOG_ERROR ("file is missing a critical program header "
 		     "ro=0x%x, rw=0x%x, dynamic=0x%x\n",
 		     ro, rw, dynamic);
       goto error;
     }
   if (ro->p_offset != 0 || ro->p_filesz < sizeof (ElfW(Ehdr)))
     {
-      MDL_LOG_ERROR ("ro load area does not include elf header\n", 1);
+      VDL_LOG_ERROR ("ro load area does not include elf header\n", 1);
       goto error;
     }
   if (ro->p_memsz != ro->p_filesz)
     {
-      MDL_LOG_ERROR ("file and memory size should be equal: 0x%x != 0x%x\n",
+      VDL_LOG_ERROR ("file and memory size should be equal: 0x%x != 0x%x\n",
 		     ro->p_memsz, ro->p_filesz);
       goto error;
     }
   if (ro->p_offset != 0)
     {
-      MDL_LOG_ERROR ("The ro map should include the ELF header. off=0x%x\n",
+      VDL_LOG_ERROR ("The ro map should include the ELF header. off=0x%x\n",
 		     ro->p_offset);
       goto error;
     }
   if (ro->p_align != rw->p_align)
     {
-      MDL_LOG_ERROR ("something is fishy about the alignment constraints "
+      VDL_LOG_ERROR ("something is fishy about the alignment constraints "
 		     "ro_align=0x%x, rw_align=0x%x\n", ro->p_align, rw->p_align);
       goto error;
     }
   if (dynamic->p_offset < rw->p_offset || dynamic->p_filesz > rw->p_filesz)
     {
-      MDL_LOG_ERROR ("dynamic not included in rw load\n", 1);
+      VDL_LOG_ERROR ("dynamic not included in rw load\n", 1);
       goto error;
     }
 
@@ -502,7 +502,7 @@ int vdl_elf_file_get_info (uint32_t phnum,
   unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
   if (ro_start + ro_size != rw_start)
     {
-      MDL_LOG_ERROR ("ro and rw maps must be adjacent\n", 1);
+      VDL_LOG_ERROR ("ro and rw maps must be adjacent\n", 1);
       goto error;
     }
 
@@ -526,7 +526,7 @@ int vdl_elf_file_get_info (uint32_t phnum,
 struct VdlFileList *
 vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file)
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
 
   struct VdlFileList *list, *cur;
 
@@ -571,7 +571,7 @@ static struct LookupIterator
 vdl_elf_lookup_begin (const char *name, unsigned long hash,
 		      const struct VdlFile *file)
 {
-  MDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->filename);
+  VDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->filename);
   struct LookupIterator i;
   i.name = name;
   // first, gather information needed to look into the hash table
@@ -703,13 +703,13 @@ symbol_version_matches (const struct VdlFile *in,
 	  return 0;
 	}
     }
-  MDL_LOG_DEBUG ("index=%x/%x, %x:%x\n", ver_index, dt_verdefnum,
+  VDL_LOG_DEBUG ("index=%x/%x, %x:%x\n", ver_index, dt_verdefnum,
 		 dt_versym, dt_verdef);
   ElfW(Verdef) *cur, *prev;
   for (prev = 0, cur = dt_verdef; cur != prev;
        prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
     {
-      MDL_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
+      VDL_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
       if (cur->vd_ndx == ver_index &&
 	  cur->vd_hash == ver_needed->vna_hash)
 	{
@@ -737,7 +737,7 @@ do_symbol_lookup_scope (const char *name,
 			struct VdlFileList *scope,
 			struct SymbolMatch *match)
 {
-  MDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
+  VDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
 
   // then, iterate scope until we find the requested symbol.
   struct VdlFileList *cur;
@@ -811,7 +811,7 @@ typedef void (*init_function) (int, char **, char **);
 static void
 vdl_elf_call_init_one (struct VdlFile *file)
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
   // Gather information from the .dynamic section
   unsigned long dt_init = vdl_elf_file_get_dynamic_p (file, DT_INIT);
   unsigned long dt_init_array = vdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAY);
@@ -841,7 +841,7 @@ vdl_elf_call_init_one (struct VdlFile *file)
 
 void vdl_elf_call_init (struct VdlFile *file)
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->init_called)
     {
       // if we are initialized already, no need to do any work
@@ -893,7 +893,7 @@ sym_to_vernaux (unsigned long index,
 	   cur != prev; 
 	   prev = cur, cur = (ElfW(Verneed) *)(((unsigned long)cur)+cur->vn_next))
 	{
-	  MDL_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
+	  VDL_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
 	  ElfW(Vernaux) *cur_aux, *prev_aux;
 	  for (cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur)+cur->vn_aux), prev_aux = 0;
 	       cur_aux != prev_aux; 
@@ -917,7 +917,7 @@ vdl_elf_iterate_pltrel (struct VdlFile *file,
 				   const ElfW(Vernaux) *ver,
 				   const char *name))
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)vdl_elf_file_get_dynamic_p (file, DT_JMPREL);
   unsigned long dt_pltrel = vdl_elf_file_get_dynamic_v (file, DT_PLTREL);
   unsigned long dt_pltrelsz = vdl_elf_file_get_dynamic_v (file, DT_PLTRELSZ);
@@ -961,7 +961,7 @@ vdl_elf_iterate_rel (struct VdlFile *file,
 				const ElfW(Vernaux) *ver,
 				const char *symbol_name))
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_elf_file_get_dynamic_p (file, DT_REL);
   unsigned long dt_relsz = vdl_elf_file_get_dynamic_v (file, DT_RELSZ);
   unsigned long dt_relent = vdl_elf_file_get_dynamic_v (file, DT_RELENT);
@@ -1051,7 +1051,7 @@ vdl_elf_allocate_tls_index (void)
 	  return i;
 	}
     }
-  MDL_ASSERT (0, "All tls module indexes are used up ? impossible !");
+  VDL_ASSERT (0, "All tls module indexes are used up ? impossible !");
   return 0; // quiet compiler
 }
 

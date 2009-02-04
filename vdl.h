@@ -1,5 +1,5 @@
-#ifndef MDL_H
-#define MDL_H
+#ifndef VDL_H
+#define VDL_H
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -12,7 +12,7 @@ struct VdlFileList
   struct VdlFileList *next;
 };
 
-enum LookupType
+enum VdlLookupType
 {
   // indicates that lookups within this object should be performed
   // using the global scope only and that local scope should be ignored.
@@ -22,7 +22,7 @@ enum LookupType
   LOOKUP_LOCAL_ONLY,
 };
 
-struct FileInfo
+struct VdlFileInfo
 {
   // vaddr of DYNAMIC program header
   unsigned long dynamic;
@@ -98,39 +98,39 @@ struct VdlFile
   // this field is valid only for modules which
   // are loaded at startup.
   signed long tls_offset;
-  enum LookupType lookup_type;
-  struct Context *context;
+  enum VdlLookupType lookup_type;
+  struct VdlContext *context;
   struct VdlFileList *local_scope;
   // list of files this file depends upon. 
   // equivalent to the content of DT_NEEDED.
   struct VdlFileList *deps;
 };
 
-struct StringList
+struct VdlStringList
 {
   char *str;
-  struct StringList *next;
+  struct VdlStringList *next;
 };
-enum MdlState {
-  MDL_CONSISTENT,
-  MDL_ADD,
-  MDL_DELETE
+enum VdlState {
+  VDL_CONSISTENT,
+  VDL_ADD,
+  VDL_DELETE
 };
-enum MdlLog {
-  MDL_LOG_FUNC     = (1<<0),
-  MDL_LOG_DBG      = (1<<1),
-  MDL_LOG_ERR      = (1<<2),
-  MDL_LOG_AST      = (1<<3),
-  MDL_LOG_SYM_FAIL = (1<<4),
-  MDL_LOG_REL      = (1<<5),
-  MDL_LOG_SYM_OK   = (1<<6),
-  MDL_LOG_PRINT    = (1<<7)
+enum VdlLog {
+  VDL_LOG_FUNC     = (1<<0),
+  VDL_LOG_DBG      = (1<<1),
+  VDL_LOG_ERR      = (1<<2),
+  VDL_LOG_AST      = (1<<3),
+  VDL_LOG_SYM_FAIL = (1<<4),
+  VDL_LOG_REL      = (1<<5),
+  VDL_LOG_SYM_OK   = (1<<6),
+  VDL_LOG_PRINT    = (1<<7)
 };
 
-struct Context
+struct VdlContext
 {
-  struct Context *prev;
-  struct Context *next;
+  struct VdlContext *prev;
+  struct VdlContext *next;
   struct VdlFileList *global_scope;
   // return the symbol to lookup instead of the input symbol
   const char *(*remap_symbol) (const char *name);
@@ -147,25 +147,25 @@ struct Context
   char **envp;  
 };
 
-struct Mdl
+struct Vdl
 {
   // the following fields are part of the gdb/libc ABI. Don't touch them.
   int version; // always 1
   struct VdlFile *link_map;
   int (*breakpoint)(void);
-  enum MdlState state;
+  enum VdlState state;
   unsigned long interpreter_load_base;
   // the following fields are not part of the ABI
   uint32_t logging;
   // The list of directories to search for binaries
   // in DT_NEEDED entries.
-  struct StringList *search_dirs;
+  struct VdlStringList *search_dirs;
   // The data structure used by the memory allocator
   // all heap memory allocations through vdl_alloc
   // and vdl_free end up here.
   struct Alloc alloc;
   uint32_t bind_now : 1;
-  struct Context *contexts;
+  struct VdlContext *contexts;
   unsigned long tls_gen;
   unsigned long tls_static_size;
   unsigned long tls_static_align;
@@ -173,16 +173,16 @@ struct Mdl
 };
 
 
-extern struct Mdl g_vdl;
+extern struct Vdl g_vdl;
 
 // control setup of core data structures
 void vdl_initialize (unsigned long interpreter_load_base);
-struct Context *vdl_context_new (int argc, const char **argv, const char **envp);
+struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp);
 struct VdlFile *vdl_file_new (unsigned long load_base,
-				 const struct FileInfo *info,
+				 const struct VdlFileInfo *info,
 				 const char *filename, 
 				 const char *name,
-				 struct Context *context);
+				 struct VdlContext *context);
 
 void vdl_linkmap_print (void);
 
@@ -210,34 +210,34 @@ const char *vdl_getenv (const char **envp, const char *value);
 int vdl_exists (const char *filename);
 
 // manipulate string lists.
-struct StringList *vdl_strsplit (const char *value, char separator);
-void vdl_str_list_free (struct StringList *list);
-struct StringList *vdl_str_list_reverse (struct StringList *list);
-struct StringList * vdl_str_list_append (struct StringList *start, struct StringList *end);
+struct VdlStringList *vdl_strsplit (const char *value, char separator);
+void vdl_str_list_free (struct VdlStringList *list);
+struct VdlStringList *vdl_str_list_reverse (struct VdlStringList *list);
+struct VdlStringList * vdl_str_list_append (struct VdlStringList *start, struct VdlStringList *end);
 
 // logging
-void vdl_log_printf (enum MdlLog log, const char *str, ...);
-#define MDL_LOG_FUNCTION(str,...)					\
-  vdl_log_printf (MDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
+void vdl_log_printf (enum VdlLog log, const char *str, ...);
+#define VDL_LOG_FUNCTION(str,...)					\
+  vdl_log_printf (VDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
 		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define MDL_LOG_DEBUG(str,...) \
-  vdl_log_printf (MDL_LOG_DBG, str, __VA_ARGS__)
-#define MDL_LOG_ERROR(str,...) \
-  vdl_log_printf (MDL_LOG_ERR, str, __VA_ARGS__)
-#define MDL_LOG_SYMBOL_FAIL(symbol,file)				\
-  vdl_log_printf (MDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
+#define VDL_LOG_DEBUG(str,...) \
+  vdl_log_printf (VDL_LOG_DBG, str, __VA_ARGS__)
+#define VDL_LOG_ERROR(str,...) \
+  vdl_log_printf (VDL_LOG_ERR, str, __VA_ARGS__)
+#define VDL_LOG_SYMBOL_FAIL(symbol,file)				\
+  vdl_log_printf (VDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
 		  symbol, file->filename)
-#define MDL_LOG_SYMBOL_OK(symbol_name,from,match)			\
-  vdl_log_printf (MDL_LOG_SYM_OK, "Resolved symbol=%s, from file=\"%s\", in file=\"%s\":0x%x\n", \
+#define VDL_LOG_SYMBOL_OK(symbol_name,from,match)			\
+  vdl_log_printf (VDL_LOG_SYM_OK, "Resolved symbol=%s, from file=\"%s\", in file=\"%s\":0x%x\n", \
 		  symbol_name, from->filename, match->file->filename,	\
 		  match->file->load_base + match->symbol->st_value)
-#define MDL_LOG_RELOC(rel)					      \
-  vdl_log_printf (MDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
+#define VDL_LOG_RELOC(rel)					      \
+  vdl_log_printf (VDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
 		  ELFW_R_TYPE (rel->r_info), rel->r_offset)
-#define MDL_ASSERT(predicate,str)		 \
+#define VDL_ASSERT(predicate,str)		 \
   if (!(predicate))				 \
     {						 \
-      vdl_log_printf (MDL_LOG_AST, "%s\n", str); \
+      vdl_log_printf (VDL_LOG_AST, "%s\n", str); \
       system_exit (-1);				 \
     }
 
@@ -256,4 +256,4 @@ unsigned long vdl_align_up (unsigned long v, unsigned long align);
 
 
 
-#endif /* MDL_H */
+#endif /* VDL_H */

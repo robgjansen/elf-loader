@@ -19,7 +19,7 @@ void gdb_initialize (struct VdlFile *file)
   // instead, gdb hardcodes the name _r_debug_state.
   // But, hey, I am trying to be nice, just in case.
   g_vdl.breakpoint = _r_debug_state;
-  g_vdl.state = MDL_CONSISTENT;
+  g_vdl.state = VDL_CONSISTENT;
 
   // It is important to do this, that is, store a pointer to g_vdl
   // in the DT_DEBUG entry of the main executable dynamic section
@@ -32,6 +32,6 @@ void gdb_initialize (struct VdlFile *file)
 
 void gdb_notify (void)
 {
-  g_vdl.state = MDL_CONSISTENT;
+  g_vdl.state = VDL_CONSISTENT;
   g_vdl.breakpoint ();
 }

@@ -4,20 +4,20 @@
 #include "avprintf-cb.h"
 #include <stdarg.h>
 
-struct Mdl g_vdl;
+struct Vdl g_vdl;
 
-static struct StringList *
+static struct VdlStringList *
 get_system_search_dirs (void)
 {
   // XXX: first is for my ubuntu box.
   const char *dirs[] = {"/lib/tls/i686/cmov",
 			"/lib", "/lib64", "/lib32",
 			"/usr/lib", "/usr/lib64", "/usr/lib32"};
-  struct StringList *list = 0;
+  struct VdlStringList *list = 0;
   int i;
   for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
     {
-      struct StringList *tmp = vdl_new (struct StringList);
+      struct VdlStringList *tmp = vdl_new (struct VdlStringList);
       tmp->str = vdl_strdup (dirs[i]);
       tmp->next = list;
       list = tmp;
@@ -29,13 +29,13 @@ get_system_search_dirs (void)
 
 void vdl_initialize (unsigned long interpreter_load_base)
 {
-  struct Mdl *vdl = &g_vdl;
+  struct Vdl *vdl = &g_vdl;
   vdl->version = 1;
   vdl->link_map = 0;
   vdl->breakpoint = 0;
-  vdl->state = MDL_CONSISTENT;
+  vdl->state = VDL_CONSISTENT;
   vdl->interpreter_load_base = interpreter_load_base;
-  vdl->logging = MDL_LOG_ERR | MDL_LOG_AST | MDL_LOG_PRINT;
+  vdl->logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
   alloc_initialize (&(vdl->alloc));
   vdl->bind_now = 0; // by default, do lazy binding
   vdl->contexts = 0;
@@ -54,18 +54,18 @@ void vdl_linkmap_print (void)
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      vdl_log_printf (MDL_LOG_PRINT, 
+      vdl_log_printf (VDL_LOG_PRINT, 
 		      "load_base=0x%x , ro_start=0x%x , ro_end=0x%x , file=%s\n", 
 		      cur->load_base, cur->ro_start, cur->ro_start + cur->ro_size, 
 		      cur->filename);
     }
 }
 
-struct Context *vdl_context_new (int argc, const char **argv, const char **envp)
+struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
 {
-  MDL_LOG_FUNCTION ("argc=%d", argc);
+  VDL_LOG_FUNCTION ("argc=%d", argc);
 
-  struct Context *context = vdl_new (struct Context);
+  struct VdlContext *context = vdl_new (struct VdlContext);
   context->global_scope = 0;
   // prepend to context list.
   if (g_vdl.contexts != 0)
@@ -110,7 +110,7 @@ struct Context *vdl_context_new (int argc, const char **argv, const char **envp)
     }
   return context;
 }
-static void vdl_context_delete (struct Context *context)
+static void vdl_context_delete (struct VdlContext *context)
 {
   // get rid of associated global scope
   vdl_file_list_free (context->global_scope);
@@ -146,7 +146,7 @@ static void vdl_context_delete (struct Context *context)
 static void
 append_file (struct VdlFile *item)
 {
-  MDL_LOG_FUNCTION ("item=%p", item);
+  VDL_LOG_FUNCTION ("item=%p", item);
   if (g_vdl.link_map == 0)
     {
       g_vdl.link_map = item;
@@ -162,10 +162,10 @@ append_file (struct VdlFile *item)
   item->next = 0;
 }
 struct VdlFile *vdl_file_new (unsigned long load_base,
-				 const struct FileInfo *info,
+				 const struct VdlFileInfo *info,
 				 const char *filename, 
 				 const char *name,
-				 struct Context *context)
+				 struct VdlContext *context)
 {
   struct VdlFile *file = vdl_new (struct VdlFile);
 
@@ -244,47 +244,47 @@ static void vdl_file_unref (struct VdlFile *file)
 
 void vdl_set_logging (const char *debug_str)
 {
-  MDL_LOG_FUNCTION ("debug=%s", debug_str);
+  VDL_LOG_FUNCTION ("debug=%s", debug_str);
   if (debug_str == 0)
     {
       return;
     }
-  struct StringList *list = vdl_strsplit (debug_str, ':');
-  struct StringList *cur;
+  struct VdlStringList *list = vdl_strsplit (debug_str, ':');
+  struct VdlStringList *cur;
   uint32_t logging = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
       if (vdl_strisequal (cur->str, "debug"))
 	{
-	  logging |= MDL_LOG_DBG;
+	  logging |= VDL_LOG_DBG;
 	}
       else if (vdl_strisequal (cur->str, "function"))
 	{
-	  logging |= MDL_LOG_FUNC;
+	  logging |= VDL_LOG_FUNC;
 	}
       else if (vdl_strisequal (cur->str, "error"))
 	{
-	  logging |= MDL_LOG_ERR;
+	  logging |= VDL_LOG_ERR;
 	}
       else if (vdl_strisequal (cur->str, "assert"))
 	{
-	  logging |= MDL_LOG_AST;
+	  logging |= VDL_LOG_AST;
 	}
       else if (vdl_strisequal (cur->str, "symbol-fail"))
 	{
-	  logging |= MDL_LOG_SYM_FAIL;
+	  logging |= VDL_LOG_SYM_FAIL;
 	}
       else if (vdl_strisequal (cur->str, "symbol-ok"))
 	{
-	  logging |= MDL_LOG_SYM_OK;
+	  logging |= VDL_LOG_SYM_OK;
 	}
       else if (vdl_strisequal (cur->str, "reloc"))
 	{
-	  logging |= MDL_LOG_REL;
+	  logging |= VDL_LOG_REL;
 	}
       else if (vdl_strisequal (cur->str, "help"))
 	{
-	  MDL_LOG_ERROR ("Available logging levels: debug, function, error, assert, symbol-fail, symbol-ok, reloc\n", 1);
+	  VDL_LOG_ERROR ("Available logging levels: debug, function, error, assert, symbol-fail, symbol-ok, reloc\n", 1);
 	}
     }
   g_vdl.logging |= logging;
@@ -294,17 +294,17 @@ void vdl_set_logging (const char *debug_str)
 
 void *vdl_malloc (size_t size)
 {
-  MDL_LOG_FUNCTION ("size=%d", size);
+  VDL_LOG_FUNCTION ("size=%d", size);
   return (void*)alloc_malloc (&g_vdl.alloc, size);
 }
 void vdl_free (void *buffer, size_t size)
 {
-  MDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
+  VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
   alloc_free (&g_vdl.alloc, (uint8_t *)buffer, size);
 }
 int vdl_strisequal (const char *a, const char *b)
 {
-  //MDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
+  //VDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
   while (*a != 0 && *b != 0)
     {
       if (*a != *b)
@@ -318,7 +318,7 @@ int vdl_strisequal (const char *a, const char *b)
 }
 int vdl_strlen (const char *str)
 {
-  //MDL_LOG_FUNCTION ("str=%s", str);
+  //VDL_LOG_FUNCTION ("str=%s", str);
   int len = 0;
   while (str[len] != 0)
     {
@@ -328,7 +328,7 @@ int vdl_strlen (const char *str)
 }
 char *vdl_strdup (const char *str)
 {
-  //MDL_LOG_FUNCTION ("str=%s", str);
+  //VDL_LOG_FUNCTION ("str=%s", str);
   int len = vdl_strlen (str);
   char *retval = vdl_malloc (len+1);
   vdl_memcpy (retval, str, len+1);
@@ -336,7 +336,7 @@ char *vdl_strdup (const char *str)
 }
 void vdl_memcpy (void *d, const void *s, size_t len)
 {
-  //MDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
+  //VDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
   int tmp = len;
   char *dst = d;
   const char *src = s;
@@ -359,7 +359,7 @@ void vdl_memset(void *d, int c, size_t n)
 }
 char *vdl_strconcat (const char *str, ...)
 {
-  MDL_LOG_FUNCTION ("str=%s", str);
+  VDL_LOG_FUNCTION ("str=%s", str);
   va_list l1, l2;
   uint32_t size;
   char *cur, *retval, *tmp;
@@ -394,7 +394,7 @@ char *vdl_strconcat (const char *str, ...)
 }
 int vdl_exists (const char *filename)
 {
-  MDL_LOG_FUNCTION ("filename=%s", filename);
+  VDL_LOG_FUNCTION ("filename=%s", filename);
   struct stat buf;
   int status = system_fstat (filename, &buf);
   return status == 0;
@@ -406,7 +406,7 @@ static void avprintf_callback (char c, void *context)
       system_write (2, &c, 1);
     }
 }
-void vdl_log_printf (enum MdlLog log, const char *str, ...)
+void vdl_log_printf (enum VdlLog log, const char *str, ...)
 {
   va_list list;
   va_start (list, str);
@@ -418,7 +418,7 @@ void vdl_log_printf (enum MdlLog log, const char *str, ...)
 }
 const char *vdl_getenv (const char **envp, const char *value)
 {
-  MDL_LOG_FUNCTION ("envp=%p, value=%s", envp, value);
+  VDL_LOG_FUNCTION ("envp=%p, value=%s", envp, value);
   while (*envp != 0)
     {
       const char *env = *envp;
@@ -443,10 +443,10 @@ const char *vdl_getenv (const char **envp, const char *value)
     }
   return 0;
 }
-struct StringList *vdl_strsplit (const char *value, char separator)
+struct VdlStringList *vdl_strsplit (const char *value, char separator)
 {
-  MDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
-  struct StringList *list = 0;
+  VDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
+  struct VdlStringList *list = 0;
   const char *prev = value;
   const char *cur = value;
 
@@ -456,14 +456,14 @@ struct StringList *vdl_strsplit (const char *value, char separator)
     }
   while (1)
     {
-      struct StringList *next;
+      struct VdlStringList *next;
       size_t prev_len;
       while (*cur != separator && *cur != 0)
 	{
 	  cur++;
 	}
       prev_len = cur-prev;
-      next = vdl_new (struct StringList);
+      next = vdl_new (struct VdlStringList);
       next->str = vdl_malloc (prev_len+1);
       vdl_memcpy (next->str, prev, prev_len);
       next->str[prev_len] = 0;
@@ -478,10 +478,10 @@ struct StringList *vdl_strsplit (const char *value, char separator)
     }
   return vdl_str_list_reverse (list);
 }
-void vdl_str_list_free (struct StringList *list)
+void vdl_str_list_free (struct VdlStringList *list)
 {
-  MDL_LOG_FUNCTION ("list=%p", list);
-  struct StringList *cur, *next;
+  VDL_LOG_FUNCTION ("list=%p", list);
+  struct VdlStringList *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
       vdl_free (cur->str, vdl_strlen (cur->str));
@@ -489,10 +489,10 @@ void vdl_str_list_free (struct StringList *list)
       vdl_delete (cur);
     }
 }
-struct StringList *vdl_str_list_append (struct StringList *start, struct StringList *end)
+struct VdlStringList *vdl_str_list_append (struct VdlStringList *start, struct VdlStringList *end)
 {
-  MDL_LOG_FUNCTION ("start=%p, end=%p", start, end);
-  struct StringList *cur, *prev;
+  VDL_LOG_FUNCTION ("start=%p, end=%p", start, end);
+  struct VdlStringList *cur, *prev;
   for (cur = start, prev = 0; cur != 0; cur = cur->next)
     {
       prev = cur;
@@ -507,10 +507,10 @@ struct StringList *vdl_str_list_append (struct StringList *start, struct StringL
       return start;
     }
 }
-struct StringList *vdl_str_list_reverse (struct StringList *list)
+struct VdlStringList *vdl_str_list_reverse (struct VdlStringList *list)
 {
-  MDL_LOG_FUNCTION ("list=%p", list);
-  struct StringList *ret = 0, *cur, *next;
+  VDL_LOG_FUNCTION ("list=%p", list);
+  struct VdlStringList *ret = 0, *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
       next = cur->next;

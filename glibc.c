@@ -60,21 +60,21 @@ extern __typeof (_rtld_local) _rtld_global __attribute__ ((alias("_rtld_local"),
 
 EXPORT WEAK void *calloc(size_t nmemb, size_t size)
 {
-  MDL_ASSERT (0, "calloc called");
+  VDL_ASSERT (0, "calloc called");
   return 0;
 }
 EXPORT WEAK void *malloc(size_t size)
 {
-  MDL_ASSERT (0, "malloc called");
+  VDL_ASSERT (0, "malloc called");
   return 0;
 }
 EXPORT WEAK void free(void *ptr)
 {
-  MDL_ASSERT (0, "free called");
+  VDL_ASSERT (0, "free called");
 }
 EXPORT WEAK void *realloc(void *ptr, size_t size)
 {
-  MDL_ASSERT (0, "realloc called");
+  VDL_ASSERT (0, "realloc called");
   return 0;
 }
 //_r_debug;
@@ -90,7 +90,7 @@ static void **vdl_dl_error_catch_tsd (void)
 static int vdl_dl_addr (const void *address, Dl_info *info,
 			struct link_map **mapp, const ElfW(Sym) **symbolp)
 {
-  MDL_LOG_FUNCTION ("address=%p, info=%p, mapp=%p, symbolp=%p", address, info, mapp, symbolp);
+  VDL_LOG_FUNCTION ("address=%p, info=%p, mapp=%p, symbolp=%p", address, info, mapp, symbolp);
   return 0;
 }
 
@@ -132,7 +132,7 @@ void glibc_initialize (void)
 
 void glibc_patch (struct VdlFile *file)
 {
-  MDL_LOG_FUNCTION ("file=%s", file->name);
+  VDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->patched)
     {
       // if we are patched already, no need to do any work

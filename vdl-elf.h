@@ -1,5 +1,5 @@
-#ifndef MDL_ELF_H
-#define MDL_ELF_H
+#ifndef VDL_ELF_H
+#define VDL_ELF_H
 
 #include <elf.h>
 #include <link.h>
@@ -21,13 +21,13 @@
 
 ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 char *vdl_elf_search_file (const char *name);
-struct VdlFile *vdl_elf_map_single (struct Context *context, 
+struct VdlFile *vdl_elf_map_single (struct VdlContext *context, 
 				       const char *filename, 
 				       const char *name);
 int vdl_elf_map_deps (struct VdlFile *item);
 int vdl_elf_file_get_info (uint32_t phnum,
 			   ElfW(Phdr) *phdr,
-			   struct FileInfo *info);
+			   struct VdlFileInfo *info);
 struct VdlFileList *vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file);
 unsigned long vdl_elf_hash (const char *n);
 void vdl_elf_call_init (struct VdlFile *file);
@@ -61,4 +61,4 @@ unsigned long vdl_elf_symbol_lookup_local (const char *name, const struct VdlFil
 void vdl_elf_tls (struct VdlFile *file);
 void vdl_elf_tcb_initialize (unsigned long sysinfo);
 
-#endif /* MDL_ELF_H */
+#endif /* VDL_ELF_H */

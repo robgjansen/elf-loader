@@ -12,12 +12,12 @@ static int do_lookup_and_log (const char *symbol_name,
 {
   if (!vdl_elf_symbol_lookup (symbol_name, file, ver, flags, match))
     {
-      MDL_LOG_SYMBOL_FAIL (symbol_name, file);
+      VDL_LOG_SYMBOL_FAIL (symbol_name, file);
       // if the symbol resolution has failed, it could
       // be that it's not a big deal.
       return 0;
     }
-  MDL_LOG_SYMBOL_OK (symbol_name, file, match);
+  VDL_LOG_SYMBOL_OK (symbol_name, file, match);
   return 1;
 }
 
@@ -27,7 +27,7 @@ void machine_perform_relocation (const struct VdlFile *file,
 				 const ElfW(Vernaux) *ver,
 				 const char *symbol_name)
 {
-  MDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
+  VDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
 		    file->filename, (symbol_name != 0)?symbol_name:"", 
 		    rel->r_offset,
 		    ELFW_R_TYPE (rel->r_info));
@@ -59,7 +59,7 @@ void machine_perform_relocation (const struct VdlFile *file,
 	{
 	  return;
 	}
-      MDL_ASSERT (match.symbol->st_size == sym->st_size,
+      VDL_ASSERT (match.symbol->st_size == sym->st_size,
 		  "Symbols don't have the same size: likely a recipe for disaster.");
       vdl_memcpy (reloc_addr, 
 		  (void*)(match.file->load_base + match.symbol->st_value),
@@ -75,9 +75,9 @@ void machine_perform_relocation (const struct VdlFile *file,
 	    {
 	      return;
 	    }
-	  MDL_ASSERT (match.file->has_tls,
+	  VDL_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
-	  MDL_ASSERT (ELFW_ST_TYPE (match.symbol->st_info) == STT_TLS,
+	  VDL_ASSERT (ELFW_ST_TYPE (match.symbol->st_info) == STT_TLS,
 		      "Target symbol is not a tls symbol ??");
 	  v = match.file->tls_offset + match.symbol->st_value;
 	}
@@ -97,7 +97,7 @@ void machine_perform_relocation (const struct VdlFile *file,
 	    {
 	      return;
 	    }
-	  MDL_ASSERT (match.file->has_tls,
+	  VDL_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
 	  v = match.file->tls_index;
 	}
@@ -117,7 +117,7 @@ void machine_perform_relocation (const struct VdlFile *file,
 	    {
 	      return;
 	    }
-	  MDL_ASSERT (match.file->has_tls,
+	  VDL_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
 	  v = match.symbol->st_value;
 	}
@@ -129,13 +129,13 @@ void machine_perform_relocation (const struct VdlFile *file,
     }
   else
     {
-      MDL_LOG_RELOC (rel);
+      VDL_LOG_RELOC (rel);
     }
 }
 
 void machine_insert_trampoline (unsigned long from, unsigned long to)
 {
-  MDL_LOG_FUNCTION ("from=0x%x, to=0x%x", from, to);
+  VDL_LOG_FUNCTION ("from=0x%x, to=0x%x", from, to);
   // In this code, we assume that the target symbol is bigger than
   // our jump and that none of that code is running yet so, we don't have
   // to worry about modifying a piece of code which is running already.
@@ -175,7 +175,7 @@ void machine_tcb_allocate_and_set (unsigned long tcb_size)
   desc.useable = 1;
   
   int status = system_set_thread_area (&desc);
-  MDL_ASSERT (status == 0, "Unable to set TCB");
+  VDL_ASSERT (status == 0, "Unable to set TCB");
 
   // set_thread_area allocated an entry in the GDT and returned
   // the index associated to this entry. So, now, we associate

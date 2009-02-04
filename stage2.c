@@ -10,7 +10,7 @@
 
 
 static struct VdlFile *
-interpreter_new (unsigned long load_base, struct Context *context)
+interpreter_new (unsigned long load_base, struct VdlContext *context)
 {
   /* We make many assumptions here:
    *   - The loader is an ET_DYN
@@ -24,10 +24,10 @@ interpreter_new (unsigned long load_base, struct Context *context)
    */
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)load_base;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (header->e_phoff + load_base);
-  struct FileInfo info;
+  struct VdlFileInfo info;
   if (!vdl_elf_file_get_info (header->e_phnum, phdr, &info))
     {
-      MDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
+      VDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
       goto error;
     }
   struct VdlFile *file = vdl_file_new (load_base, &info, 
@@ -49,7 +49,7 @@ interpreter_new (unsigned long load_base, struct Context *context)
 }
 
 static struct VdlFileList *
-do_ld_preload (struct Context *context, struct VdlFileList *scope, const char **envp)
+do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char **envp)
 {
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the dependencies of the main 
@@ -64,7 +64,7 @@ do_ld_preload (struct Context *context, struct VdlFileList *scope, const char **
       char *ld_preload_filename = vdl_elf_search_file (ld_preload);
       if (ld_preload_filename == 0)
 	{
-	  MDL_LOG_ERROR ("Could not find %s\n", ld_preload);
+	  VDL_LOG_ERROR ("Could not find %s\n", ld_preload);
 	  goto error;
 	}
       // map it in memory.
@@ -72,7 +72,7 @@ do_ld_preload (struct Context *context, struct VdlFileList *scope, const char **
 							       ld_preload);
       if (ld_preload_file == 0)
 	{
-	  MDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
 	  goto error;
 	}
       // add it to the global scope
@@ -87,7 +87,7 @@ setup_env_vars (const char **envp)
 {
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = vdl_getenv (envp, "LD_LIBRARY_PATH");
-  struct StringList *list = vdl_strsplit (ld_lib_path, ':');
+  struct VdlStringList *list = vdl_strsplit (ld_lib_path, ':');
   g_vdl.search_dirs = vdl_str_list_append (list, g_vdl.search_dirs);
 
   // setup logging from LD_LOG
@@ -106,12 +106,12 @@ static int
 is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
 {
   // the file is already mapped in memory so, we reverse-engineer its setup
-  struct FileInfo info;
-  MDL_ASSERT (vdl_elf_file_get_info (phnum,phdr, &info),
+  struct VdlFileInfo info;
+  VDL_ASSERT (vdl_elf_file_get_info (phnum,phdr, &info),
 	      "Unable to obtain information about main program");
 
   // we search the first PT_LOAD 
-  MDL_ASSERT (phdr->p_type == PT_PHDR,
+  VDL_ASSERT (phdr->p_type == PT_PHDR,
 	      "The first program header is not a PT_PHDR");
   // If we assume that the first program in the program header table is the PT_PHDR
   // The load base of the main program is easy to calculate as the difference
@@ -137,7 +137,7 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
     {
       return 0;
     }
-  MDL_ASSERT (dt_strtab != 0, "Could not find dt_strtab");
+  VDL_ASSERT (dt_strtab != 0, "Could not find dt_strtab");
   char *soname = (char *)(dt_strtab + dt_soname);
   return vdl_strisequal (soname, LDSO_SONAME);
 }
@@ -151,19 +151,19 @@ stage2 (struct Stage2Input input)
   setup_env_vars (input.program_envp);
 
   struct VdlFile *main_file;
-  struct Context *context;
+  struct VdlContext *context;
   if (is_loader (input.program_phnum, input.program_phdr))
     {
       // the interpreter is run as a normal program. We behave like the libc
       // interpreter and assume that this means that the name of the program
       // to run is the first argument in the argv.
-      MDL_ASSERT (input.program_argc >= 2, "Not enough arguments to run loader");
+      VDL_ASSERT (input.program_argc >= 2, "Not enough arguments to run loader");
 
       const char *program = input.program_argv[1];
       // We need to do what the kernel usually does for us, that is,
       // search the file, and map it in memory
       char *filename = vdl_elf_search_file (program);
-      MDL_ASSERT (filename != 0, "Could not find main binary");
+      VDL_ASSERT (filename != 0, "Could not find main binary");
       context = vdl_context_new (input.program_argc - 1,
 				 input.program_argv + 1,
 				 input.program_envp);
@@ -176,8 +176,8 @@ stage2 (struct Stage2Input input)
     {
       // here, the file is already mapped so, we just create the 
       // right data structure
-      struct FileInfo info;
-      MDL_ASSERT (vdl_elf_file_get_info (input.program_phnum, input.program_phdr, &info),
+      struct VdlFileInfo info;
+      VDL_ASSERT (vdl_elf_file_get_info (input.program_phnum, input.program_phdr, &info),
 		  "Unable to obtain information about main program");
 
       // The load base of the main program is easy to calculate as the difference
@@ -214,7 +214,7 @@ stage2 (struct Stage2Input input)
 
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
-  MDL_ASSERT (vdl_elf_map_deps (main_file), 
+  VDL_ASSERT (vdl_elf_map_deps (main_file), 
 	      "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
@@ -332,7 +332,7 @@ stage2 (struct Stage2Input input)
   unsigned long entry = vdl_elf_get_entry_point (main_file);
   if (entry == 0)
     {
-      MDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);
+      VDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);
       goto error;
     }
   glibc_startup_finished ();
