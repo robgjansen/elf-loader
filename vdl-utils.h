@@ -74,5 +74,7 @@ void vdl_file_list_unicize (struct VdlFileList *list);
 unsigned long vdl_align_down (unsigned long v, unsigned long align);
 unsigned long vdl_align_up (unsigned long v, unsigned long align);
 
+#define vdl_max(a,b)(((a)>(b))?(a):(b))
+
 
 #endif /* VDL_UTILS_H */
