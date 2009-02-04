@@ -253,13 +253,6 @@ static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
 char *vdl_search_filename (const char *name)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
-  if (vdl_utils_strisequal (name, "libdl.so") ||
-      vdl_utils_strisequal (name, "libdl.so.2"))
-    {
-      // we replace libdl.so with our own libvdl.so
-      name = "libvdl.so";
-    }
-
   struct VdlStringList *cur;
   for (cur = g_vdl.search_dirs; cur != 0; cur = cur->next)
     {
@@ -452,7 +445,10 @@ convert_name (const char *name)
     const char *converted;
   } hardcoded_names [] = 
       {{"/lib/ld-linux.so.2", "ldso"},
-       {"ld-linux.so.2", "ldso"}};
+       {"ld-linux.so.2", "ldso"},
+       {"libdl.so", "libvdl.so"},
+       {"libdl.so.2", "libvdl.so"}
+      };
   int i; 
   for (i = 0; i < (sizeof (hardcoded_names)/sizeof (struct HardcodedName)); i++)
     {
