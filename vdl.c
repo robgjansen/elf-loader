@@ -11,49 +11,6 @@
 
 struct Vdl g_vdl;
 
-static struct VdlStringList *
-get_system_search_dirs (void)
-{
-  // XXX: first is for my ubuntu box.
-  const char *dirs[] = {"/lib/tls/i686/cmov",
-			"/lib", "/lib64", "/lib32",
-			"/usr/lib", "/usr/lib64", "/usr/lib32"};
-  struct VdlStringList *list = 0;
-  int i;
-  for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
-    {
-      struct VdlStringList *tmp = vdl_utils_new (struct VdlStringList);
-      tmp->str = vdl_utils_strdup (dirs[i]);
-      tmp->next = list;
-      list = tmp;
-    }
-  list = vdl_utils_str_list_reverse (list);
-  return list;
-}
-
-
-void vdl_initialize (unsigned long interpreter_load_base)
-{
-  struct Vdl *vdl = &g_vdl;
-  vdl->version = 1;
-  vdl->link_map = 0;
-  vdl->breakpoint = 0;
-  vdl->state = VDL_CONSISTENT;
-  vdl->interpreter_load_base = interpreter_load_base;
-  vdl->logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
-  alloc_initialize (&(vdl->alloc));
-  vdl->bind_now = 0; // by default, do lazy binding
-  vdl->contexts = 0;
-
-  // populate search dirs from system directories
-  vdl->search_dirs = vdl_utils_str_list_append (vdl->search_dirs, 
-					  get_system_search_dirs ());
-  vdl->tls_gen = 1;
-  vdl->tls_static_size = 0;
-  vdl->tls_static_align = 0;
-  vdl->tls_n_dtv = 0;
-}
-
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
 {
   VDL_LOG_FUNCTION ("argc=%d", argc);

@@ -10,6 +10,26 @@
 #include <link.h>
 
 
+static struct VdlStringList *
+get_system_search_dirs (void)
+{
+  // XXX: first is for my ubuntu box.
+  const char *dirs[] = {"/lib/tls/i686/cmov",
+			"/lib", "/lib64", "/lib32",
+			"/usr/lib", "/usr/lib64", "/usr/lib32"};
+  struct VdlStringList *list = 0;
+  int i;
+  for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
+    {
+      struct VdlStringList *tmp = vdl_utils_new (struct VdlStringList);
+      tmp->str = vdl_utils_strdup (dirs[i]);
+      tmp->next = list;
+      list = tmp;
+    }
+  list = vdl_utils_str_list_reverse (list);
+  return list;
+}
+
 static struct VdlFile *
 interpreter_new (unsigned long load_base, struct VdlContext *context)
 {
@@ -147,7 +167,8 @@ struct Stage2Output
 stage2 (struct Stage2Input input)
 {
   struct Stage2Output output;
-  vdl_initialize (input.interpreter_load_base);
+
+  g_vdl.search_dirs = get_system_search_dirs ();
 
   setup_env_vars (input.program_envp);
 

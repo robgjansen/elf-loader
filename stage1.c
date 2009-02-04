@@ -2,6 +2,8 @@
 #include "stage1.h"
 #include "stage2.h"
 #include "system.h"
+#include "vdl.h"
+#include "alloc.h"
 #include <elf.h>
 #include <link.h>
 
@@ -55,6 +57,29 @@ prepare_stage2 (unsigned long entry_point_struct)
     }
   return stage2_input;
 }
+
+static void global_initialize (unsigned long interpreter_load_base)
+{
+  struct Vdl *vdl = &g_vdl;
+  vdl->version = 1;
+  vdl->link_map = 0;
+  vdl->breakpoint = 0;
+  vdl->state = VDL_CONSISTENT;
+  vdl->interpreter_load_base = interpreter_load_base;
+  vdl->logging = 0;
+  vdl->bind_now = 0; // by default, do lazy binding
+  vdl->contexts = 0;
+  vdl->search_dirs = 0;
+  vdl->tls_gen = 1;
+  vdl->tls_static_size = 0;
+  vdl->tls_static_align = 0;
+  vdl->tls_n_dtv = 0;
+
+  // after this call to alloc_initialize is completed,
+  // we we are allowed to allocate heap memory.
+  alloc_initialize (&(vdl->alloc));
+}
+
 
 // relocate entries in DT_REL
 static void
@@ -112,10 +137,11 @@ void stage1 (struct Stage1InputOutput *input_output)
   dynamic += input_output->load_base;
   relocate_dt_rel (dynamic, input_output->load_base);
 
-  // Note that prepare_stage2 could return the AT_BASE value to give
-  // us the load_base of the interpreter but this value is unreliable
-  // when the loader is used as an executable so, we have to calculate
-  // it by hand and the caller is expected to do just that.
+  // Now that access to global variables is possible, we initialize 
+  // our main global variable. After this function call completes,
+  // we are allowed to do memory allocations.
+  global_initialize (input_output->load_base);
+
   struct Stage2Input stage2_input = prepare_stage2 (input_output->entry_point_struct);
   stage2_input.interpreter_load_base = input_output->load_base;
 

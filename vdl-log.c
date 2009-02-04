@@ -18,7 +18,7 @@ void vdl_log_set (const char *debug_str)
     }
   struct VdlStringList *list = vdl_strsplit (debug_str, ':');
   struct VdlStringList *cur;
-  uint32_t logging = 0;
+  uint32_t logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
   for (cur = list; cur != 0; cur = cur->next)
     {
       if (vdl_utils_strisequal (cur->str, "debug"))

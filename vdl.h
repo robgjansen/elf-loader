@@ -182,8 +182,6 @@ struct Vdl
 
 extern struct Vdl g_vdl;
 
-// control setup of core data structures
-void vdl_initialize (unsigned long interpreter_load_base);
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp);
 struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const struct VdlFileInfo *info,
