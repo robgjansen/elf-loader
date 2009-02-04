@@ -8,6 +8,21 @@
 #include "alloc.h"
 #include "system.h"
 
+#if __ELF_NATIVE_CLASS == 32
+#define ELFW_R_SYM ELF32_R_SYM
+#define ELFW_R_TYPE ELF32_R_TYPE
+#define ELFW_ST_BIND(val) ELF32_ST_BIND(val)
+#define ELFW_ST_TYPE(val) ELF32_ST_TYPE(val)
+#define ELFW_ST_INFO(bind, type) ELF32_ST_INFO(bind,type)
+#else
+#define ELFW_R_SYM ELF64_R_SYM
+#define ELFW_R_TYPE ELF64_R_TYPE
+#define ELFW_ST_BIND(val) ELF64_ST_BIND(val)
+#define ELFW_ST_TYPE(val) ELF64_ST_TYPE(val)
+#define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
+#endif
+
+
 struct VdlFileList
 {
   struct VdlFile *item;
@@ -188,35 +203,15 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 void vdl_file_ref (struct VdlFile *file);
 void vdl_file_unref (struct VdlFile *file);
 
-#if __ELF_NATIVE_CLASS == 32
-#define ELFW_R_SYM ELF32_R_SYM
-#define ELFW_R_TYPE ELF32_R_TYPE
-#define ELFW_ST_BIND(val) ELF32_ST_BIND(val)
-#define ELFW_ST_TYPE(val) ELF32_ST_TYPE(val)
-#define ELFW_ST_INFO(bind, type) ELF32_ST_INFO(bind,type)
-#else
-#define ELFW_R_SYM ELF64_R_SYM
-#define ELFW_R_TYPE ELF64_R_TYPE
-#define ELFW_ST_BIND(val) ELF64_ST_BIND(val)
-#define ELFW_ST_TYPE(val) ELF64_ST_TYPE(val)
-#define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
-#endif
+struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
+				    const char *filename, 
+				    const char *name);
+int vdl_file_map_deps (struct VdlFile *item);
+struct VdlFileList *vdl_file_gather_all_deps_breadth_first (struct VdlFile *file);
+void vdl_file_call_init (struct VdlFile *file);
+unsigned long vdl_file_get_entry_point (struct VdlFile *file);
+void vdl_file_reloc (struct VdlFile *file);
 
-ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
-char *vdl_elf_search_file (const char *name);
-struct VdlFile *vdl_elf_map_single (struct VdlContext *context, 
-				       const char *filename, 
-				       const char *name);
-int vdl_elf_map_deps (struct VdlFile *item);
-int vdl_elf_file_get_info (uint32_t phnum,
-			   ElfW(Phdr) *phdr,
-			   struct VdlFileInfo *info);
-struct VdlFileList *vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file);
-unsigned long vdl_elf_hash (const char *n);
-void vdl_elf_call_init (struct VdlFile *file);
-unsigned long vdl_elf_get_entry_point (struct VdlFile *file);
-void vdl_elf_reloc (struct VdlFile *file);
-ElfW(Dyn) *vdl_elf_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 struct SymbolMatch
 {
   const struct VdlFile *file;
@@ -229,18 +224,24 @@ enum LookupFlag {
   // with a R_*_COPY relocation.
   LOOKUP_NO_EXEC = 1
 };
-int vdl_elf_symbol_lookup (const char *name, 
-			   const struct VdlFile *file,
+int vdl_file_symbol_lookup (const struct VdlFile *file,
+			   const char *name, 
 			   const ElfW(Vernaux) *ver,
 			   enum LookupFlag flags,
 			   struct SymbolMatch *match);
-struct VdlFile *vdl_elf_main_file_new (unsigned long phnum,
-					  ElfW(Phdr)*phdr,
-					  int argc, 
-					  const char **argv, 
-					  const char **envp);
-unsigned long vdl_elf_symbol_lookup_local (const char *name, const struct VdlFile *file);
+struct VdlFile *vdl_file_new_main (unsigned long phnum,
+				   ElfW(Phdr)*phdr,
+				   int argc, 
+				   const char **argv, 
+				   const char **envp);
+unsigned long vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name);
 
-void vdl_elf_tls (struct VdlFile *file);
+void vdl_file_tls (struct VdlFile *file);
+ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
+
+char *vdl_search_filename (const char *name);
+int vdl_get_file_info (uint32_t phnum,
+		       ElfW(Phdr) *phdr,
+		       struct VdlFileInfo *info);
 
 #endif /* VDL_H */

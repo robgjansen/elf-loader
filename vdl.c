@@ -231,7 +231,7 @@ void vdl_file_unref (struct VdlFile *file)
 
 
 ElfW(Dyn) *
-vdl_elf_file_get_dynamic (const struct VdlFile *file, unsigned long tag)
+vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag)
 {
   ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
   while (cur->d_tag != DT_NULL)
@@ -246,9 +246,9 @@ vdl_elf_file_get_dynamic (const struct VdlFile *file, unsigned long tag)
 }
 
 static unsigned long
-vdl_elf_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag)
+vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag)
 {
-  ElfW(Dyn) *dyn = vdl_elf_file_get_dynamic (file, tag);
+  ElfW(Dyn) *dyn = vdl_file_get_dynamic (file, tag);
   if (dyn == 0)
     {
       return 0;
@@ -257,9 +257,9 @@ vdl_elf_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag)
 }
 
 static unsigned long
-vdl_elf_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
+vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
 {
-  ElfW(Dyn) *dyn = vdl_elf_file_get_dynamic (file, tag);
+  ElfW(Dyn) *dyn = vdl_file_get_dynamic (file, tag);
   if (dyn == 0)
     {
       return 0;
@@ -267,25 +267,10 @@ vdl_elf_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
   return file->load_base + dyn->d_un.d_ptr;
 }
 
-ElfW(Phdr) *vdl_elf_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
-{
-  VDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
-  ElfW(Phdr) *cur;
-  int i;
-  for (cur = phdr, i = 0; i < phnum; cur++, i++)
-    {
-      if (cur->p_type == type)
-	{
-	  return cur;
-	}
-    }
-  return 0;
-}
-
-struct VdlStringList *vdl_elf_get_dt_needed (struct VdlFile *file)
+static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  unsigned long dt_strtab = vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
+  unsigned long dt_strtab = vdl_file_get_dynamic_p (file, DT_STRTAB);
   if (dt_strtab == 0)
     {
       return 0;
@@ -307,7 +292,7 @@ struct VdlStringList *vdl_elf_get_dt_needed (struct VdlFile *file)
     }
   return ret;
 }
-char *vdl_elf_search_file (const char *name)
+char *vdl_search_filename (const char *name)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
   if (vdl_strisequal (name, "libdl.so") ||
@@ -333,9 +318,9 @@ char *vdl_elf_search_file (const char *name)
     }
   return 0;
 }
-struct VdlFile *vdl_elf_map_single (struct VdlContext *context, 
-				       const char *filename, 
-				       const char *name)
+struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
+				     const char *filename, 
+				     const char *name)
 {
   VDL_LOG_FUNCTION ("contex=%p, filename=%s, name=%s", context, filename, name);
   ElfW(Ehdr) header;
@@ -387,7 +372,7 @@ struct VdlFile *vdl_elf_map_single (struct VdlContext *context,
       goto error;
     }
 
-  if (!vdl_elf_file_get_info (header.e_phnum, phdr, &info))
+  if (!vdl_get_file_info (header.e_phnum, phdr, &info))
     {
       VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
@@ -553,7 +538,7 @@ find_by_dev_ino (struct VdlContext *context,
   return 0;
 }
 
-int vdl_elf_map_deps (struct VdlFile *item)
+int vdl_file_map_deps (struct VdlFile *item)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
 
@@ -564,7 +549,7 @@ int vdl_elf_map_deps (struct VdlFile *item)
   item->deps_initialized = 1;
 
   // get list of deps for the input file.
-  struct VdlStringList *dt_needed = vdl_elf_get_dt_needed (item);
+  struct VdlStringList *dt_needed = vdl_file_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
   struct VdlFileList *deps = 0;
@@ -580,7 +565,7 @@ int vdl_elf_map_deps (struct VdlFile *item)
 	  continue;
 	}
       // Search the file in the filesystem
-      char *filename = vdl_elf_search_file (cur->str);
+      char *filename = vdl_search_filename (cur->str);
       if (filename == 0)
 	{
 	  VDL_LOG_ERROR ("Could not find %s\n", cur->str);
@@ -610,7 +595,7 @@ int vdl_elf_map_deps (struct VdlFile *item)
 	  continue;
 	}
       // The file is really not yet mapped so, we have to map it
-      dep = vdl_elf_map_single (item->context, filename, cur->str);
+      dep = vdl_file_map_single (item->context, filename, cur->str);
       
       // add the new file to the list of dependencies
       deps = vdl_file_list_append_one (deps, dep);
@@ -623,7 +608,7 @@ int vdl_elf_map_deps (struct VdlFile *item)
   struct VdlFileList *dep;
   for (dep = deps; dep != 0; dep = dep->next)
     {
-      if (!vdl_elf_map_deps (dep->item))
+      if (!vdl_file_map_deps (dep->item))
 	{
 	  goto error;
 	}
@@ -641,9 +626,9 @@ int vdl_elf_map_deps (struct VdlFile *item)
     }
   return 0;
 }
-int vdl_elf_file_get_info (uint32_t phnum,
-			   ElfW(Phdr) *phdr,
-			   struct VdlFileInfo *info)
+int vdl_get_file_info (uint32_t phnum,
+		       ElfW(Phdr) *phdr,
+		       struct VdlFileInfo *info)
 {
   VDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
   ElfW(Phdr) *ro = 0, *rw = 0, *dynamic = 0, *cur;
@@ -747,7 +732,7 @@ int vdl_elf_file_get_info (uint32_t phnum,
 }
 
 struct VdlFileList *
-vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file)
+vdl_file_gather_all_deps_breadth_first (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
 
@@ -765,7 +750,7 @@ vdl_elf_gather_all_deps_breadth_first (struct VdlFile *file)
   return list;
 }
 
-unsigned long
+static unsigned long
 vdl_elf_hash (const char *n)
 {
   // Copy/paste from the ELF specification (figure 2-9)
@@ -781,7 +766,7 @@ vdl_elf_hash (const char *n)
   return h;
 }
 
-struct LookupIterator
+struct FileLookupIterator
 {
   const char *name;
   signed long current;
@@ -790,17 +775,17 @@ struct LookupIterator
   ElfW(Word) *chain;
 };
 
-static struct LookupIterator 
-vdl_elf_lookup_begin (const char *name, unsigned long hash,
-		      const struct VdlFile *file)
+static struct FileLookupIterator 
+vdl_file_lookup_begin (const struct VdlFile *file,
+		      const char *name, unsigned long hash)
 {
   VDL_LOG_FUNCTION ("name=%s, hash=0x%x, file=%s", name, hash, file->filename);
-  struct LookupIterator i;
+  struct FileLookupIterator i;
   i.name = name;
   // first, gather information needed to look into the hash table
-  ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_elf_file_get_dynamic_p (file, DT_HASH);
-  i.dt_strtab = (const char *) vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  i.dt_symtab = (ElfW(Sym)*) vdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_HASH);
+  i.dt_strtab = (const char *) vdl_file_get_dynamic_p (file, DT_STRTAB);
+  i.dt_symtab = (ElfW(Sym)*) vdl_file_get_dynamic_p (file, DT_SYMTAB);
 
   if (dt_hash == 0 || i.dt_strtab == 0 || i.dt_symtab == 0)
     {
@@ -828,7 +813,7 @@ vdl_elf_lookup_begin (const char *name, unsigned long hash,
 }
 
 static int
-vdl_elf_lookup_has_next (const struct LookupIterator *i)
+vdl_file_lookup_has_next (const struct FileLookupIterator *i)
 {
   if (i->dt_strtab == 0)
     {
@@ -850,7 +835,7 @@ vdl_elf_lookup_has_next (const struct LookupIterator *i)
 	      // in the _next function, we set the current position
 	      // to the previous entry to find the matching entry 
 	      // immediately upon our call to _next.
-	      ((struct LookupIterator *)i)->current = prev;
+	      ((struct FileLookupIterator *)i)->current = prev;
 	      return 1;
 	    }
 	}
@@ -862,7 +847,7 @@ vdl_elf_lookup_has_next (const struct LookupIterator *i)
 
 // return index in dt_symtab
 static unsigned long
-vdl_elf_lookup_next (struct LookupIterator *i)
+vdl_file_lookup_next (struct FileLookupIterator *i)
 {
   // We return the entry immediately following the
   // 'current' index and update the 'current' index
@@ -886,10 +871,10 @@ symbol_version_matches (const struct VdlFile *in,
       // if we have no version requirement, the first matching symbol is ok.
       return 1;
     }
-  const char *dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (in, DT_STRTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_elf_file_get_dynamic_p (in, DT_VERSYM);
-  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)vdl_elf_file_get_dynamic_p (in, DT_VERDEF);
-  unsigned long dt_verdefnum = vdl_elf_file_get_dynamic_v (in, DT_VERDEFNUM);
+  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (in, DT_STRTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (in, DT_VERSYM);
+  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (in, DT_VERDEF);
+  unsigned long dt_verdefnum = vdl_file_get_dynamic_v (in, DT_VERDEFNUM);
   if (dt_versym == 0)
     {
       // if we have no version definition which could match the requested
@@ -938,7 +923,7 @@ symbol_version_matches (const struct VdlFile *in,
 	{
 	  // the hash values of the version names are equal.
 	  ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
-	  const char *from_dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (from, DT_STRTAB);
+	  const char *from_dt_strtab = (const char *)vdl_file_get_dynamic_p (from, DT_STRTAB);
 	  if (vdl_strisequal (dt_strtab + verdaux->vda_name, 
 			      from_dt_strtab + ver_needed->vna_name))
 	    {
@@ -952,13 +937,13 @@ symbol_version_matches (const struct VdlFile *in,
 }
 
 static int
-do_symbol_lookup_scope (const char *name, 
-			unsigned long hash,
-			const struct VdlFile *file,
-			const ElfW(Vernaux) *ver_needed,
-			enum LookupFlag flags,
-			struct VdlFileList *scope,
-			struct SymbolMatch *match)
+vdl_file_do_symbol_lookup_scope (const struct VdlFile *file,
+				 const char *name, 
+				 unsigned long hash,
+				 const ElfW(Vernaux) *ver_needed,
+				 enum LookupFlag flags,
+				 struct VdlFileList *scope,
+				 struct SymbolMatch *match)
 {
   VDL_LOG_FUNCTION ("name=%s, hash=0x%x, scope=%p", name, hash, scope);
 
@@ -973,10 +958,10 @@ do_symbol_lookup_scope (const char *name,
 	  // in the main executable binary. see the definition of LOOKUP_NO_EXEC
 	  continue;
 	}
-      struct LookupIterator i = vdl_elf_lookup_begin (name, hash, cur->item);
-      while (vdl_elf_lookup_has_next (&i))
+      struct FileLookupIterator i = vdl_file_lookup_begin (cur->item, name, hash);
+      while (vdl_file_lookup_has_next (&i))
 	{
-	  unsigned long index = vdl_elf_lookup_next (&i);
+	  unsigned long index = vdl_file_lookup_next (&i);
 	  if (symbol_version_matches (cur->item, file, ver_needed, index))
 	    {
 	      match->file = cur->item;
@@ -989,35 +974,35 @@ do_symbol_lookup_scope (const char *name,
 }
 
 int 
-vdl_elf_symbol_lookup (const char *name, 
-		       const struct VdlFile *file,
-		       const ElfW(Vernaux) *ver,
-		       enum LookupFlag flags,
-		       struct SymbolMatch *match)
+vdl_file_symbol_lookup (const struct VdlFile *file,
+			const char *name, 
+			const ElfW(Vernaux) *ver,
+			enum LookupFlag flags,
+			struct SymbolMatch *match)
 {
   // calculate the hash here to avoid calculating 
   // it twice in both calls to symbol_lookup
   unsigned long hash = vdl_elf_hash (name);
 
   // lookup the symbol in the global scope first
-  int ok = do_symbol_lookup_scope (name, hash, file, ver,
-				   flags, file->context->global_scope, match);
+  int ok = vdl_file_do_symbol_lookup_scope (file, name, hash, ver,
+					    flags, file->context->global_scope, match);
   if (!ok)
     {
       // and in the local scope.
-      ok = do_symbol_lookup_scope (name, hash, file, ver,
-				   flags, file->local_scope, match);
+      ok = vdl_file_do_symbol_lookup_scope (file, name, hash, ver,
+					    flags, file->local_scope, match);
     }
   return ok;
 }
 unsigned long 
-vdl_elf_symbol_lookup_local (const char *name, const struct VdlFile *file)
+vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name)
 {
   unsigned long hash = vdl_elf_hash (name);
-  struct LookupIterator i = vdl_elf_lookup_begin (name, hash, file);
-  while (vdl_elf_lookup_has_next (&i))
+  struct FileLookupIterator i = vdl_file_lookup_begin (file, name, hash);
+  while (vdl_file_lookup_has_next (&i))
     {
-      unsigned long index = vdl_elf_lookup_next (&i);
+      unsigned long index = vdl_file_lookup_next (&i);
       return file->load_base + i.dt_symtab[index].st_value;
     }
   return 0;
@@ -1032,13 +1017,13 @@ vdl_elf_symbol_lookup_local (const char *name, const struct VdlFile *file)
 typedef void (*init_function) (int, char **, char **);
 
 static void
-vdl_elf_call_init_one (struct VdlFile *file)
+vdl_file_call_init_one (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   // Gather information from the .dynamic section
-  unsigned long dt_init = vdl_elf_file_get_dynamic_p (file, DT_INIT);
-  unsigned long dt_init_array = vdl_elf_file_get_dynamic_p (file, DT_INIT_ARRAY);
-  unsigned long dt_init_arraysz = vdl_elf_file_get_dynamic_v (file, DT_INIT_ARRAYSZ);
+  unsigned long dt_init = vdl_file_get_dynamic_p (file, DT_INIT);
+  unsigned long dt_init_array = vdl_file_get_dynamic_p (file, DT_INIT_ARRAY);
+  unsigned long dt_init_arraysz = vdl_file_get_dynamic_v (file, DT_INIT_ARRAYSZ);
   // First, invoke the old-style DT_INIT function.
   // The address of the function to call is stored in
   // the DT_INIT tag, here: dt_init.
@@ -1062,7 +1047,7 @@ vdl_elf_call_init_one (struct VdlFile *file)
     }
 }
 
-void vdl_elf_call_init (struct VdlFile *file)
+void vdl_file_call_init (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->init_called)
@@ -1077,16 +1062,16 @@ void vdl_elf_call_init (struct VdlFile *file)
   struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      vdl_elf_call_init (cur->item);
+      vdl_file_call_init (cur->item);
     }
 
   // Now that all deps are initialized, initialize ourselves.
-  vdl_elf_call_init_one (file);  
+  vdl_file_call_init_one (file);  
 }
-unsigned long vdl_elf_get_entry_point (struct VdlFile *file)
+unsigned long vdl_file_get_entry_point (struct VdlFile *file)
 {
   // This piece of code assumes that the ELF header starts at the
-  // first byte of the ro map. This is verified in vdl_elf_file_get_info
+  // first byte of the ro map. This is verified in vdl_get_file_info
   // so we are safe with this assumption.
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
   return header->e_entry + file->load_base;
@@ -1133,22 +1118,22 @@ sym_to_vernaux (unsigned long index,
 }
 
 void
-vdl_elf_iterate_pltrel (struct VdlFile *file, 
-			void (*cb)(const struct VdlFile *file,
-				   const ElfW(Rel) *rel,
-				   const ElfW(Sym) *sym,
-				   const ElfW(Vernaux) *ver,
-				   const char *name))
+vdl_file_iterate_pltrel (struct VdlFile *file, 
+			 void (*cb)(const struct VdlFile *file,
+				    const ElfW(Rel) *rel,
+				    const ElfW(Sym) *sym,
+				    const ElfW(Vernaux) *ver,
+				    const char *name))
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)vdl_elf_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_elf_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_elf_file_get_dynamic_v (file, DT_PLTRELSZ);
-  const char *dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_elf_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_elf_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = vdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
+  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
   
   if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
       dt_jmprel == 0 || dt_strtab == 0 || 
@@ -1177,7 +1162,7 @@ vdl_elf_iterate_pltrel (struct VdlFile *file,
 }
 
 void
-vdl_elf_iterate_rel (struct VdlFile *file, 
+vdl_file_iterate_rel (struct VdlFile *file, 
 		     void (*cb)(const struct VdlFile *file,
 				const ElfW(Rel) *rel,
 				const ElfW(Sym) *sym,
@@ -1185,14 +1170,14 @@ vdl_elf_iterate_rel (struct VdlFile *file,
 				const char *symbol_name))
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_elf_file_get_dynamic_p (file, DT_REL);
-  unsigned long dt_relsz = vdl_elf_file_get_dynamic_v (file, DT_RELSZ);
-  unsigned long dt_relent = vdl_elf_file_get_dynamic_v (file, DT_RELENT);
-  const char *dt_strtab = (const char *)vdl_elf_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_elf_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_elf_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_elf_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = vdl_elf_file_get_dynamic_v (file, DT_VERNEEDNUM);
+  ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_REL);
+  unsigned long dt_relsz = vdl_file_get_dynamic_v (file, DT_RELSZ);
+  unsigned long dt_relent = vdl_file_get_dynamic_v (file, DT_RELENT);
+  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
   if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0 ||
       dt_strtab == 0 || dt_symtab == 0)
     {
@@ -1218,7 +1203,7 @@ vdl_elf_iterate_rel (struct VdlFile *file,
     }
 }
 
-void vdl_elf_reloc (struct VdlFile *file)
+void vdl_file_reloc (struct VdlFile *file)
 {
   if (file->reloced)
     {
@@ -1230,14 +1215,14 @@ void vdl_elf_reloc (struct VdlFile *file)
   struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      vdl_elf_reloc (cur->item);
+      vdl_file_reloc (cur->item);
     }
 
-  vdl_elf_iterate_rel (file, machine_perform_relocation);
+  vdl_file_iterate_rel (file, machine_perform_relocation);
   if (g_vdl.bind_now)
     {
       // perform PLT relocs _now_
-      vdl_elf_iterate_pltrel (file, machine_perform_relocation);
+      vdl_file_iterate_pltrel (file, machine_perform_relocation);
     }
   else
     {
@@ -1249,7 +1234,7 @@ void vdl_elf_reloc (struct VdlFile *file)
 }
 
 static unsigned long
-vdl_elf_allocate_tls_index (void)
+vdl_allocate_tls_index (void)
 {
   // This is the slowest but simplest implementation possible
   // For each possible module index, we try to find a module
@@ -1278,7 +1263,7 @@ vdl_elf_allocate_tls_index (void)
   return 0; // quiet compiler
 }
 
-void vdl_elf_tls (struct VdlFile *file)
+void vdl_file_tls (struct VdlFile *file)
 {
   if (file->tls_initialized)
     {
@@ -1288,7 +1273,7 @@ void vdl_elf_tls (struct VdlFile *file)
 
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_start;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_start + header->e_phoff);
-  ElfW(Phdr) *pt_tls = vdl_elf_search_phdr (phdr, header->e_phnum, PT_TLS);
+  ElfW(Phdr) *pt_tls = vdl_search_phdr (phdr, header->e_phnum, PT_TLS);
   if (pt_tls == 0)
     {
       file->has_tls = 0;
@@ -1299,11 +1284,11 @@ void vdl_elf_tls (struct VdlFile *file)
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;
-  file->tls_index = vdl_elf_allocate_tls_index ();
+  file->tls_index = vdl_allocate_tls_index ();
 
   struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      vdl_elf_tls (cur->item);
+      vdl_file_tls (cur->item);
     }
 }

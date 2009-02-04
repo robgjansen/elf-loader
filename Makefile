@@ -1,7 +1,7 @@
 #DEBUG=-DDEBUG_ENABLE
 #OPT=-O2
 LDSO_SONAME=ldso
-CFLAGS=-g3 -Wall $(DEBUG) $(OPT)
+CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT)
 LDFLAGS=$(OPT)
 VISIBILITY=-fvisibility=hidden
 

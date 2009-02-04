@@ -10,7 +10,7 @@ static int do_lookup_and_log (const char *symbol_name,
 			      enum LookupFlag flags,
 			      struct SymbolMatch *match)
 {
-  if (!vdl_elf_symbol_lookup (symbol_name, file, ver, flags, match))
+  if (!vdl_file_symbol_lookup (file, symbol_name, ver, flags, match))
     {
       VDL_LOG_SYMBOL_FAIL (symbol_name, file);
       // if the symbol resolution has failed, it could

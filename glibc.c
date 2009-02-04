@@ -148,7 +148,7 @@ void glibc_patch (struct VdlFile *file)
       glibc_patch (cur->item);
     }
 
-  unsigned long addr = vdl_elf_symbol_lookup_local ("_dl_addr", file);
+  unsigned long addr = vdl_file_symbol_lookup_local (file, "_dl_addr");
   if (addr != 0)
     {
       machine_insert_trampoline (addr, (unsigned long) &vdl_dl_addr);

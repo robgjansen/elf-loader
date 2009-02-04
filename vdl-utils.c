@@ -398,3 +398,17 @@ unsigned long vdl_align_up (unsigned long v, unsigned long align)
   return aligned;
 }
 
+ElfW(Phdr) *vdl_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
+{
+  VDL_LOG_FUNCTION ("phdr=%p, phnum=%d, type=%d", phdr, phnum, type);
+  ElfW(Phdr) *cur;
+  int i;
+  for (cur = phdr, i = 0; i < phnum; cur++, i++)
+    {
+      if (cur->p_type == type)
+	{
+	  return cur;
+	}
+    }
+  return 0;
+}

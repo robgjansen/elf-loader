@@ -25,7 +25,7 @@ interpreter_new (unsigned long load_base, struct VdlContext *context)
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)load_base;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (header->e_phoff + load_base);
   struct VdlFileInfo info;
-  if (!vdl_elf_file_get_info (header->e_phnum, phdr, &info))
+  if (!vdl_get_file_info (header->e_phnum, phdr, &info))
     {
       VDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
       goto error;
@@ -38,7 +38,7 @@ interpreter_new (unsigned long load_base, struct VdlContext *context)
   // we must be careful to not relocate it twice.
   file->reloced = 1;
 
-  if (!vdl_elf_map_deps (file))
+  if (!vdl_file_map_deps (file))
     {
       goto error;
     }
@@ -61,15 +61,15 @@ do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char
   if (ld_preload != 0)
     {
       // search the requested program
-      char *ld_preload_filename = vdl_elf_search_file (ld_preload);
+      char *ld_preload_filename = vdl_search_filename (ld_preload);
       if (ld_preload_filename == 0)
 	{
 	  VDL_LOG_ERROR ("Could not find %s\n", ld_preload);
 	  goto error;
 	}
       // map it in memory.
-      struct VdlFile *ld_preload_file = vdl_elf_map_single (context, ld_preload_filename, 
-							       ld_preload);
+      struct VdlFile *ld_preload_file = vdl_file_map_single (context, ld_preload_filename, 
+							     ld_preload);
       if (ld_preload_file == 0)
 	{
 	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
@@ -107,7 +107,7 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
 {
   // the file is already mapped in memory so, we reverse-engineer its setup
   struct VdlFileInfo info;
-  VDL_ASSERT (vdl_elf_file_get_info (phnum,phdr, &info),
+  VDL_ASSERT (vdl_get_file_info (phnum,phdr, &info),
 	      "Unable to obtain information about main program");
 
   // we search the first PT_LOAD 
@@ -162,14 +162,14 @@ stage2 (struct Stage2Input input)
       const char *program = input.program_argv[1];
       // We need to do what the kernel usually does for us, that is,
       // search the file, and map it in memory
-      char *filename = vdl_elf_search_file (program);
+      char *filename = vdl_search_filename (program);
       VDL_ASSERT (filename != 0, "Could not find main binary");
       context = vdl_context_new (input.program_argc - 1,
 				 input.program_argv + 1,
 				 input.program_envp);
 
       // the filename for the main exec is "" for gdb.
-      main_file = vdl_elf_map_single (context, program, "");
+      main_file = vdl_file_map_single (context, program, "");
       output.n_argv_skipped = 1;
     }
   else
@@ -177,7 +177,7 @@ stage2 (struct Stage2Input input)
       // here, the file is already mapped so, we just create the 
       // right data structure
       struct VdlFileInfo info;
-      VDL_ASSERT (vdl_elf_file_get_info (input.program_phnum, input.program_phdr, &info),
+      VDL_ASSERT (vdl_get_file_info (input.program_phnum, input.program_phdr, &info),
 		  "Unable to obtain information about main program");
 
       // The load base of the main program is easy to calculate as the difference
@@ -204,8 +204,9 @@ stage2 (struct Stage2Input input)
   // the main binary because gdb assumes that the first entry in the
   // link map is the main binary itself. We don't add it to the global 
   // scope.
-  struct VdlFile *interpreter = interpreter_new (input.interpreter_load_base,
-						    context);
+  struct VdlFile *interpreter;
+  interpreter = interpreter_new (input.interpreter_load_base,
+				 context);
 
   struct VdlFileList *global_scope = 0;
 
@@ -214,12 +215,12 @@ stage2 (struct Stage2Input input)
 
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
-  VDL_ASSERT (vdl_elf_map_deps (main_file), 
+  VDL_ASSERT (vdl_file_map_deps (main_file), 
 	      "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
-  struct VdlFileList *all_deps = vdl_elf_gather_all_deps_breadth_first (main_file);
+  struct VdlFileList *all_deps = vdl_file_gather_all_deps_breadth_first (main_file);
   global_scope = vdl_file_list_append (global_scope, all_deps);
   vdl_file_list_unicize (global_scope);
   context->global_scope = global_scope;
@@ -231,7 +232,7 @@ stage2 (struct Stage2Input input)
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
-	vdl_elf_tls (cur);
+	vdl_file_tls (cur);
       }
   }
   // Then, we calculate the size of the memory needed for the 
@@ -269,7 +270,7 @@ stage2 (struct Stage2Input input)
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
-	vdl_elf_reloc (cur);
+	vdl_file_reloc (cur);
       }
   }
 
@@ -325,11 +326,11 @@ stage2 (struct Stage2Input input)
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
-	vdl_elf_call_init (cur);
+	vdl_file_call_init (cur);
       }
   }
 
-  unsigned long entry = vdl_elf_get_entry_point (main_file);
+  unsigned long entry = vdl_file_get_entry_point (main_file);
   if (entry == 0)
     {
       VDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);

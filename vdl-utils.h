@@ -76,5 +76,6 @@ unsigned long vdl_align_up (unsigned long v, unsigned long align);
 
 #define vdl_max(a,b)(((a)>(b))?(a):(b))
 
+ElfW(Phdr) *vdl_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 
 #endif /* VDL_UTILS_H */
