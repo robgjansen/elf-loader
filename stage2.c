@@ -108,7 +108,7 @@ setup_env_vars (const char **envp)
 {
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = vdl_utils_getenv (envp, "LD_LIBRARY_PATH");
-  struct VdlStringList *list = vdl_strsplit (ld_lib_path, ':');
+  struct VdlStringList *list = vdl_utils_strsplit (ld_lib_path, ':');
   g_vdl.search_dirs = vdl_utils_str_list_append (list, g_vdl.search_dirs);
 
   // setup logging from LD_LOG

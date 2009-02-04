@@ -28,7 +28,7 @@ const char *vdl_utils_getenv (const char **envp, const char *value);
 int vdl_utils_exists (const char *filename);
 
 // manipulate string lists.
-struct VdlStringList *vdl_strsplit (const char *value, char separator);
+struct VdlStringList *vdl_utils_strsplit (const char *value, char separator);
 void vdl_utils_str_list_free (struct VdlStringList *list);
 struct VdlStringList *vdl_utils_str_list_reverse (struct VdlStringList *list);
 struct VdlStringList * vdl_utils_str_list_append (struct VdlStringList *start, struct VdlStringList *end);

@@ -1,5 +1,7 @@
 #include "vdl-log.h"
 #include "avprintf-cb.h"
+#include "system.h"
+#include "vdl-utils.h"
 
 static void avprintf_callback (char c, void *context)
 {
@@ -16,7 +18,7 @@ void vdl_log_set (const char *debug_str)
     {
       return;
     }
-  struct VdlStringList *list = vdl_strsplit (debug_str, ':');
+  struct VdlStringList *list = vdl_utils_strsplit (debug_str, ':');
   struct VdlStringList *cur;
   uint32_t logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
   for (cur = list; cur != 0; cur = cur->next)
@@ -60,7 +62,7 @@ void vdl_log_set (const char *debug_str)
 
 
 
-void vdl_utils_log_printf (enum VdlLog log, const char *str, ...)
+void vdl_log_printf (enum VdlLog log, const char *str, ...)
 {
   va_list list;
   va_start (list, str);

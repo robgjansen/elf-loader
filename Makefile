@@ -13,7 +13,7 @@ all: ldso elfedit
 	$(MAKE) -C test
 
 LDSO_OBJECTS=\
-stage1.o stage2.o avprintf-cb.o dprintf.o vdl-utils.o vdl.o system.o alloc.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
+stage1.o stage2.o avprintf-cb.o dprintf.o vdl-utils.o vdl-log.o vdl.o system.o alloc.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
 
 # dependency rules.
 i386/machine.o: config.h

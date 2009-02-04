@@ -151,7 +151,7 @@ const char *vdl_utils_getenv (const char **envp, const char *value)
     }
   return 0;
 }
-struct VdlStringList *vdl_strsplit (const char *value, char separator)
+struct VdlStringList *vdl_utils_strsplit (const char *value, char separator)
 {
   VDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
   struct VdlStringList *list = 0;
