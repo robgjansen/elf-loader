@@ -973,6 +973,17 @@ static void
 vdl_file_call_init_one (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
+
+  if (file->is_executable)
+    {
+      // The constructors of the main executable are
+      // run by the libc initialization code which has
+      // been linked into the binary by the compiler.
+      // If we run them here, they will be run twice which
+      // is not good. So, we just return.
+      return;
+    }
+
   // Gather information from the .dynamic section
   unsigned long dt_init = vdl_file_get_dynamic_p (file, DT_INIT);
   unsigned long dt_init_array = vdl_file_get_dynamic_p (file, DT_INIT_ARRAY);
