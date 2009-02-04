@@ -3,6 +3,7 @@
 #include "system.h"
 #include "avprintf-cb.h"
 #include "vdl-utils.h"
+#include "vdl-log.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>
@@ -21,12 +22,12 @@ get_system_search_dirs (void)
   int i;
   for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
     {
-      struct VdlStringList *tmp = vdl_new (struct VdlStringList);
-      tmp->str = vdl_strdup (dirs[i]);
+      struct VdlStringList *tmp = vdl_utils_new (struct VdlStringList);
+      tmp->str = vdl_utils_strdup (dirs[i]);
       tmp->next = list;
       list = tmp;
     }
-  list = vdl_str_list_reverse (list);
+  list = vdl_utils_str_list_reverse (list);
   return list;
 }
 
@@ -45,7 +46,7 @@ void vdl_initialize (unsigned long interpreter_load_base)
   vdl->contexts = 0;
 
   // populate search dirs from system directories
-  vdl->search_dirs = vdl_str_list_append (vdl->search_dirs, 
+  vdl->search_dirs = vdl_utils_str_list_append (vdl->search_dirs, 
 					  get_system_search_dirs ());
   vdl->tls_gen = 1;
   vdl->tls_static_size = 0;
@@ -57,7 +58,7 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
 {
   VDL_LOG_FUNCTION ("argc=%d", argc);
 
-  struct VdlContext *context = vdl_new (struct VdlContext);
+  struct VdlContext *context = vdl_utils_new (struct VdlContext);
   context->global_scope = 0;
   // prepend to context list.
   if (g_vdl.contexts != 0)
@@ -70,11 +71,11 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
   // store argc safely
   context->argc = argc;
   // create a private copy of argv
-  context->argv = vdl_malloc (sizeof (char*)*(argc+1));
+  context->argv = vdl_utils_malloc (sizeof (char*)*(argc+1));
   int i;
   for (i = 0; i < argc; i++)
     {
-      context->argv[i] = vdl_strdup (argv[i]);
+      context->argv[i] = vdl_utils_strdup (argv[i]);
     }
   context->argv[argc] = 0;
   // calculate size of envp
@@ -88,7 +89,7 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
       i++;
     }
   // create a private copy of envp
-  context->envp = vdl_malloc (sizeof (char *)*i);
+  context->envp = vdl_utils_malloc (sizeof (char *)*i);
   context->envp[i] = 0;
   i = 0;
   while (1)
@@ -97,7 +98,7 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
 	{
 	  break;
 	}
-      context->envp[i] = vdl_strdup (envp[i]);
+      context->envp[i] = vdl_utils_strdup (envp[i]);
       i++;
     }
   return context;
@@ -105,7 +106,7 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
 static void vdl_context_delete (struct VdlContext *context)
 {
   // get rid of associated global scope
-  vdl_file_list_free (context->global_scope);
+  vdl_utils_file_list_free (context->global_scope);
   context->global_scope = 0;
   // unlink from main context list
   if (context->prev != 0)
@@ -122,17 +123,17 @@ static void vdl_context_delete (struct VdlContext *context)
   int i;
   for (i = 0; i < context->argc; i++)
     {
-      vdl_free (context->argv[i], vdl_strlen (context->argv[i])+1);
+      vdl_utils_free (context->argv[i], vdl_utils_strlen (context->argv[i])+1);
     }
-  vdl_free (context->argv, sizeof (char *)*context->argc);
+  vdl_utils_free (context->argv, sizeof (char *)*context->argc);
   // delete envp
   char **cur;
   for (cur = context->envp, i = 0; *cur != 0; cur++, i++)
     {
-      vdl_free (*cur, vdl_strlen (*cur)+1);
+      vdl_utils_free (*cur, vdl_utils_strlen (*cur)+1);
     }
-  vdl_free (context->envp, sizeof(char *)*i);
-  vdl_delete (context);
+  vdl_utils_free (context->envp, sizeof(char *)*i);
+  vdl_utils_delete (context);
 }
 
 static void
@@ -159,10 +160,10 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const char *name,
 				 struct VdlContext *context)
 {
-  struct VdlFile *file = vdl_new (struct VdlFile);
+  struct VdlFile *file = vdl_utils_new (struct VdlFile);
 
   file->load_base = load_base;
-  file->filename = vdl_strdup (filename);
+  file->filename = vdl_utils_strdup (filename);
   file->dynamic = info->dynamic + load_base;
   file->next = 0;
   file->prev = 0;
@@ -185,7 +186,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->is_executable = 0;
   file->local_scope = 0;
   file->deps = 0;
-  file->name = vdl_strdup (name);
+  file->name = vdl_utils_strdup (name);
 
   append_file (file);
 
@@ -201,7 +202,7 @@ void vdl_file_unref (struct VdlFile *file)
   file->count--;
   if (file->count == 0)
     {
-      vdl_file_list_free (file->deps);
+      vdl_utils_file_list_free (file->deps);
       file->deps = 0;
       // remove file from global link map
       // and count number of files in the same context
@@ -225,7 +226,7 @@ void vdl_file_unref (struct VdlFile *file)
 	{
 	  vdl_context_delete (file->context);
 	}
-      vdl_delete (file);
+      vdl_utils_delete (file);
     }
 }
 
@@ -283,8 +284,8 @@ static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
       if (cur->d_tag == DT_NEEDED)
 	{
 	  const char *str = (const char *)(dt_strtab + cur->d_un.d_val);
-	  struct VdlStringList *tmp = vdl_new (struct VdlStringList);
-	  tmp->str = vdl_strdup (str);
+	  struct VdlStringList *tmp = vdl_utils_new (struct VdlStringList);
+	  tmp->str = vdl_utils_strdup (str);
 	  tmp->next = ret;
 	  ret = tmp;
 	  VDL_LOG_DEBUG ("needed=%s\n", str);
@@ -295,8 +296,8 @@ static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
 char *vdl_search_filename (const char *name)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
-  if (vdl_strisequal (name, "libdl.so") ||
-      vdl_strisequal (name, "libdl.so.2"))
+  if (vdl_utils_strisequal (name, "libdl.so") ||
+      vdl_utils_strisequal (name, "libdl.so.2"))
     {
       // we replace libdl.so with our own libvdl.so
       name = "libvdl.so";
@@ -305,16 +306,16 @@ char *vdl_search_filename (const char *name)
   struct VdlStringList *cur;
   for (cur = g_vdl.search_dirs; cur != 0; cur = cur->next)
     {
-      char *fullname = vdl_strconcat (cur->str, "/", name, 0);
-      if (vdl_exists (fullname))
+      char *fullname = vdl_utils_strconcat (cur->str, "/", name, 0);
+      if (vdl_utils_exists (fullname))
 	{
 	  return fullname;
 	}
-      vdl_free (fullname, vdl_strlen (fullname)+1);
+      vdl_utils_free (fullname, vdl_utils_strlen (fullname)+1);
     }
-  if (vdl_exists (name))
+  if (vdl_utils_exists (name))
     {
-      return vdl_strdup (name);
+      return vdl_utils_strdup (name);
     }
   return 0;
 }
@@ -359,7 +360,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  phdr = vdl_malloc (header.e_phnum * header.e_phentsize);
+  phdr = vdl_utils_malloc (header.e_phnum * header.e_phentsize);
   if (system_lseek (fd, header.e_phoff, SEEK_SET) == -1)
     {
       VDL_LOG_ERROR ("lseek failed to go to off=0x%x\n", header.e_phoff);
@@ -386,8 +387,8 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
 
   // calculate the size of the total mapping required
   unsigned long end = info.ro_start + info.ro_size;
-  end = vdl_max (end, info.rw_start + info.rw_size);
-  end = vdl_max (end, info.zero_start + info.zero_size);
+  end = vdl_utils_max (end, info.rw_start + info.rw_size);
+  end = vdl_utils_max (end, info.zero_start + info.zero_size);
   map_size = end-info.ro_start;
 
   // We perform a single initial mmap to reserve all the virtual space we need
@@ -427,7 +428,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
     }
 
   // zero the end of rw map
-  vdl_memset ((void*)(load_base + info.memset_zero_start), 0, info.memset_zero_size);
+  vdl_utils_memset ((void*)(load_base + info.memset_zero_start), 0, info.memset_zero_size);
 
   // first, unmap the extended file mapping for the zero pages.
   system_munmap ((void*)(load_base + info.zero_start),
@@ -464,7 +465,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
-  vdl_free (phdr, header.e_phnum * header.e_phentsize);
+  vdl_utils_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
   return file;
 error:
@@ -474,7 +475,7 @@ error:
     }
   if (phdr != 0)
     {
-      vdl_free (phdr, header.e_phnum * header.e_phentsize);
+      vdl_utils_free (phdr, header.e_phnum * header.e_phentsize);
     }
   if (ro_start != 0)
     {
@@ -498,7 +499,7 @@ convert_name (const char *name)
   int i; 
   for (i = 0; i < (sizeof (hardcoded_names)/sizeof (struct HardcodedName)); i++)
     {
-      if (vdl_strisequal (hardcoded_names[i].original, name))
+      if (vdl_utils_strisequal (hardcoded_names[i].original, name))
 	{
 	  return hardcoded_names[i].converted;
 	}
@@ -514,7 +515,7 @@ find_by_name (struct VdlContext *context,
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      if (vdl_strisequal (cur->name, name))
+      if (vdl_utils_strisequal (cur->name, name))
 	{
 	  return cur;
 	}
@@ -561,7 +562,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       struct VdlFile *dep = find_by_name (item->context, cur->str);
       if (dep != 0)
 	{
-	  deps = vdl_file_list_append_one (deps, dep);
+	  deps = vdl_utils_file_list_append_one (deps, dep);
 	  continue;
 	}
       // Search the file in the filesystem
@@ -576,7 +577,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       if (system_fstat (filename, &buf) == -1)
 	{
 	  VDL_LOG_ERROR ("Cannot stat %s\n", filename);
-	  vdl_free (filename, vdl_strlen (filename)+1);
+	  vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
 	  goto error;
 	}
       // If you create a symlink to a binary and link to the
@@ -590,19 +591,19 @@ int vdl_file_map_deps (struct VdlFile *item)
       dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
-	  deps = vdl_file_list_append_one (deps, dep);
-	  vdl_free (filename, vdl_strlen (filename)+1);
+	  deps = vdl_utils_file_list_append_one (deps, dep);
+	  vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
 	  continue;
 	}
       // The file is really not yet mapped so, we have to map it
       dep = vdl_file_map_single (item->context, filename, cur->str);
       
       // add the new file to the list of dependencies
-      deps = vdl_file_list_append_one (deps, dep);
+      deps = vdl_utils_file_list_append_one (deps, dep);
 
-      vdl_free (filename, vdl_strlen (filename)+1);
+      vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
     }
-  vdl_str_list_free (dt_needed);
+  vdl_utils_str_list_free (dt_needed);
 
   // then, recursively map the deps of each dep.
   struct VdlFileList *dep;
@@ -619,10 +620,10 @@ int vdl_file_map_deps (struct VdlFile *item)
 
   return 1;
  error:
-  vdl_str_list_free (dt_needed);
+  vdl_utils_str_list_free (dt_needed);
   if (deps != 0)
     {
-      vdl_file_list_free (deps);
+      vdl_utils_file_list_free (deps);
     }
   return 0;
 }
@@ -698,14 +699,14 @@ int vdl_get_file_info (uint32_t phnum,
     }
 
 
-  unsigned long ro_start = vdl_align_down (ro->p_vaddr, ro->p_align);
-  unsigned long ro_size = vdl_align_up (ro->p_memsz, ro->p_align);
-  unsigned long rw_start = vdl_align_down (rw->p_vaddr, rw->p_align);
-  unsigned long rw_size = vdl_align_up (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
-  unsigned long zero_size = vdl_align_up (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
-  unsigned long zero_start = vdl_align_up (rw->p_vaddr + rw->p_filesz, rw->p_align);
-  unsigned long ro_file_offset = vdl_align_down (ro->p_offset, ro->p_align);
-  unsigned long rw_file_offset = vdl_align_down (rw->p_offset, rw->p_align);
+  unsigned long ro_start = vdl_utils_align_down (ro->p_vaddr, ro->p_align);
+  unsigned long ro_size = vdl_utils_align_up (ro->p_memsz, ro->p_align);
+  unsigned long rw_start = vdl_utils_align_down (rw->p_vaddr, rw->p_align);
+  unsigned long rw_size = vdl_utils_align_up (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
+  unsigned long zero_size = vdl_utils_align_up (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
+  unsigned long zero_start = vdl_utils_align_up (rw->p_vaddr + rw->p_filesz, rw->p_align);
+  unsigned long ro_file_offset = vdl_utils_align_down (ro->p_offset, ro->p_align);
+  unsigned long rw_file_offset = vdl_utils_align_down (rw->p_offset, rw->p_align);
   unsigned long memset_zero_start = rw->p_vaddr+rw->p_filesz;
   unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
   if (ro_start + ro_size != rw_start)
@@ -738,13 +739,13 @@ vdl_file_gather_all_deps_breadth_first (struct VdlFile *file)
 
   struct VdlFileList *list, *cur;
 
-  list = vdl_new (struct VdlFileList);
+  list = vdl_utils_new (struct VdlFileList);
   list->item = file;
   list->next = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      struct VdlFileList *copy = vdl_file_list_copy (cur->item->deps);
-      cur = vdl_file_list_append (cur, copy);
+      struct VdlFileList *copy = vdl_utils_file_list_copy (cur->item->deps);
+      cur = vdl_utils_file_list_append (cur, copy);
     }
 
   return list;
@@ -829,7 +830,7 @@ vdl_file_lookup_has_next (const struct FileLookupIterator *i)
 	  i->dt_symtab[current].st_shndx != SHN_UNDEF)
 	{
 	  // the symbol name is an index in the string table
-	  if (vdl_strisequal (i->dt_strtab + i->dt_symtab[current].st_name, i->name))
+	  if (vdl_utils_strisequal (i->dt_strtab + i->dt_symtab[current].st_name, i->name))
 	    {
 	      // as an optimization, to save us from iterating again
 	      // in the _next function, we set the current position
@@ -917,14 +918,14 @@ symbol_version_matches (const struct VdlFile *in,
   for (prev = 0, cur = dt_verdef; cur != prev;
        prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
     {
-      VDL_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
+      VDL_LOG_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
       if (cur->vd_ndx == ver_index &&
 	  cur->vd_hash == ver_needed->vna_hash)
 	{
 	  // the hash values of the version names are equal.
 	  ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
 	  const char *from_dt_strtab = (const char *)vdl_file_get_dynamic_p (from, DT_STRTAB);
-	  if (vdl_strisequal (dt_strtab + verdaux->vda_name, 
+	  if (vdl_utils_strisequal (dt_strtab + verdaux->vda_name, 
 			      from_dt_strtab + ver_needed->vna_name))
 	    {
 	      // the version names are equal.
@@ -1101,7 +1102,7 @@ sym_to_vernaux (unsigned long index,
 	   cur != prev; 
 	   prev = cur, cur = (ElfW(Verneed) *)(((unsigned long)cur)+cur->vn_next))
 	{
-	  VDL_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
+	  VDL_LOG_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
 	  ElfW(Vernaux) *cur_aux, *prev_aux;
 	  for (cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur)+cur->vn_aux), prev_aux = 0;
 	       cur_aux != prev_aux; 
@@ -1259,7 +1260,7 @@ vdl_allocate_tls_index (void)
 	  return i;
 	}
     }
-  VDL_ASSERT (0, "All tls module indexes are used up ? impossible !");
+  VDL_LOG_ASSERT (0, "All tls module indexes are used up ? impossible !");
   return 0; // quiet compiler
 }
 
@@ -1273,7 +1274,7 @@ void vdl_file_tls (struct VdlFile *file)
 
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_start;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_start + header->e_phoff);
-  ElfW(Phdr) *pt_tls = vdl_search_phdr (phdr, header->e_phnum, PT_TLS);
+  ElfW(Phdr) *pt_tls = vdl_utils_search_phdr (phdr, header->e_phnum, PT_TLS);
   if (pt_tls == 0)
     {
       file->has_tls = 0;

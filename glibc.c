@@ -3,6 +3,7 @@
 #include "machine.h"
 #include "vdl.h"
 #include "vdl-utils.h"
+#include "vdl-log.h"
 #include "config.h"
 #include <elf.h>
 #include <dlfcn.h>
@@ -60,21 +61,21 @@ extern __typeof (_rtld_local) _rtld_global __attribute__ ((alias("_rtld_local"),
 
 EXPORT WEAK void *calloc(size_t nmemb, size_t size)
 {
-  VDL_ASSERT (0, "calloc called");
+  VDL_LOG_ASSERT (0, "calloc called");
   return 0;
 }
 EXPORT WEAK void *malloc(size_t size)
 {
-  VDL_ASSERT (0, "malloc called");
+  VDL_LOG_ASSERT (0, "malloc called");
   return 0;
 }
 EXPORT WEAK void free(void *ptr)
 {
-  VDL_ASSERT (0, "free called");
+  VDL_LOG_ASSERT (0, "free called");
 }
 EXPORT WEAK void *realloc(void *ptr, size_t size)
 {
-  VDL_ASSERT (0, "realloc called");
+  VDL_LOG_ASSERT (0, "realloc called");
   return 0;
 }
 //_r_debug;
@@ -124,7 +125,7 @@ void glibc_initialize (void)
 {
   void **(*fn) (void) = vdl_dl_error_catch_tsd;
   char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
-  vdl_memcpy ((void*)dst,
+  vdl_utils_memcpy ((void*)dst,
 	      &fn, sizeof (fn));
 }
 

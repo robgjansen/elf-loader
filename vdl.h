@@ -133,16 +133,6 @@ enum VdlState {
   VDL_ADD,
   VDL_DELETE
 };
-enum VdlLog {
-  VDL_LOG_FUNC     = (1<<0),
-  VDL_LOG_DBG      = (1<<1),
-  VDL_LOG_ERR      = (1<<2),
-  VDL_LOG_AST      = (1<<3),
-  VDL_LOG_SYM_FAIL = (1<<4),
-  VDL_LOG_REL      = (1<<5),
-  VDL_LOG_SYM_OK   = (1<<6),
-  VDL_LOG_PRINT    = (1<<7)
-};
 
 struct VdlContext
 {
@@ -179,7 +169,7 @@ struct Vdl
   struct VdlStringList *search_dirs;
   // The data structure used by the memory allocator
   // all heap memory allocations through vdl_alloc
-  // and vdl_free end up here.
+  // and vdl_utils_free end up here.
   struct Alloc alloc;
   uint32_t bind_now : 1;
   struct VdlContext *contexts;
