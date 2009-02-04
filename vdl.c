@@ -463,7 +463,6 @@ static struct VdlFile *
 find_by_name (struct VdlContext *context,
 	      const char *name)
 {
-  name = convert_name (name);
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
@@ -509,19 +508,21 @@ int vdl_file_map_deps (struct VdlFile *item)
   struct VdlStringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
+      // Try to see if we don't have a hardcoded name conversion
+      const char *name = convert_name (cur->str);
       // if the file is already mapped within this context,
       // get it and add it to deps
-      struct VdlFile *dep = find_by_name (item->context, cur->str);
+      struct VdlFile *dep = find_by_name (item->context, name);
       if (dep != 0)
 	{
 	  deps = vdl_utils_file_list_append_one (deps, dep);
 	  continue;
 	}
       // Search the file in the filesystem
-      char *filename = vdl_search_filename (cur->str);
+      char *filename = vdl_search_filename (name);
       if (filename == 0)
 	{
-	  VDL_LOG_ERROR ("Could not find %s\n", cur->str);
+	  VDL_LOG_ERROR ("Could not find %s\n", name);
 	  goto error;
 	}
       // get information about file.
@@ -548,7 +549,7 @@ int vdl_file_map_deps (struct VdlFile *item)
 	  continue;
 	}
       // The file is really not yet mapped so, we have to map it
-      dep = vdl_file_map_single (item->context, filename, cur->str);
+      dep = vdl_file_map_single (item->context, filename, name);
       
       // add the new file to the list of dependencies
       deps = vdl_utils_file_list_append_one (deps, dep);
