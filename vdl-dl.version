@@ -1,4 +1,4 @@
-LDSO_VDL {
+VDL_DL {
 global:
 	vdl_dlopen;
 	vdl_dlclose;

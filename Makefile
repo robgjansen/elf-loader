@@ -31,8 +31,8 @@ ldso:
 	$(CC) $(LDFLAGS) -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
 
 # we have two generated files and need to build them.
-ldso.version: readversiondef ldso-vdl.version
-	./readversiondef /lib/ld-linux.so.2 | cat ldso-vdl.version - > $@
+ldso.version: readversiondef vdl-dl.version
+	./readversiondef /lib/ld-linux.so.2 | cat vdl-dl.version - > $@
 config.h:
 	./extract-system-config.py --debug /usr/lib/debug/ld-linux.so.2 --config config.h
 # build the program used to generate ldso.version
