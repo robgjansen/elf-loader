@@ -5,11 +5,15 @@
   static __attribute__ ((constructor))		\
   void constructor (void)			\
   {						\
-    printf ("lib%s constructor\n", name);	\
+    printf ("lib%s constructor\n", #name);	\
   }						\
   static __attribute__ ((destructor))		\
   void destructor (void)			\
   {						\
-    printf ("lib%s destructor\n", name);	\
+    printf ("lib%s destructor\n", #name);	\
+  }						\
+  void function_##name (void)			\
+  {						\
+    printf ("called function_%s\n", #name);		\
   }
 #endif

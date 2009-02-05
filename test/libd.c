@@ -1,3 +1,3 @@
 #include "test.h"
 
-LIB("d")
+LIB(d)
