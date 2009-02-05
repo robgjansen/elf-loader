@@ -16,6 +16,11 @@
 // Set to zero until just before main is invoked
 // at which point it must be set to 1. Specifically,
 // it is zero during the .init function execution.
+// On my system, surprisingly, the dynamic loader
+// does not export this symbol so, one could wonder
+// why we bother with it.
+// XXX: check on a couple more systems if we can't
+// get rid of it.
 EXPORT int _dl_starting_up = 0 ;
 // Set to the end of the main stack (the stack allocated
 // by the kernel). Must be constant. Is used by libpthread 

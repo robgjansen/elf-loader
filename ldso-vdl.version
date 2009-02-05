@@ -1,0 +1,5 @@
+LDSO_VDL {
+global:
+	vdl_dlopen;
+	vdl_dlclose;
+};

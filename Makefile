@@ -9,16 +9,16 @@ VISIBILITY=-fvisibility=hidden
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
 
-all: ldso elfedit
+all: ldso libvdl.so elfedit
 	$(MAKE) -C test
 
 LDSO_OBJECTS=\
-stage1.o stage2.o avprintf-cb.o dprintf.o vdl-utils.o vdl-log.o vdl.o system.o alloc.o glibc.o gdb.o i386/machine.o i386/stage0.o interp.o
+stage1.o stage2.o avprintf-cb.o dprintf.o vdl-utils.o vdl-log.o vdl.o system.o alloc.o glibc.o gdb.o vdl-dl.o i386/machine.o i386/stage0.o interp.o
 
 # dependency rules.
 i386/machine.o: config.h
 glibc.o: config.h
-ldso: $(LDSO_OBJECTS) ldso.version libvdl.so
+ldso: $(LDSO_OBJECTS) ldso.version
 # build rules.
 %.o:%.c
 	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/i386 -fpic $(VISIBILITY) -o $@ -c $<
@@ -28,11 +28,11 @@ ldso:
 # note: we should be using -nostartfiles below but doing so makes the linker
 # stop to map the ELF header and program headers in the resulting PT_LOAD entry
 # which is problematic.
-	$(LD) $(LDFLAGS) --entry=stage0 -nostdlib -shared --version-script=ldso.version --soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
+	$(CC) $(LDFLAGS) -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
 
 # we have two generated files and need to build them.
-ldso.version: readversiondef
-	./readversiondef /lib/ld-linux.so.2 > $@
+ldso.version: readversiondef ldso-vdl.version
+	./readversiondef /lib/ld-linux.so.2 | cat ldso-vdl.version - > $@
 config.h:
 	./extract-system-config.py --debug /usr/lib/debug/ld-linux.so.2 --config config.h
 # build the program used to generate ldso.version
@@ -45,8 +45,8 @@ libvdl.version: readversiondef
 	./readversiondef /lib/libdl.so.2 > $@
 libvdl.o: libvdl.c
 	$(CC) $(CFLAGS) $(VISIBILITY) -fpic -o $@ -c $< 
-libvdl.so: libvdl.o libvdl.version
-	$(CC) $(LDFLAGS) -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
+libvdl.so: libvdl.o ldso libvdl.version
+	$(CC) $(LDFLAGS) ldso -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
 
 elfedit.o: elfedit.c
 	$(CC) $(CFLAGS) -o $@ -c $<
