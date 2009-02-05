@@ -1,7 +1,7 @@
 CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-L.
 
-TARGETS=hello test1 test2 test3 libf.so libe.so libd.so libb.so liba.so
+TARGETS=hello test1 test2 test3 test4 libf.so libe.so libd.so libb.so liba.so
 
 all: $(TARGETS)
 
