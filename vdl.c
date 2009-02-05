@@ -11,6 +11,9 @@
 
 struct Vdl g_vdl;
 
+static void vdl_file_call_fini_one (struct VdlFile *file);
+
+
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
 {
   VDL_LOG_FUNCTION ("argc=%d", argc);
@@ -159,6 +162,7 @@ void vdl_file_unref (struct VdlFile *file)
   file->count--;
   if (file->count == 0)
     {
+      vdl_file_call_fini_one (file);
       vdl_utils_file_list_free (file->deps);
       file->deps = 0;
       // remove file from global link map
@@ -1033,6 +1037,52 @@ void vdl_file_call_init (struct VdlFile *file)
   // Now that all deps are initialized, initialize ourselves.
   vdl_file_call_init_one (file);  
 }
+
+
+typedef void (*fini_function) (void);
+
+static void
+vdl_file_call_fini_one (struct VdlFile *file)
+{
+  VDL_LOG_FUNCTION ("file=%s", file->name);
+  if (!file->init_called || file->fini_called)
+    {
+      // if we were never initialized properly or if
+      // we are finalized already, no need to do any work
+      return;
+    }
+  // mark the file as finalized
+  file->fini_called = 1;
+
+  // Gather information from the .dynamic section
+  unsigned long dt_fini = vdl_file_get_dynamic_p (file, DT_FINI);
+  unsigned long dt_fini_array = vdl_file_get_dynamic_p (file, DT_FINI_ARRAY);
+  unsigned long dt_fini_arraysz = vdl_file_get_dynamic_v (file, DT_FINI_ARRAYSZ);
+
+  // First, invoke the newer DT_FINI_ARRAY functions.
+  // The address of the functions to call is stored as
+  // an array of pointers pointed to by DT_FINI_ARRAY
+  if (dt_fini_array != 0)
+    {
+      fini_function *fini = (fini_function *) dt_fini_array;
+      int i;
+      for (i = 0; i < dt_fini_arraysz / sizeof (fini_function); i++, fini++)
+	{
+	  (*(fini[i])) ();
+	}
+    }
+
+  // Then, invoke the old-style DT_FINI function.
+  // The address of the function to call is stored in
+  // the DT_FINI tag, here: dt_fini.
+  if (dt_fini != 0)
+    {
+      fini_function fini = (fini_function) dt_fini;
+      fini ();
+    }
+}
+
+
 unsigned long vdl_file_get_entry_point (struct VdlFile *file)
 {
   // This piece of code assumes that the ELF header starts at the
