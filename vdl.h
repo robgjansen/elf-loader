@@ -233,5 +233,6 @@ char *vdl_search_filename (const char *name);
 int vdl_get_file_info (uint32_t phnum,
 		       ElfW(Phdr) *phdr,
 		       struct VdlFileInfo *info);
+void vdl_fini (void);
 
 #endif /* VDL_H */

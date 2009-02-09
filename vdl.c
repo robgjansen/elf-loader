@@ -280,7 +280,7 @@ static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
 	  VDL_LOG_DEBUG ("needed=%s\n", str);
 	}
     }
-  return ret;
+  return vdl_utils_str_list_reverse (ret);
 }
 char *vdl_search_filename (const char *name)
 {
@@ -500,6 +500,7 @@ find_by_name (struct VdlContext *context,
     {
       if (vdl_utils_strisequal (cur->name, name))
 	{
+	  vdl_file_ref (cur);
 	  return cur;
 	}
     }
@@ -516,6 +517,7 @@ find_by_dev_ino (struct VdlContext *context,
 	  cur->st_dev == dev &&
 	  cur->st_ino == ino)
 	{
+	  vdl_file_ref (cur);
 	  return cur;
 	}
     }
@@ -1056,11 +1058,16 @@ void vdl_file_call_init (struct VdlFile *file)
   file->init_called = 1;
 
   // iterate over all deps first before initialization.
+  // reversing the list here is critical to obtain a proper
+  // initialization order which is the symmetric order of the
+  // finalization performed by vdl_file_unref
+  struct VdlFileList *deps = vdl_utils_file_list_reverse (vdl_utils_file_list_copy (file->deps));
   struct VdlFileList *cur;
-  for (cur = file->deps; cur != 0; cur = cur->next)
+  for (cur = deps; cur != 0; cur = cur->next)
     {
       vdl_file_call_init (cur->item);
     }
+  vdl_utils_file_list_free (deps);
 
   // Now that all deps are initialized, initialize ourselves.
   vdl_file_call_init_one (file);  
@@ -1333,5 +1340,18 @@ void vdl_file_tls (struct VdlFile *file)
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       vdl_file_tls (cur->item);
+    }
+}
+void vdl_fini (void)
+{
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      uint32_t count = cur->count;
+      uint32_t i;
+      for (i = 0; i < count; i++)
+	{
+	  vdl_file_unref (cur);
+	}
     }
 }
