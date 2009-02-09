@@ -156,13 +156,33 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 void vdl_file_ref (struct VdlFile *file)
 {
   file->count++;
+  // We recursively propagate this new count to all
+  // our dependencies. We are safe from a stack explosion
+  // because our dependency graph is acyclic.
+  struct VdlFileList *cur;
+  for (cur = file->deps; cur != 0; cur = cur->next)
+    {
+      vdl_file_ref (cur->item);
+    }
 }
 void vdl_file_unref (struct VdlFile *file)
 {
   file->count--;
+  // if this file is being unloaded, make sure
+  // that we invoke its destructors before potentially
+  // also unloading its dependencies.
   if (file->count == 0)
     {
       vdl_file_call_fini_one (file);
+    }
+  // propagate the count to dependencies.
+  struct VdlFileList *cur;
+  for (cur = file->deps; cur != 0; cur = cur->next)
+    {
+      vdl_file_unref (cur->item);
+    }
+  if (file->count == 0)
+    {
       vdl_utils_file_list_free (file->deps);
       file->deps = 0;
       // remove file from global link map
@@ -177,8 +197,16 @@ void vdl_file_unref (struct VdlFile *file)
 	    }
 	  if (cur == file)
 	    {
-	      cur->prev->next = cur->next;
-	      cur->next->prev = cur->prev;
+	      struct VdlFile *next = cur->next;
+	      struct VdlFile *prev = cur->prev;
+	      if (prev != 0)
+		{
+		  prev->next = next;
+		}
+	      if (next != 0)
+		{
+		  next->prev = prev;
+		}
 	      cur->next = 0;
 	      cur->prev = 0;
 	    }

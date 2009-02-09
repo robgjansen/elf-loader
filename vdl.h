@@ -68,6 +68,8 @@ struct VdlFile
   struct VdlFile *prev;
 
   // The following fields are not part of the ABI
+  // This count indicates how many users hold a reference
+  // to this file. 
   uint32_t count;
   char *name;
   dev_t st_dev;
