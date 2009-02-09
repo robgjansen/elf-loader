@@ -12,6 +12,10 @@ PWD=$(shell pwd)
 all: ldso libvdl.so elfedit
 	$(MAKE) -C test
 
+test: FORCE
+	$(MAKE) -C test run
+FORCE:
+
 LDSO_OBJECTS=\
 stage1.o stage2.o avprintf-cb.o dprintf.o vdl-utils.o vdl-log.o vdl.o system.o alloc.o glibc.o gdb.o vdl-dl.o i386/machine.o i386/stage0.o interp.o
 
