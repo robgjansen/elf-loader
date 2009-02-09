@@ -1,10 +1,26 @@
 CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-L.
 
-TARGETS=hello libh.so libg.so libf.so libe.so libd.so libb.so liba.so \
-test1 test2 test3 test4 test5 test6
+TESTS=test1 test2 test3 test4 test5 test6
+TARGETS=hello libh.so libg.so libf.so libe.so libd.so libb.so liba.so $(TESTS)
 
 all: $(TARGETS)
+
+OUTPUT_DIR=output
+generate-ref: $(addsuffix .ref,$(addprefix $(OUTPUT_DIR)/,$(TESTS)))
+$(OUTPUT_DIR)/test%.ref: test%
+	LD_LIBRARY_PATH=. ./$^ > $@
+run: $(TARGETS) $(addprefix run-,$(TESTS))
+test%-ldso: test%
+	@cp $^ $@
+	@../elfedit $@ ../ldso
+run-test%: test%-ldso FORCE
+	@-LD_LIBRARY_PATH=.:../ ./$^ > $(OUTPUT_DIR)/test$*
+	@-diff -q $(OUTPUT_DIR)/test$* $(OUTPUT_DIR)/test$*.ref > /dev/null || echo "FAIL $@"
+FORCE:
+.SECONDARY:
+
+
 
 hello.o: hello.c
 hello: hello.o
@@ -30,3 +46,5 @@ libh.so:
 clean:
 	-rm -f *.o *~ 2>/dev/null
 	-rm -f $(TARGETS) 2>/dev/null
+	-rm -f $(addprefix $(OUTPUT_DIR)/,$(TESTS)) 2>/dev/null
+	-rm -f $(addsuffix -ldso,$(TESTS)) 2>/dev/null

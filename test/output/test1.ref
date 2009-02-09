@@ -1,0 +1,15 @@
+libtest1 constructor
+enter main
+libf constructor
+libe constructor
+libd constructor
+libb constructor
+liba constructor
+dlopen completed
+liba destructor
+libb destructor
+libd destructor
+libe destructor
+libf destructor
+leave main
+libtest1 destructor
