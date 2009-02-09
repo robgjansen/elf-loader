@@ -3,3 +3,12 @@
 \.o$
 ~$
 \.so$
+test[0-9]$
+test[0-9]-ldso$
+hello$
+ldso$
+elfedit$
+ldso.version$
+libvdl.version$
+config.h$
+readversiondef$
