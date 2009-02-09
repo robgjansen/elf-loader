@@ -161,4 +161,5 @@ void stage1 (struct Stage1InputOutput *input_output)
 			  stage2_output.n_argv_skipped*sizeof(char*));
   *new_pargc = *pargc;
   input_output->entry_point_struct = (unsigned long)new_pargc;
+  input_output->dl_fini = (unsigned long) vdl_fini;
 }
