@@ -29,9 +29,6 @@ ldso: $(LDSO_OBJECTS) ldso.version
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso:
-# note: we should be using -nostartfiles below but doing so makes the linker
-# stop to map the ELF header and program headers in the resulting PT_LOAD entry
-# which is problematic.
 	$(CC) $(LDFLAGS) -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
 
 # we have two generated files and need to build them.
