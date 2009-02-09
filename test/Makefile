@@ -1,7 +1,7 @@
 CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-L.
 
-TESTS=test1 test2 test3 test4 test5 test6
+TESTS=test0 test1 test2 test3 test4 test5 test6
 TARGETS=hello libh.so libg.so libf.so libe.so libd.so libb.so liba.so $(TESTS)
 
 all: $(TARGETS)
@@ -42,6 +42,7 @@ libe.so: LDFLAGS+=-lf
 libf.so:
 libg.so:
 libh.so:
+test0: LDFLAGS+=-la
 
 clean:
 	-rm -f *.o *~ 2>/dev/null
