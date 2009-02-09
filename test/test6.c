@@ -1,6 +1,6 @@
 #include <dlfcn.h>
 #include "test.h"
-LIB(test5)
+LIB(test6)
 
 int main (int argc, char *argv[])
 {
