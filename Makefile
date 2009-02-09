@@ -3,7 +3,6 @@
 LDSO_SONAME=ldso
 CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT)
 LDFLAGS=$(OPT)
-VISIBILITY=-fvisibility=hidden
 
 #we need libgcc for 64bit arithmetic functions
 LIBGCC=$(shell gcc --print-libgcc-file-name)
@@ -25,7 +24,7 @@ glibc.o: config.h
 ldso: $(LDSO_OBJECTS) ldso.version
 # build rules.
 %.o:%.c
-	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/i386 -fpic $(VISIBILITY) -o $@ -c $<
+	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/i386 -fpic -fvisibility=hidden -o $@ -c $<
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso:
@@ -45,7 +44,7 @@ readversiondef: readversiondef.o
 libvdl.version: readversiondef
 	./readversiondef /lib/libdl.so.2 > $@
 libvdl.o: libvdl.c
-	$(CC) $(CFLAGS) $(VISIBILITY) -fpic -o $@ -c $< 
+	$(CC) $(CFLAGS) -fvisibility=hidden -fpic -o $@ -c $< 
 libvdl.so: libvdl.o ldso libvdl.version
 	$(CC) $(LDFLAGS) ldso -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
 
