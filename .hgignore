@@ -3,8 +3,8 @@
 \.o$
 ~$
 \.so$
-test[0-9]$
-test[0-9]-ldso$
+test[0-9]+$
+test[0-9]+-ldso$
 hello$
 ldso$
 elfedit$
