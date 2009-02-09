@@ -292,6 +292,18 @@ struct VdlFileList *vdl_utils_file_list_append (struct VdlFileList *start,
   end->next = last;
   return start;
 }
+struct VdlFileList *vdl_utils_file_list_reverse (struct VdlFileList *start)
+{
+  VDL_LOG_FUNCTION ("start=%p", start);
+  struct VdlFileList *ret = 0, *cur, *next;
+  for (cur = start; cur != 0; cur = next)
+    {
+      next = cur->next;
+      cur->next = ret;
+      ret = cur;
+    }
+  return ret;
+}
 
 void vdl_utils_file_list_unicize (struct VdlFileList *list)
 {

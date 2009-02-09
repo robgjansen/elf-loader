@@ -42,6 +42,8 @@ struct VdlFileList *vdl_utils_file_list_append_one (struct VdlFileList *list,
 						 struct VdlFile *item);
 struct VdlFileList *vdl_utils_file_list_append (struct VdlFileList *start, 
 					     struct VdlFileList *end);
+struct VdlFileList *vdl_utils_file_list_reverse (struct VdlFileList *start);
+
 void vdl_utils_file_list_unicize (struct VdlFileList *list);
 unsigned long vdl_utils_align_down (unsigned long v, unsigned long align);
 unsigned long vdl_utils_align_up (unsigned long v, unsigned long align);
