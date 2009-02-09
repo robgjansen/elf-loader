@@ -233,7 +233,6 @@ void vdl_utils_file_list_free (struct VdlFileList *list)
   struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      vdl_file_unref (cur->item);
       vdl_utils_delete (cur);
     }
 }
@@ -251,7 +250,6 @@ struct VdlFileList *vdl_utils_file_list_copy (struct VdlFileList *list)
 struct VdlFileList *vdl_utils_file_list_append_one (struct VdlFileList *list, 
 						 struct VdlFile *item)
 {
-  vdl_file_ref (item);
   if (list == 0)
     {
       list = vdl_utils_new (struct VdlFileList);
@@ -307,7 +305,6 @@ void vdl_utils_file_list_unicize (struct VdlFileList *list)
 	    {
 	      // if we have a duplicate, we eliminate it from the list
 	      prev->next = tmp->next;
-	      vdl_file_unref (cur->item);
 	      vdl_utils_delete (cur);
 	    }
 	}
