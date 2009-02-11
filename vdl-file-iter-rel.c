@@ -44,7 +44,7 @@ sym_to_vernaux (unsigned long index,
 
 void
 vdl_file_iterate_pltrel (struct VdlFile *file, 
-			 void (*cb)(const struct VdlFile *file,
+			 void (*cb)(struct VdlFile *file,
 				    const ElfW(Rel) *rel,
 				    const ElfW(Sym) *sym,
 				    const ElfW(Vernaux) *ver,
@@ -88,7 +88,7 @@ vdl_file_iterate_pltrel (struct VdlFile *file,
 
 void
 vdl_file_iterate_rel (struct VdlFile *file, 
-		     void (*cb)(const struct VdlFile *file,
+		     void (*cb)(struct VdlFile *file,
 				const ElfW(Rel) *rel,
 				const ElfW(Sym) *sym,
 				const ElfW(Vernaux) *ver,

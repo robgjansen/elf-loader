@@ -80,13 +80,6 @@ struct VdlFile
   // file is a dependency of another file, or because this
   // file was loaded during the loader initialization.
   uint32_t count;
-  // the list of objects in which we resolved a symbol 
-  // from a GOT/PLT relocation. This field is used
-  // during garbage collection from vdl_gc to detect
-  // the set of references an object holds to another one
-  // and thus avoid unloading an object which is held as a
-  // reference by another object.
-  struct VdlFileList *gc_symbols_resolved_in;
   char *name;
   dev_t st_dev;
   ino_t st_ino;
@@ -117,6 +110,13 @@ struct VdlFile
   // indicates if this represents the main executable.
   uint32_t is_executable : 1;
   uint32_t gc_color : 2;
+  // the list of objects in which we resolved a symbol 
+  // from a GOT/PLT relocation. This field is used
+  // during garbage collection from vdl_gc to detect
+  // the set of references an object holds to another one
+  // and thus avoid unloading an object which is held as a
+  // reference by another object.
+  struct VdlFileList *gc_symbols_resolved_in;
   // start of TLS block template
   unsigned long tls_tmpl_start;
   // size of TLS block template
@@ -231,11 +231,11 @@ enum LookupFlag {
   // with a R_*_COPY relocation.
   LOOKUP_NO_EXEC = 1
 };
-int vdl_file_symbol_lookup (const struct VdlFile *file,
-			   const char *name, 
-			   const ElfW(Vernaux) *ver,
-			   enum LookupFlag flags,
-			   struct SymbolMatch *match);
+int vdl_file_symbol_lookup (struct VdlFile *file,
+			    const char *name, 
+			    const ElfW(Vernaux) *ver,
+			    enum LookupFlag flags,
+			    struct SymbolMatch *match);
 struct VdlFile *vdl_file_new_main (unsigned long phnum,
 				   ElfW(Phdr)*phdr,
 				   int argc, 

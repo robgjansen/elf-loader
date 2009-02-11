@@ -6,13 +6,13 @@
 #include <link.h>
 
 void vdl_file_iterate_pltrel (struct VdlFile *file, 
-			      void (*cb)(const struct VdlFile *file,
+			      void (*cb)(struct VdlFile *file,
 					 const ElfW(Rel) *rel,
 					 const ElfW(Sym) *sym,
 					 const ElfW(Vernaux) *ver,
 					 const char *name));
 void vdl_file_iterate_rel (struct VdlFile *file, 
-			   void (*cb)(const struct VdlFile *file,
+			   void (*cb)(struct VdlFile *file,
 				      const ElfW(Rel) *rel,
 				      const ElfW(Sym) *sym,
 				      const ElfW(Vernaux) *ver,

@@ -916,7 +916,7 @@ symbol_version_matches (const struct VdlFile *in,
 }
 
 static int
-vdl_file_do_symbol_lookup_scope (const struct VdlFile *file,
+vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 				 const char *name, 
 				 unsigned long hash,
 				 const ElfW(Vernaux) *ver_needed,
@@ -943,6 +943,13 @@ vdl_file_do_symbol_lookup_scope (const struct VdlFile *file,
 	  unsigned long index = vdl_file_lookup_next (&i);
 	  if (symbol_version_matches (cur->item, file, ver_needed, index))
 	    {
+	      // We have resolved the symbol
+	      if (cur->item != file)
+		{
+		  // The symbol has been resolved in another binary. Make note of this.
+		  file->gc_symbols_resolved_in = vdl_file_list_prepend_one (file->gc_symbols_resolved_in, 
+									    cur->item);
+		}
 	      match->file = cur->item;
 	      match->symbol = &i.dt_symtab[index];
 	      return 1;
@@ -953,7 +960,7 @@ vdl_file_do_symbol_lookup_scope (const struct VdlFile *file,
 }
 
 int 
-vdl_file_symbol_lookup (const struct VdlFile *file,
+vdl_file_symbol_lookup (struct VdlFile *file,
 			const char *name, 
 			const ElfW(Vernaux) *ver,
 			enum LookupFlag flags,

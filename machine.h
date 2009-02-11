@@ -5,7 +5,7 @@
 #include <link.h>
 #include "vdl.h"
 
-void machine_perform_relocation (const struct VdlFile *file,
+void machine_perform_relocation (struct VdlFile *file,
 				 const ElfW(Rel) *rel,
 				 const ElfW(Sym) *sym,
 				 const ElfW(Vernaux) *ver,
