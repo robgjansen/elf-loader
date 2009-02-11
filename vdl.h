@@ -75,8 +75,18 @@ struct VdlFile
 
   // The following fields are not part of the ABI
   // This count indicates how many users hold a reference
-  // to this file. 
+  // to this file either because the file has been dlopened
+  // (the dlopen increases the ref count), or because this
+  // file is a dependency of another file, or because this
+  // file was loaded during the loader initialization.
   uint32_t count;
+  // the list of objects in which we resolved a symbol 
+  // from a GOT/PLT relocation. This field is used
+  // during garbage collection from vdl_gc to detect
+  // the set of references an object holds to another one
+  // and thus avoid unloading an object which is held as a
+  // reference by another object.
+  struct VdlFileList *gc_symbols_resolved_in;
   char *name;
   dev_t st_dev;
   ino_t st_ino;
