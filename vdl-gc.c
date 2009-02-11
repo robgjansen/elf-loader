@@ -39,13 +39,13 @@ struct VdlFileList *vdl_gc (void)
 	    {
 	      // move referenced objects which are white to the grey list.
 	      // by inserting them at the front of the list.
-	      cur->next = grey;
-	      grey = cur;
 	      cur->item->gc_color = VDL_GC_GREY;
+	      grey = vdl_file_list_prepend_one (grey, cur->item);
 	    }
 	  // finally, mark our grey object as black.
 	  first->item->gc_color = VDL_GC_BLACK;
 	}
+      vdl_utils_delete (first);
     }
 
   // finally, try to gather the list of white objects.
