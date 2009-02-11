@@ -56,6 +56,12 @@ struct VdlFileInfo
   unsigned long memset_zero_size;
 };
 
+enum {
+  VDL_GC_BLACK = 0,
+  VDL_GC_GREY = 1,
+  VDL_GC_WHITE = 2
+};
+
 struct VdlFile
 {
   // The following fields are part of the ABI. Don't change them
@@ -100,6 +106,7 @@ struct VdlFile
   uint32_t has_tls : 1;
   // indicates if this represents the main executable.
   uint32_t is_executable : 1;
+  uint32_t gc_color : 2;
   // start of TLS block template
   unsigned long tls_tmpl_start;
   // size of TLS block template
@@ -234,5 +241,9 @@ int vdl_get_file_info (uint32_t phnum,
 		       ElfW(Phdr) *phdr,
 		       struct VdlFileInfo *info);
 void vdl_fini (void);
+ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
+unsigned long vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag);
+unsigned long vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag);
+
 
 #endif /* VDL_H */
