@@ -39,12 +39,15 @@ struct VdlStringList * vdl_utils_str_list_append (struct VdlStringList *start, s
 void vdl_utils_file_list_free (struct VdlFileList *list);
 struct VdlFileList *vdl_utils_file_list_copy (struct VdlFileList *list);
 struct VdlFileList *vdl_utils_file_list_append_one (struct VdlFileList *list, 
-						 struct VdlFile *item);
+						    struct VdlFile *item);
 struct VdlFileList *vdl_utils_file_list_append (struct VdlFileList *start, 
-					     struct VdlFileList *end);
+						struct VdlFileList *end);
 struct VdlFileList *vdl_utils_file_list_reverse (struct VdlFileList *start);
-
+struct VdlFileList *vdl_utils_file_list_prepend_one (struct VdlFileList *list, 
+						     struct VdlFile *item);
 void vdl_utils_file_list_unicize (struct VdlFileList *list);
+struct VdlFileList *vdl_utils_file_list_remove (struct VdlFileList *list, 
+						struct VdlFileList *item);
 unsigned long vdl_utils_align_down (unsigned long v, unsigned long align);
 unsigned long vdl_utils_align_up (unsigned long v, unsigned long align);
 

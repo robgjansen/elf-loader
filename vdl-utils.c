@@ -267,6 +267,41 @@ struct VdlFileList *vdl_utils_file_list_append_one (struct VdlFileList *list,
   cur->next->next = 0;
   return list;
 }
+struct VdlFileList *
+vdl_utils_file_list_prepend_one (struct VdlFileList *list, 
+				 struct VdlFile *item)
+{
+  struct VdlFileList *new_start = vdl_utils_new (struct VdlFileList);
+  new_start->next = list;
+  new_start->item = item;
+  return new_start;
+}
+struct VdlFileList *
+vdl_utils_file_list_remove (struct VdlFileList *list, 
+						struct VdlFileList *item)
+{
+  struct VdlFileList *cur = list, *prev = 0;
+  while (cur->next != 0)
+    {
+      struct VdlFileList *next = cur->next;
+      if (cur == item)
+	{
+	  if (prev == 0)
+	    {
+	      return next;
+	    }
+	  else
+	    {
+	      prev->next = next;
+	      return list;
+	    }
+	}
+      cur = next;
+    }
+  return list;
+}
+
+
 static struct VdlFileList *
 vdl_file_list_get_end (struct VdlFileList *start)
 {
