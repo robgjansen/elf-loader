@@ -2,7 +2,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 
-void vdl_utils_file_list_free (struct VdlFileList *list)
+void vdl_file_list_free (struct VdlFileList *list)
 {
   struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
@@ -10,18 +10,18 @@ void vdl_utils_file_list_free (struct VdlFileList *list)
       vdl_utils_delete (cur);
     }
 }
-struct VdlFileList *vdl_utils_file_list_copy (struct VdlFileList *list)
+struct VdlFileList *vdl_file_list_copy (struct VdlFileList *list)
 {
   struct VdlFileList *copy = 0;
   struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      copy = vdl_utils_file_list_append_one (copy, cur->item);
+      copy = vdl_file_list_append_one (copy, cur->item);
     }
   return copy;
 }
 
-struct VdlFileList *vdl_utils_file_list_append_one (struct VdlFileList *list, 
+struct VdlFileList *vdl_file_list_append_one (struct VdlFileList *list, 
 						 struct VdlFile *item)
 {
   if (list == 0)
@@ -42,7 +42,7 @@ struct VdlFileList *vdl_utils_file_list_append_one (struct VdlFileList *list,
   return list;
 }
 struct VdlFileList *
-vdl_utils_file_list_prepend_one (struct VdlFileList *list, 
+vdl_file_list_prepend_one (struct VdlFileList *list, 
 				 struct VdlFile *item)
 {
   struct VdlFileList *new_start = vdl_utils_new (struct VdlFileList);
@@ -51,7 +51,7 @@ vdl_utils_file_list_prepend_one (struct VdlFileList *list,
   return new_start;
 }
 struct VdlFileList *
-vdl_utils_file_list_remove (struct VdlFileList *list, 
+vdl_file_list_remove (struct VdlFileList *list, 
 						struct VdlFileList *item)
 {
   struct VdlFileList *cur = list, *prev = 0;
@@ -88,7 +88,7 @@ vdl_file_list_get_end (struct VdlFileList *start)
     }
   return cur;
 }
-struct VdlFileList *vdl_utils_file_list_append (struct VdlFileList *start, 
+struct VdlFileList *vdl_file_list_append (struct VdlFileList *start, 
 					     struct VdlFileList *last)
 {
   if (start == 0)
@@ -99,7 +99,7 @@ struct VdlFileList *vdl_utils_file_list_append (struct VdlFileList *start,
   end->next = last;
   return start;
 }
-struct VdlFileList *vdl_utils_file_list_reverse (struct VdlFileList *start)
+struct VdlFileList *vdl_file_list_reverse (struct VdlFileList *start)
 {
   VDL_LOG_FUNCTION ("start=%p", start);
   struct VdlFileList *ret = 0, *cur, *next;
@@ -112,7 +112,7 @@ struct VdlFileList *vdl_utils_file_list_reverse (struct VdlFileList *start)
   return ret;
 }
 
-void vdl_utils_file_list_unicize (struct VdlFileList *list)
+void vdl_file_list_unicize (struct VdlFileList *list)
 {
   struct VdlFileList *cur;
   for (cur = list; cur != 0; cur = cur->next)

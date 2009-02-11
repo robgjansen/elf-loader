@@ -35,8 +35,8 @@ EXPORT void *vdl_dlopen(const char *filename, int flag)
   if (flag & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.
-      g_vdl.contexts->global_scope = vdl_utils_file_list_append (g_vdl.contexts->global_scope, deps);
-      vdl_utils_file_list_unicize (g_vdl.contexts->global_scope);
+      g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, deps);
+      vdl_file_list_unicize (g_vdl.contexts->global_scope);
     }
   else
     {

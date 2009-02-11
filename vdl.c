@@ -68,7 +68,7 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
 static void vdl_context_delete (struct VdlContext *context)
 {
   // get rid of associated global scope
-  vdl_utils_file_list_free (context->global_scope);
+  vdl_file_list_free (context->global_scope);
   context->global_scope = 0;
   // unlink from main context list
   if (context->prev != 0)
@@ -174,7 +174,7 @@ void vdl_file_unref (struct VdlFile *file)
 	  // propagate the count to dependencies.
 	  vdl_file_unref (dep->item);
 	}
-      vdl_utils_file_list_free (file->deps);
+      vdl_file_list_free (file->deps);
       file->deps = 0;
       // remove file from global link map
       // and count number of files in the same context
@@ -540,7 +540,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       struct VdlFile *dep = find_by_name (item->context, name);
       if (dep != 0)
 	{
-	  deps = vdl_utils_file_list_append_one (deps, dep);
+	  deps = vdl_file_list_append_one (deps, dep);
 	  continue;
 	}
       // Search the file in the filesystem
@@ -569,7 +569,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
       if (dep != 0)
 	{
-	  deps = vdl_utils_file_list_append_one (deps, dep);
+	  deps = vdl_file_list_append_one (deps, dep);
 	  vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
 	  continue;
 	}
@@ -577,7 +577,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       dep = vdl_file_map_single (item->context, filename, name);
       
       // add the new file to the list of dependencies
-      deps = vdl_utils_file_list_append_one (deps, dep);
+      deps = vdl_file_list_append_one (deps, dep);
 
       vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
     }
@@ -601,7 +601,7 @@ int vdl_file_map_deps (struct VdlFile *item)
   vdl_utils_str_list_free (dt_needed);
   if (deps != 0)
     {
-      vdl_utils_file_list_free (deps);
+      vdl_file_list_free (deps);
     }
   return 0;
 }
@@ -722,8 +722,8 @@ vdl_file_gather_all_deps_breadth_first (struct VdlFile *file)
   list->next = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
-      struct VdlFileList *copy = vdl_utils_file_list_copy (cur->item->deps);
-      cur = vdl_utils_file_list_append (cur, copy);
+      struct VdlFileList *copy = vdl_file_list_copy (cur->item->deps);
+      cur = vdl_file_list_append (cur, copy);
     }
 
   return list;
@@ -1052,13 +1052,13 @@ void vdl_file_call_init (struct VdlFile *file)
   // reversing the list here is critical to obtain a proper
   // initialization order which is the symmetric order of the
   // finalization performed by vdl_file_unref
-  struct VdlFileList *deps = vdl_utils_file_list_reverse (vdl_utils_file_list_copy (file->deps));
+  struct VdlFileList *deps = vdl_file_list_reverse (vdl_file_list_copy (file->deps));
   struct VdlFileList *cur;
   for (cur = deps; cur != 0; cur = cur->next)
     {
       vdl_file_call_init (cur->item);
     }
-  vdl_utils_file_list_free (deps);
+  vdl_file_list_free (deps);
 
   // Now that all deps are initialized, initialize ourselves.
   vdl_file_call_init_one (file);  

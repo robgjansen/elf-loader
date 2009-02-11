@@ -98,7 +98,7 @@ do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char
 	  goto error;
 	}
       // add it to the global scope
-      scope = vdl_utils_file_list_append_one (scope, ld_preload_file);
+      scope = vdl_file_list_append_one (scope, ld_preload_file);
     }
  error:
   return scope;
@@ -234,7 +234,7 @@ stage2 (struct Stage2Input input)
   struct VdlFileList *global_scope = 0;
 
   // we add the main binary to the global scope
-  global_scope = vdl_utils_file_list_append_one (0, main_file);
+  global_scope = vdl_file_list_append_one (0, main_file);
 
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
@@ -244,8 +244,8 @@ stage2 (struct Stage2Input input)
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
   struct VdlFileList *all_deps = vdl_file_gather_all_deps_breadth_first (main_file);
-  global_scope = vdl_utils_file_list_append (global_scope, all_deps);
-  vdl_utils_file_list_unicize (global_scope);
+  global_scope = vdl_file_list_append (global_scope, all_deps);
+  vdl_file_list_unicize (global_scope);
   context->global_scope = global_scope;
 
   // We gather tls information for each module. We need to
