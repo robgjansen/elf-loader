@@ -5,6 +5,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-file-iter-rel.h"
+#include "vdl-file-list.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>

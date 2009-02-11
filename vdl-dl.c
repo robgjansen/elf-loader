@@ -1,6 +1,7 @@
 #include "vdl.h"
 #include "vdl-log.h"
 #include "vdl-utils.h"
+#include "vdl-file-list.h"
 #include "gdb.h"
 #include "glibc.h"
 #include "vdl-dl.h"
