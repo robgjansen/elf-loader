@@ -2,9 +2,10 @@
 
 LIB(h)
 
-extern void function_f (void);
+extern void function_g (void);
 
-void function_h_f (void)
+__attribute__ ((destructor)) void function_h_g (void)
 {
-  function_f ();
+  printf ("special destructor in libh.so\n");
+  function_g ();
 }
