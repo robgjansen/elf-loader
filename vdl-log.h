@@ -33,7 +33,8 @@ void vdl_log_printf (enum VdlLog log, const char *str, ...);
 #define VDL_LOG_ASSERT(predicate,str)		 \
   if (!(predicate))				 \
     {						 \
-      vdl_log_printf (VDL_LOG_AST, "%s\n", str); \
+      vdl_log_printf (VDL_LOG_AST, "%s:%d, %s, %s\n",		\
+		      __FILE__, __LINE__, __FUNCTION__, str);	\
       system_exit (-1);				 \
     }
 
