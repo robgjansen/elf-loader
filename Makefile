@@ -55,7 +55,7 @@ elfedit: elfedit.o
 
 clean: 
 	-rm -f elfedit readversiondef core hello hello-ldso 2> /dev/null
-	-rm -f ldso libmdl.so *.o  i386/*.o 2>/dev/null
+	-rm -f ldso libvdl.so *.o  i386/*.o 2>/dev/null
 	-rm -f *~ i386/*~ 2>/dev/null
 	-rm -f \#* i386/\#* 2>/dev/null
 	-rm -f config.h ldso.version 2>/dev/null

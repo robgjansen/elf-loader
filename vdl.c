@@ -6,14 +6,13 @@
 #include "vdl-log.h"
 #include "vdl-file-iter-rel.h"
 #include "vdl-file-list.h"
+#include "vdl-gc.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>
 #include <sys/mman.h>
 
 struct Vdl g_vdl;
-
-static void vdl_file_call_fini_one (struct VdlFile *file);
 
 
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
@@ -65,8 +64,10 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
     }
   return context;
 }
-static void vdl_context_delete (struct VdlContext *context)
+void 
+vdl_context_delete (struct VdlContext *context)
 {
+  VDL_LOG_FUNCTION ("context=%p", context);
   // get rid of associated global scope
   vdl_file_list_free (context->global_scope);
   context->global_scope = 0;
@@ -97,11 +98,10 @@ static void vdl_context_delete (struct VdlContext *context)
   vdl_utils_free (context->envp, sizeof(char *)*i);
   vdl_utils_delete (context);
 }
-
 static void
-append_file (struct VdlFile *item)
+vdl_file_append (struct VdlFile *item)
 {
-  VDL_LOG_FUNCTION ("item=%p", item);
+  VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
   if (g_vdl.link_map == 0)
     {
       g_vdl.link_map = item;
@@ -146,68 +146,37 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->reloced = 0;
   file->patched = 0;
   file->is_executable = 0;
+  // no need to initialize gc_color because it is always 
+  // initialized when needed by vdl_gc
+  file->gc_symbols_resolved_in = 0;
   file->local_scope = 0;
   file->deps = 0;
   file->name = vdl_utils_strdup (name);
 
-  append_file (file);
+  vdl_file_append (file);
 
   return file;
 }
 
-void vdl_file_ref (struct VdlFile *file)
+void
+vdl_file_delete (struct VdlFile *file)
 {
-  file->count++;
-}
-void vdl_file_unref (struct VdlFile *file)
-{
-  file->count--;
-  // if this file is being unloaded, make sure
-  // that we invoke its destructors before potentially
-  // also unloading its dependencies.
-  if (file->count == 0)
-    {
-      vdl_file_call_fini_one (file);
-      struct VdlFileList *dep;
-      for (dep = file->deps; dep != 0; dep = dep->next)
-	{
-	  // propagate the count to dependencies.
-	  vdl_file_unref (dep->item);
-	}
-      vdl_file_list_free (file->deps);
-      file->deps = 0;
-      // remove file from global link map
-      // and count number of files in the same context
-      uint32_t context_count = 0;
-      struct VdlFile *cur;
-      for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-	{
-	  if (cur->context == file->context)
-	    {
-	      context_count++;
-	    }
-	  if (cur == file)
-	    {
-	      struct VdlFile *next = cur->next;
-	      struct VdlFile *prev = cur->prev;
-	      if (prev != 0)
-		{
-		  prev->next = next;
-		}
-	      if (next != 0)
-		{
-		  next->prev = prev;
-		}
-	      cur->next = 0;
-	      cur->prev = 0;
-	    }
-	}
-      if (context_count <= 1)
-	{
-	  vdl_context_delete (file->context);
-	}
-      vdl_utils_delete (file);
-    }
+  file->next = 0;
+  file->prev = 0;
+  vdl_file_list_free (file->deps);
+  file->deps = 0;
+  vdl_file_list_free (file->local_scope);
+  file->local_scope = 0;
+  vdl_file_list_free (file->gc_symbols_resolved_in);
+  file->gc_symbols_resolved_in = 0;
+  vdl_utils_free (file->name, vdl_utils_strlen (file->name)+1);
+  file->name = 0;
+  vdl_utils_free (file->filename, vdl_utils_strlen (file->filename)+1);
+  file->filename = 0;
+  file->context = 0;
+  vdl_utils_delete (file);
+
+  // XXX: should try to unmap memory areas.
 }
 
 
@@ -491,7 +460,8 @@ find_by_name (struct VdlContext *context,
     {
       if (vdl_utils_strisequal (cur->name, name))
 	{
-	  vdl_file_ref (cur);
+	  VDL_LOG_ASSERT (cur->count > 0, "refcount invariant broken.");
+	  cur->count++;
 	  return cur;
 	}
     }
@@ -508,7 +478,8 @@ find_by_dev_ino (struct VdlContext *context,
 	  cur->st_dev == dev &&
 	  cur->st_ino == ino)
 	{
-	  vdl_file_ref (cur);
+	  VDL_LOG_ASSERT (cur->count > 0, "refcount invariant broken.");
+	  cur->count++;
 	  return cur;
 	}
     }
@@ -949,6 +920,7 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 		  // The symbol has been resolved in another binary. Make note of this.
 		  file->gc_symbols_resolved_in = vdl_file_list_prepend_one (file->gc_symbols_resolved_in, 
 									    cur->item);
+		  VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, cur->item->name, file->name);
 		}
 	      match->file = cur->item;
 	      match->symbol = &i.dt_symtab[index];
@@ -1058,7 +1030,7 @@ void vdl_file_call_init (struct VdlFile *file)
   // iterate over all deps first before initialization.
   // reversing the list here is critical to obtain a proper
   // initialization order which is the symmetric order of the
-  // finalization performed by vdl_file_unref
+  // finalization performed by vdl_gc
   struct VdlFileList *deps = vdl_file_list_reverse (vdl_file_list_copy (file->deps));
   struct VdlFileList *cur;
   for (cur = deps; cur != 0; cur = cur->next)
@@ -1071,10 +1043,9 @@ void vdl_file_call_init (struct VdlFile *file)
   vdl_file_call_init_one (file);  
 }
 
-
 typedef void (*fini_function) (void);
 
-static void
+void
 vdl_file_call_fini_one (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
@@ -1113,6 +1084,67 @@ vdl_file_call_fini_one (struct VdlFile *file)
       fini_function fini = (fini_function) dt_fini;
       fini ();
     }
+}
+
+// return the max depth.
+static uint32_t
+vdl_file_iter_depth (struct VdlFileList *files, uint32_t depth)
+{
+  uint32_t max_depth = depth;
+  struct VdlFileList *cur;
+  for (cur = files; cur != 0; cur = cur->next)
+    {
+      cur->item->gc_depth = vdl_utils_max (depth, cur->item->gc_depth);
+      max_depth = vdl_utils_max (vdl_file_iter_depth (cur->item->deps, depth+1),
+				 max_depth);
+    }
+  return max_depth;
+}
+
+static struct VdlFileList *
+vdl_file_list_sort_fini (struct VdlFileList *files)
+{
+  // initialize depth to zero
+  {
+    struct VdlFileList *cur;
+    for (cur = files; cur != 0; cur = cur->next)
+      {
+	cur->item->gc_depth = 0;
+      }
+  }
+
+  // calculate depth of each file and get the max depth
+  uint32_t max_depth = vdl_file_iter_depth (files, 1);
+  
+  struct VdlFileList *output = 0;
+
+  uint32_t i;
+  for (i = 0; i < max_depth; i++)
+    {
+      // find files with matching depth and output them
+      struct VdlFileList *cur;
+      for (cur = files; cur != 0; cur = cur->next)
+	{
+	  if (cur->item->gc_depth == i)
+	    {
+	      output = vdl_file_list_append_one (output, cur->item);
+	    }
+	}
+    }
+
+  return output;
+}
+
+
+void vdl_file_list_call_fini (struct VdlFileList *list)
+{
+  struct VdlFileList *fini = vdl_file_list_sort_fini (list);
+  struct VdlFileList *cur;
+  for (cur = fini; cur != 0; cur = cur->next)
+    {
+      vdl_file_call_fini_one (cur->item);
+    }
+  vdl_file_list_free (fini);
 }
 
 
@@ -1212,18 +1244,5 @@ void vdl_file_tls (struct VdlFile *file)
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
       vdl_file_tls (cur->item);
-    }
-}
-void vdl_fini (void)
-{
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      uint32_t count = cur->count;
-      uint32_t i;
-      for (i = 0; i < count; i++)
-	{
-	  vdl_file_unref (cur);
-	}
     }
 }

@@ -76,9 +76,10 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->tls_n_dtv = 0;
 
   // after this call to alloc_initialize is completed,
-  // we we are allowed to allocate heap memory.
+  // we are allowed to allocate heap memory.
   alloc_initialize (&(vdl->alloc));
 }
+
 
 
 // relocate entries in DT_REL
@@ -126,6 +127,12 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
     }
 }
 
+void stage1_finalize (void)
+{
+  stage2_finalize ();
+  // Now, start cleaning up the loader itself.
+  // XXX
+}
 
 // Called from stage0 entry point asm code.
 void stage1 (struct Stage1InputOutput *input_output)
@@ -147,7 +154,7 @@ void stage1 (struct Stage1InputOutput *input_output)
 
   // Now that we have relocated this binary, we can access global variables
   // so, we switch to stage2 to complete the loader initialization.
-  struct Stage2Output stage2_output = stage2 (stage2_input);
+  struct Stage2Output stage2_output = stage2_initialize (stage2_input);
 
   // We are all done, so we update the caller's data structure to be able
   // jump in the program's entry point.
@@ -161,5 +168,5 @@ void stage1 (struct Stage1InputOutput *input_output)
 			  stage2_output.n_argv_skipped*sizeof(char*));
   *new_pargc = *pargc;
   input_output->entry_point_struct = (unsigned long)new_pargc;
-  input_output->dl_fini = (unsigned long) vdl_fini;
+  input_output->dl_fini = (unsigned long) stage1_finalize;
 }

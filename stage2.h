@@ -21,8 +21,8 @@ struct Stage2Output
   int n_argv_skipped;
 };
 
+struct Stage2Output stage2_initialize (struct Stage2Input input);
 
-
-struct Stage2Output stage2 (struct Stage2Input input);
+void stage2_finalize (void);
 
 #endif /* STAGE2_H */

@@ -5,6 +5,6 @@
  * of all VdlFile objects and returns the list of objects 
  * which can be freed.
  */
-struct VdlFileList *vdl_gc (void);
+void vdl_gc (void);
 
 #endif /* VDL_GC_H */

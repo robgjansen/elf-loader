@@ -5,6 +5,7 @@
 #include "gdb.h"
 #include "glibc.h"
 #include "vdl-dl.h"
+#include "vdl-gc.h"
 #include "export.h"
 
 
@@ -72,6 +73,7 @@ EXPORT void *vdl_dlsym(void *handle, const char *symbol)
 EXPORT int vdl_dlclose(void *handle)
 {
   struct VdlFile *file = (struct VdlFile*)handle;
-  vdl_file_unref (file);
+  file->count--;
+  vdl_gc ();
   return 0;
 }

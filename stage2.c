@@ -7,6 +7,7 @@
 #include "gdb.h"
 #include "machine.h"
 #include "stage2.h"
+#include "vdl-gc.h"
 #include <elf.h>
 #include <link.h>
 
@@ -164,8 +165,21 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
   return vdl_utils_strisequal (soname, LDSO_SONAME);
 }
 
+static struct VdlFileList *
+get_global_link_map (void)
+{
+  struct VdlFileList *retval = 0;
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      retval = vdl_file_list_prepend_one (retval, cur);
+    }
+  retval = vdl_file_list_reverse (retval);
+  return retval;
+}
+
 struct Stage2Output
-stage2 (struct Stage2Input input)
+stage2_initialize (struct Stage2Input input)
 {
   struct Stage2Output output;
 
@@ -234,7 +248,7 @@ stage2 (struct Stage2Input input)
   struct VdlFileList *global_scope = 0;
 
   // we add the main binary to the global scope
-  global_scope = vdl_file_list_append_one (0, main_file);
+  global_scope = vdl_file_list_append_one (global_scope, main_file);
 
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
@@ -368,3 +382,37 @@ error:
   return output; // quiet compiler
 }
 
+void
+stage2_finalize (void)
+{
+  // first, invoke all destructors in the correct order
+  struct VdlFileList *link_map = get_global_link_map ();
+  vdl_file_list_call_fini (link_map);
+
+  // then, destroy every file object
+  struct VdlFileList *cur;
+  for (cur = link_map; cur != 0; cur = cur->next)
+    {
+      vdl_file_delete (cur->item);
+    }
+
+  vdl_file_list_free (link_map);
+  g_vdl.link_map = 0;
+
+  // destroy every context object
+  struct VdlContext *context, *next_context;
+  context = g_vdl.contexts;
+  while (context != 0)
+    {
+      // tricky: save next pointer before calling _delete
+      next_context = context->next;
+      vdl_context_delete (context);
+      context = next_context;
+    }
+  g_vdl.contexts = 0;
+
+  // delete search dirs
+  vdl_utils_str_list_free (g_vdl.search_dirs);
+  g_vdl.search_dirs = 0;
+
+}

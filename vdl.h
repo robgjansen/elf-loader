@@ -140,6 +140,7 @@ struct VdlFile
   // list of files this file depends upon. 
   // equivalent to the content of DT_NEEDED.
   struct VdlFileList *deps;
+  uint32_t gc_depth;
 };
 
 struct VdlStringList
@@ -202,20 +203,20 @@ struct Vdl
 extern struct Vdl g_vdl;
 
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp);
+void vdl_context_delete (struct VdlContext *context);
 struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const struct VdlFileInfo *info,
 				 const char *filename, 
 				 const char *name,
 				 struct VdlContext *context);
-void vdl_file_ref (struct VdlFile *file);
-void vdl_file_unref (struct VdlFile *file);
-
+void vdl_file_delete (struct VdlFile *file);
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				    const char *filename, 
 				    const char *name);
 int vdl_file_map_deps (struct VdlFile *item);
 struct VdlFileList *vdl_file_gather_all_deps_breadth_first (struct VdlFile *file);
 void vdl_file_call_init (struct VdlFile *file);
+void vdl_file_list_call_fini (struct VdlFileList *list);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
 void vdl_file_reloc (struct VdlFile *file);
 
@@ -250,10 +251,8 @@ char *vdl_search_filename (const char *name);
 int vdl_get_file_info (uint32_t phnum,
 		       ElfW(Phdr) *phdr,
 		       struct VdlFileInfo *info);
-void vdl_fini (void);
 ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 unsigned long vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag);
 unsigned long vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag);
-
-
+void vdl_file_call_fini (struct VdlFileList *list);
 #endif /* VDL_H */
