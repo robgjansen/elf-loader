@@ -62,12 +62,18 @@ EXPORT void *vdl_dlopen(const char *filename, int flag)
 
 EXPORT char *vdl_dlerror(void)
 {
-  return 0;
+  //XXX
+  return "";
 }
 
 EXPORT void *vdl_dlsym(void *handle, const char *symbol)
 {
-  return 0;
+  // XXX handle RTLD_DEFAULT and RTLD_NEXT
+  struct VdlFile *file = (struct VdlFile*)handle;
+  // XXX: the lookup should be a lookup in local scope, not
+  // only in this binary.
+  unsigned long v = vdl_file_symbol_lookup_local (file, symbol);
+  return (void*)v;
 }
 
 EXPORT int vdl_dlclose(void *handle)
@@ -75,5 +81,6 @@ EXPORT int vdl_dlclose(void *handle)
   struct VdlFile *file = (struct VdlFile*)handle;
   file->count--;
   vdl_gc ();
+  gdb_notify ();
   return 0;
 }

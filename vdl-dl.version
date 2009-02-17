@@ -2,4 +2,6 @@ VDL_DL {
 global:
 	vdl_dlopen;
 	vdl_dlclose;
+	vdl_dlsym;
+	vdl_dlerror;
 };
