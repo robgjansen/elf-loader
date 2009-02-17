@@ -4,10 +4,14 @@
 
 void vdl_file_list_free (struct VdlFileList *list)
 {
-  struct VdlFileList *cur;
-  for (cur = list; cur != 0; cur = cur->next)
+  struct VdlFileList *cur, *next;
+  cur = list;
+  next = 0;
+  while (cur != 0)
     {
+      next = cur->next;
       vdl_utils_delete (cur);
+      cur = next;
     }
 }
 struct VdlFileList *vdl_file_list_copy (struct VdlFileList *list)
@@ -52,10 +56,10 @@ vdl_file_list_prepend_one (struct VdlFileList *list,
 }
 struct VdlFileList *
 vdl_file_list_remove (struct VdlFileList *list, 
-						struct VdlFileList *item)
+		      struct VdlFileList *item)
 {
   struct VdlFileList *cur = list, *prev = 0;
-  while (cur->next != 0)
+  while (cur != 0)
     {
       struct VdlFileList *next = cur->next;
       if (cur == item)
