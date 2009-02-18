@@ -78,6 +78,31 @@ vdl_file_list_remove (struct VdlFileList *list,
     }
   return list;
 }
+struct VdlFileList *
+vdl_file_list_free_one (struct VdlFileList *list, 
+			struct VdlFile *item)
+{
+  struct VdlFileList *cur = list, *prev = 0;
+  while (cur != 0)
+    {
+      struct VdlFileList *next = cur->next;
+      if (cur->item == item)
+	{
+	  vdl_utils_delete (cur);
+	  if (prev == 0)
+	    {
+	      return next;
+	    }
+	  else
+	    {
+	      prev->next = next;
+	      return list;
+	    }
+	}
+      cur = next;
+    }
+  return list;
+}
 
 static struct VdlFileList *
 vdl_file_list_get_end (struct VdlFileList *start)
