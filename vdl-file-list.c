@@ -78,6 +78,7 @@ vdl_file_list_remove (struct VdlFileList *list,
     }
   return list;
 }
+
 static struct VdlFileList *
 vdl_file_list_get_end (struct VdlFileList *start)
 {
@@ -122,13 +123,22 @@ void vdl_file_list_unicize (struct VdlFileList *list)
   for (cur = list; cur != 0; cur = cur->next)
     {
       struct VdlFileList *tmp, *prev;
-      for (prev = cur, tmp = cur->next; tmp != 0; prev = tmp, tmp = tmp->next)
+      prev = cur;
+      tmp = cur->next;
+      while (tmp != 0)
 	{
-	  if (cur == tmp)
+	  if (tmp->item == cur->item)
 	    {
-	      // if we have a duplicate, we eliminate it from the list
-	      prev->next = tmp->next;
-	      vdl_utils_delete (cur);
+	      // skip this item.
+	      struct VdlFileList *next = tmp->next;
+	      vdl_utils_delete (tmp);
+	      prev->next = next;
+	      tmp = next;
+	    }
+	  else
+	    {
+	      prev = tmp;
+	      tmp = tmp->next;
 	    }
 	}
     }
