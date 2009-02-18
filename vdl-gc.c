@@ -9,6 +9,7 @@ vdl_file_remove (struct VdlFile *item)
 {
   VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
 
+  // first, remove them from the global link_map
   struct VdlFile *next = item->next;
   struct VdlFile *prev = item->prev;
   item->next = 0;
@@ -26,6 +27,12 @@ vdl_file_remove (struct VdlFile *item)
     {
       next->prev = prev;
     }
+
+  // then, remove them from the local scope map
+  vdl_file_list_free_one (item->local_scope, item);
+
+  // finally, remove them from the global scope map
+  vdl_file_list_free_one (item->context->global_scope, item);
 }
 #if 0
 static uint32_t 
