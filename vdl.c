@@ -88,7 +88,7 @@ vdl_context_delete (struct VdlContext *context)
     {
       vdl_utils_strfree (context->argv[i]);
     }
-  vdl_utils_free (context->argv, sizeof (char *)*context->argc);
+  vdl_utils_free (context->argv, sizeof (char *)*(context->argc+1));
   // delete envp
   char **cur;
   for (cur = context->envp, i = 0; *cur != 0; cur++, i++)
