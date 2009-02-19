@@ -37,6 +37,8 @@ void vdl_utils_free (void *buffer, size_t size)
   unsigned long *buf = (unsigned long*)buffer;
   VDL_LOG_ASSERT (buf[-2] == (unsigned long)(buf-2), "freeing invalid buffer");
   VDL_LOG_ASSERT (buf[-1] == size, "freeing invalid size");
+  buf[-2] = 0xdeadbeaf;
+  buf[-1] = 0xdeadbeaf;
   alloc_free (&g_vdl.alloc, (uint8_t *)(buf-2), size+2*sizeof(unsigned long));
 #else
   alloc_free (&g_vdl.alloc, (uint8_t *)buffer, size);
