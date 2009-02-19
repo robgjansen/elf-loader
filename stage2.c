@@ -253,7 +253,7 @@ stage2_initialize (struct Stage2Input input)
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
   VDL_LOG_ASSERT (vdl_file_map_deps (main_file), 
-	      "Unable to map dependencies of main file");
+		  "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
