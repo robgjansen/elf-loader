@@ -20,12 +20,27 @@ void vdl_utils_linkmap_print (void)
 void *vdl_utils_malloc (size_t size)
 {
   VDL_LOG_FUNCTION ("size=%d", size);
+#ifdef DEBUG_ENABLE
+  unsigned long *buffer = (unsigned long*)alloc_malloc (&g_vdl.alloc, 
+							size+2*sizeof(unsigned long));
+  buffer[0] = (unsigned long)buffer;
+  buffer[1] = size;
+  return (void*)(buffer+2);
+#else
   return (void*)alloc_malloc (&g_vdl.alloc, size);
+#endif
 }
 void vdl_utils_free (void *buffer, size_t size)
 {
   VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
+#ifdef DEBUG_ENABLE
+  unsigned long *buf = (unsigned long*)buffer;
+  VDL_LOG_ASSERT (buf[-2] == (unsigned long)(buf-2), "freeing invalid buffer");
+  VDL_LOG_ASSERT (buf[-1] == size, "freeing invalid size");
+  alloc_free (&g_vdl.alloc, (uint8_t *)(buf-2), size+2*sizeof(unsigned long));
+#else
   alloc_free (&g_vdl.alloc, (uint8_t *)buffer, size);
+#endif
 }
 int vdl_utils_strisequal (const char *a, const char *b)
 {
@@ -50,6 +65,10 @@ int vdl_utils_strlen (const char *str)
       len++;
     }
   return len;
+}
+void vdl_utils_strfree (char *str)
+{
+  vdl_utils_free (str, vdl_utils_strlen (str)+1);
 }
 char *vdl_utils_strdup (const char *str)
 {
@@ -192,7 +211,7 @@ void vdl_utils_str_list_free (struct VdlStringList *list)
   struct VdlStringList *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
-      vdl_utils_free (cur->str, vdl_utils_strlen (cur->str));
+      vdl_utils_strfree (cur->str);
       next = cur->next;
       vdl_utils_delete (cur);
     }

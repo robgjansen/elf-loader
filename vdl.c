@@ -86,14 +86,14 @@ vdl_context_delete (struct VdlContext *context)
   int i;
   for (i = 0; i < context->argc; i++)
     {
-      vdl_utils_free (context->argv[i], vdl_utils_strlen (context->argv[i])+1);
+      vdl_utils_strfree (context->argv[i]);
     }
   vdl_utils_free (context->argv, sizeof (char *)*context->argc);
   // delete envp
   char **cur;
   for (cur = context->envp, i = 0; *cur != 0; cur++, i++)
     {
-      vdl_utils_free (*cur, vdl_utils_strlen (*cur)+1);
+      vdl_utils_strfree (*cur);
     }
   vdl_utils_free (context->envp, sizeof(char *)*i);
   vdl_utils_delete (context);
@@ -169,9 +169,9 @@ vdl_file_delete (struct VdlFile *file)
   file->local_scope = 0;
   vdl_file_list_free (file->gc_symbols_resolved_in);
   file->gc_symbols_resolved_in = 0;
-  vdl_utils_free (file->name, vdl_utils_strlen (file->name)+1);
+  vdl_utils_strfree (file->name);
   file->name = 0;
-  vdl_utils_free (file->filename, vdl_utils_strlen (file->filename)+1);
+  vdl_utils_strfree (file->filename);
   file->filename = 0;
   file->context = 0;
   vdl_utils_delete (file);
@@ -253,7 +253,7 @@ char *vdl_search_filename (const char *name)
 	{
 	  return fullname;
 	}
-      vdl_utils_free (fullname, vdl_utils_strlen (fullname)+1);
+      vdl_utils_strfree (fullname);
     }
   if (vdl_utils_exists (name))
     {
@@ -526,7 +526,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       if (system_fstat (filename, &buf) == -1)
 	{
 	  VDL_LOG_ERROR ("Cannot stat %s\n", filename);
-	  vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
+	  vdl_utils_strfree (filename);
 	  goto error;
 	}
       // If you create a symlink to a binary and link to the
@@ -541,7 +541,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       if (dep != 0)
 	{
 	  deps = vdl_file_list_append_one (deps, dep);
-	  vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
+	  vdl_utils_strfree (filename);
 	  continue;
 	}
       // The file is really not yet mapped so, we have to map it
@@ -550,7 +550,7 @@ int vdl_file_map_deps (struct VdlFile *item)
       // add the new file to the list of dependencies
       deps = vdl_file_list_append_one (deps, dep);
 
-      vdl_utils_free (filename, vdl_utils_strlen (filename)+1);
+      vdl_utils_strfree (filename);
     }
   vdl_utils_str_list_free (dt_needed);
 
