@@ -29,10 +29,10 @@ vdl_file_remove (struct VdlFile *item)
     }
 
   // then, remove them from the local scope map
-  vdl_file_list_free_one (item->local_scope, item);
+  item->local_scope = vdl_file_list_free_one (item->local_scope, item);
 
   // finally, remove them from the global scope map
-  vdl_file_list_free_one (item->context->global_scope, item);
+  item->context->global_scope = vdl_file_list_free_one (item->context->global_scope, item);
 }
 #if 0
 static uint32_t 
