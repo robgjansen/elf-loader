@@ -19,8 +19,8 @@ int main (int argc, char *argv[])
 
   void *h = dlopen ("libh.so", RTLD_LAZY);
   printf ("dlopen libh.so completed\n");
-  void (*function_h_f) (void) = dlsym (h, "function_h_f");
-  function_h_f ();
+  void (*function_h_g) (void) = dlsym (h, "function_h_g");
+  function_h_g ();
 
   dlclose (g);
   printf ("dlclose libg.so completed\n");
