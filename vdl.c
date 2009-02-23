@@ -4,7 +4,6 @@
 #include "avprintf-cb.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
-#include "vdl-file-iter-rel.h"
 #include "vdl-file-list.h"
 #include "vdl-gc.h"
 #include "machine.h"
@@ -1155,36 +1154,6 @@ unsigned long vdl_file_get_entry_point (struct VdlFile *file)
   // so we are safe with this assumption.
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
   return header->e_entry + file->load_base;
-}
-
-void vdl_file_reloc (struct VdlFile *file)
-{
-  if (file->reloced)
-    {
-      return;
-    }
-  file->reloced = 1;
-
-  // relocate dependencies first:
-  struct VdlFileList *cur;
-  for (cur = file->deps; cur != 0; cur = cur->next)
-    {
-      vdl_file_reloc (cur->item);
-    }
-
-  vdl_file_iterate_rel (file, machine_perform_relocation);
-  if (g_vdl.bind_now)
-    {
-      // perform PLT relocs _now_
-      vdl_file_iterate_pltrel (file, machine_perform_relocation);
-    }
-  else
-    {
-      // setup lazy binding by setting the GOT entries 2 and 3.
-      // Entry 2 is set to a pointer to the associated VdlFile
-      // Entry 3 is set to the asm trampoline vdl_symbol_lookup_asm
-      // which calls vdl_symbol_lookup.
-    }
 }
 
 static unsigned long

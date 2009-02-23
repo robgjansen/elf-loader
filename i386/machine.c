@@ -2,6 +2,7 @@
 #include "vdl.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
+#include "vdl-file-reloc.h"
 #include "config.h"
 #include <sys/mman.h>
 
@@ -21,12 +22,12 @@ static int do_lookup_and_log (struct VdlFile *file,
   VDL_LOG_SYMBOL_OK (symbol_name, file, match);
   return 1;
 }
-
-void machine_perform_relocation (struct VdlFile *file,
-				 const ElfW(Rel) *rel,
-				 const ElfW(Sym) *sym,
-				 const ElfW(Vernaux) *ver,
-				 const char *symbol_name)
+unsigned long
+machine_perform_relocation (struct VdlFile *file,
+			    const ElfW(Rel) *rel,
+			    const ElfW(Sym) *sym,
+			    const ElfW(Vernaux) *ver,
+			    const char *symbol_name)
 {
   VDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
 		    file->filename, (symbol_name != 0)?symbol_name:"", 
@@ -42,7 +43,7 @@ void machine_perform_relocation (struct VdlFile *file,
       struct SymbolMatch match;
       if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
 	{
-	  return;
+	  return 0;
 	}
       *reloc_addr = match.file->load_base + match.symbol->st_value;
     }
@@ -58,7 +59,7 @@ void machine_perform_relocation (struct VdlFile *file,
       // in the main binary.
       if (!do_lookup_and_log (file, symbol_name, ver, LOOKUP_NO_EXEC, &match))
 	{
-	  return;
+	  return 0;
 	}
       VDL_LOG_ASSERT (match.symbol->st_size == sym->st_size,
 		  "Symbols don't have the same size: likely a recipe for disaster.");
@@ -74,7 +75,7 @@ void machine_perform_relocation (struct VdlFile *file,
 	  struct SymbolMatch match;
 	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
 	    {
-	      return;
+	      return 0;
 	    }
 	  VDL_LOG_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
@@ -96,7 +97,7 @@ void machine_perform_relocation (struct VdlFile *file,
 	  struct SymbolMatch match;
 	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
 	    {
-	      return;
+	      return 0;
 	    }
 	  VDL_LOG_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
@@ -116,7 +117,7 @@ void machine_perform_relocation (struct VdlFile *file,
 	  struct SymbolMatch match;
 	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
 	    {
-	      return;
+	      return 0;
 	    }
 	  VDL_LOG_ASSERT (match.file->has_tls,
 		      "Module which contains target symbol does not have a TLS block ??");
@@ -131,7 +132,22 @@ void machine_perform_relocation (struct VdlFile *file,
   else
     {
       VDL_LOG_RELOC (rel);
+      return 0;
     }
+  return *reloc_addr;
+}
+extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
+void
+machine_lazy_setup (struct VdlFile *file)
+{
+  VDL_LOG_FUNCTION ("file=%s", file->name);
+  // setup lazy binding by setting the GOT entries 2 and 3
+  // as specified by the ELF i386 ABI.
+  // Entry 2 is set to a pointer to the associated VdlFile
+  // Entry 3 is set to the asm trampoline machine_resolve_trampoline
+  unsigned long *got = (unsigned long *) vdl_file_get_dynamic_p (file, DT_PLTGOT);
+  got[1] = (unsigned long)file;
+  got[2] = (unsigned long) machine_resolve_trampoline;  
 }
 
 void machine_insert_trampoline (unsigned long from, unsigned long to)

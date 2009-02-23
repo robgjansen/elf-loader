@@ -302,7 +302,6 @@ stage2_initialize (struct Stage2Input input)
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
-  g_vdl.bind_now = 1;
   {
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
