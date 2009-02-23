@@ -6,7 +6,7 @@
  * libdl.so. Yes, we could do the same thing directly in our
  * ldso but doing this would require that we build the ldso
  * version definition file from a merge of both /lib/ld-linux.so.2 
- * and /lib/libdl.so.2 which did more complicated than writing
+ * and /lib/libdl.so.2 which is more complicated than writing
  * these trivial wrappers.
  */
 
