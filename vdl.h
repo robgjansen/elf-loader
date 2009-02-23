@@ -218,7 +218,6 @@ struct VdlFileList *vdl_file_gather_all_deps_breadth_first (struct VdlFile *file
 void vdl_file_call_init (struct VdlFile *file);
 void vdl_file_list_call_fini (struct VdlFileList *list);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
-void vdl_file_reloc (struct VdlFile *file);
 
 struct SymbolMatch
 {

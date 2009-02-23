@@ -3,6 +3,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-file-list.h"
+#include "vdl-file-reloc.h"
 #include "glibc.h"
 #include "gdb.h"
 #include "machine.h"
@@ -306,7 +307,7 @@ stage2_initialize (struct Stage2Input input)
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
-	vdl_file_reloc (cur);
+	vdl_file_reloc (cur, g_vdl.bind_now);
       }
   }
 

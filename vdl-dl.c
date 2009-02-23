@@ -6,6 +6,7 @@
 #include "glibc.h"
 #include "vdl-dl.h"
 #include "vdl-gc.h"
+#include "vdl-file-reloc.h"
 #include "export.h"
 
 
@@ -47,7 +48,7 @@ EXPORT void *vdl_dlopen(const char *filename, int flag)
 
   vdl_file_tls (mapped_file);
 
-  vdl_file_reloc (mapped_file);
+  vdl_file_reloc (mapped_file, g_vdl.bind_now || flag & RTLD_NOW);
 
   gdb_notify ();
 

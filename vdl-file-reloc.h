@@ -5,7 +5,7 @@
 #include <elf.h>
 #include <link.h>
 
-void vdl_file_reloc (struct VdlFile *file);
+void vdl_file_reloc (struct VdlFile *file, int now);
 // offset is in bytes, return value is reloced symbol
 unsigned long vdl_file_reloc_one_plt (struct VdlFile *file, 
 				      unsigned long offset);

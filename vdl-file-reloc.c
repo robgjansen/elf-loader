@@ -175,7 +175,7 @@ vdl_file_reloc_got (struct VdlFile *file)
     }
 }
 
-void vdl_file_reloc (struct VdlFile *file)
+void vdl_file_reloc (struct VdlFile *file, int now)
 {
   if (file->reloced)
     {
@@ -187,11 +187,11 @@ void vdl_file_reloc (struct VdlFile *file)
   struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
     {
-      vdl_file_reloc (cur->item);
+      vdl_file_reloc (cur->item, now);
     }
 
   vdl_file_reloc_got (file);
-  if (g_vdl.bind_now)
+  if (now)
     {
       // perform full PLT relocs _now_
       vdl_file_reloc_plt (file);
