@@ -67,6 +67,7 @@ interpreter_new (unsigned long load_base, struct VdlContext *context)
       goto error;
     }
 
+  file->count++;
   return file;
  error:
   return 0;
@@ -247,7 +248,6 @@ stage2_initialize (struct Stage2Input input)
   struct VdlFile *interpreter;
   interpreter = interpreter_new (input.interpreter_load_base,
 				 context);
-  interpreter->count++;
   struct VdlFileList *global_scope = 0;
 
   // we add the main binary to the global scope
