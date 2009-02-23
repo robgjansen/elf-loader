@@ -56,6 +56,8 @@ EXPORT void *vdl_dlopen(const char *filename, int flag)
 
   vdl_file_call_init (mapped_file);
 
+  mapped_file->count++;
+
   return mapped_file;
  error:
   return 0;

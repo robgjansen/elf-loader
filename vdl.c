@@ -128,7 +128,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->dynamic = info->dynamic + load_base;
   file->next = 0;
   file->prev = 0;
-  file->count = 1;
+  file->count = 0;
   file->context = context;
   file->st_dev = 0;
   file->st_ino = 0;
@@ -459,8 +459,6 @@ find_by_name (struct VdlContext *context,
     {
       if (vdl_utils_strisequal (cur->name, name))
 	{
-	  VDL_LOG_ASSERT (cur->count > 0, "refcount invariant broken.");
-	  cur->count++;
 	  return cur;
 	}
     }
@@ -477,8 +475,6 @@ find_by_dev_ino (struct VdlContext *context,
 	  cur->st_dev == dev &&
 	  cur->st_ino == ino)
 	{
-	  VDL_LOG_ASSERT (cur->count > 0, "refcount invariant broken.");
-	  cur->count++;
 	  return cur;
 	}
     }

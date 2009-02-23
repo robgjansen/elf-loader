@@ -92,6 +92,16 @@ static struct VdlFileList *vdl_gc_get_white (void)
 	      grey = vdl_file_list_prepend_one (grey, cur->item);
 	    }
 	}
+      for (cur = first->item->deps; cur != 0; cur = cur->next)
+	{
+	  if (cur->item->gc_color == VDL_GC_WHITE)
+	    {
+	      // move referenced objects which are white to the grey list.
+	      // by inserting them at the front of the list.
+	      cur->item->gc_color = VDL_GC_GREY;
+	      grey = vdl_file_list_prepend_one (grey, cur->item);
+	    }
+	}
       // finally, mark our grey object as black.
       first->item->gc_color = VDL_GC_BLACK;
       vdl_utils_delete (first);
@@ -123,15 +133,6 @@ vdl_gc_get_objects_to_unload (void)
       struct VdlFileList *cur;
       for (cur = free; cur != 0; cur = cur->next)
 	{
-	  // we know that this file will be unloaded so,
-	  // update the count of its dependencies to see if 
-	  // they will have to be unloaded too.
-	  struct VdlFileList *dep;
-	  for (dep = cur->item->deps; dep != 0; dep = dep->next)
-	    {
-	      VDL_LOG_ASSERT (dep->item->count > 0, "invariant broken");
-	      dep->item->count--;
-	    }
 	  // now, we remove that file from the global list to ensure
 	  // that the next call to vdl_gc_get_white won't return it again
 	  vdl_file_remove (cur->item);

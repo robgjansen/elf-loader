@@ -99,6 +99,7 @@ do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char
 	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
 	  goto error;
 	}
+      ld_preload_file->count++;
       // add it to the global scope
       scope = vdl_file_list_append_one (scope, ld_preload_file);
     }
@@ -234,6 +235,7 @@ stage2_initialize (struct Stage2Input input)
 				context);
       output.n_argv_skipped = 0;
     }
+  main_file->count++;
   main_file->is_executable = 1;
   gdb_initialize (main_file);
 
@@ -245,7 +247,7 @@ stage2_initialize (struct Stage2Input input)
   struct VdlFile *interpreter;
   interpreter = interpreter_new (input.interpreter_load_base,
 				 context);
-
+  interpreter->count++;
   struct VdlFileList *global_scope = 0;
 
   // we add the main binary to the global scope
