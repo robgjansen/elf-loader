@@ -4,6 +4,7 @@
 #include "vdl.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
+#include "vdl-dl.h"
 #include "config.h"
 #include <elf.h>
 #include <dlfcn.h>
@@ -157,5 +158,20 @@ void glibc_patch (struct VdlFile *file)
   if (addr != 0)
     {
       machine_insert_trampoline (addr, (unsigned long) &vdl_dl_addr);
+    }
+  addr = vdl_file_symbol_lookup_local (file, "__libc_dlopen_mode");
+  if (addr != 0)
+    {
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen_private);
+    }
+  addr = vdl_file_symbol_lookup_local (file, "__libc_dlclose");
+  if (addr != 0)
+    {
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose_private);
+    }
+  addr = vdl_file_symbol_lookup_local (file, "__libc_dlsym");
+  if (addr != 0)
+    {
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlsym_private);
     }
 }
