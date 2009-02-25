@@ -15,6 +15,7 @@ EXPORT int vdl_dlclose_public (void *handle);
 // to relocate its own JMP_SLOT entries which would be a
 // bit painful to do.
 void *vdl_dlopen_private (const char *filename, int flag);
+void *vdl_dlsym_private (void *handle, const char *symbol);
 int vdl_dlclose_private (void *handle);
 
 #endif /* VDL_DL_H */

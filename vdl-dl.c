@@ -63,6 +63,16 @@ void *vdl_dlopen_private (const char *filename, int flag)
   return 0;
 }
 
+void *vdl_dlsym_private (void *handle, const char *symbol)
+{
+  // XXX handle RTLD_DEFAULT and RTLD_NEXT
+  struct VdlFile *file = (struct VdlFile*)handle;
+  // XXX: the lookup should be a lookup in local scope, not
+  // only in this binary.
+  unsigned long v = vdl_file_symbol_lookup_local (file, symbol);
+  return (void*)v;
+}
+
 int vdl_dlclose_private (void *handle)
 {
   struct VdlFile *file = (struct VdlFile*)handle;
@@ -77,20 +87,15 @@ EXPORT void *vdl_dlopen_public (const char *filename, int flag)
   return vdl_dlopen_private (filename, flag);
 }
 
-EXPORT char *vdl_dlerror(void)
+EXPORT char *vdl_dlerror (void)
 {
   //XXX
   return "";
 }
 
-EXPORT void *vdl_dlsym(void *handle, const char *symbol)
+EXPORT void *vdl_dlsym_public (void *handle, const char *symbol)
 {
-  // XXX handle RTLD_DEFAULT and RTLD_NEXT
-  struct VdlFile *file = (struct VdlFile*)handle;
-  // XXX: the lookup should be a lookup in local scope, not
-  // only in this binary.
-  unsigned long v = vdl_file_symbol_lookup_local (file, symbol);
-  return (void*)v;
+  return vdl_dlsym_private (handle, symbol);
 }
 
 EXPORT int vdl_dlclose_public (void *handle)
