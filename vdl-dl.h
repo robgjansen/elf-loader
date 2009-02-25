@@ -1,12 +1,20 @@
 #ifndef VDL_DL_H
 #define VDL_DL_H
 
-void *vdl_dlopen(const char *filename, int flag);
+#include "export.h"
 
-char *vdl_dlerror(void);
+// the 'public' version is called from libvdl.so
+EXPORT void *vdl_dlopen_public (const char *filename, int flag);
+EXPORT char *vdl_dlerror_public (void);
+EXPORT void *vdl_dlsym_public (void *handle, const char *symbol);
+EXPORT int vdl_dlclose_public (void *handle);
 
-void *vdl_dlsym(void *handle, const char *symbol);
-
-int vdl_dlclose(void *handle);
+// the 'private' version is called from ldso itself
+// to avoid the pain of calling these functions through
+// a PLT indirection which would require ldso to be able
+// to relocate its own JMP_SLOT entries which would be a
+// bit painful to do.
+void *vdl_dlopen_private (const char *filename, int flag);
+int vdl_dlclose_private (void *handle);
 
 #endif /* VDL_DL_H */

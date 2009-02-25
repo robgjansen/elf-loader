@@ -12,20 +12,20 @@
 
 EXPORT void *dlopen(const char *filename, int flag)
 {
-  return vdl_dlopen (filename, flag);
+  return vdl_dlopen_public (filename, flag);
 }
 
 EXPORT char *dlerror(void)
 {
-  return vdl_dlerror ();
+  return vdl_dlerror_public ();
 }
 
 EXPORT void *dlsym(void *handle, const char *symbol)
 {
-  return vdl_dlsym (handle, symbol);
+  return vdl_dlsym_public (handle, symbol);
 }
 
 EXPORT int dlclose(void *handle)
 {
-  return vdl_dlclose (handle);
+  return vdl_dlclose_public (handle);
 }

@@ -10,7 +10,7 @@
 #include "export.h"
 
 
-EXPORT void *vdl_dlopen(const char *filename, int flag)
+void *vdl_dlopen_private (const char *filename, int flag)
 {
   char *full_filename = vdl_search_filename (filename);
   if (full_filename == 0)
@@ -63,6 +63,20 @@ EXPORT void *vdl_dlopen(const char *filename, int flag)
   return 0;
 }
 
+int vdl_dlclose_private (void *handle)
+{
+  struct VdlFile *file = (struct VdlFile*)handle;
+  file->count--;
+  vdl_gc ();
+  gdb_notify ();
+  return 0;
+}
+
+EXPORT void *vdl_dlopen_public (const char *filename, int flag)
+{
+  return vdl_dlopen_private (filename, flag);
+}
+
 EXPORT char *vdl_dlerror(void)
 {
   //XXX
@@ -79,11 +93,7 @@ EXPORT void *vdl_dlsym(void *handle, const char *symbol)
   return (void*)v;
 }
 
-EXPORT int vdl_dlclose(void *handle)
+EXPORT int vdl_dlclose_public (void *handle)
 {
-  struct VdlFile *file = (struct VdlFile*)handle;
-  file->count--;
-  vdl_gc ();
-  gdb_notify ();
-  return 0;
+  return vdl_dlclose_private (handle);
 }

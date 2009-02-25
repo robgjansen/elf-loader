@@ -1,7 +1,7 @@
 VDL_DL {
 global:
-	vdl_dlopen;
-	vdl_dlclose;
-	vdl_dlsym;
-	vdl_dlerror;
+	vdl_dlopen_public;
+	vdl_dlclose_public;
+	vdl_dlsym_public;
+	vdl_dlerror_public;
 };
