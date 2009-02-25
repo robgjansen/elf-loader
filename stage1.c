@@ -88,8 +88,8 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 {
   ElfW(Dyn) *tmp = dynamic;
   ElfW(Rel) *dt_rel = 0;
-  uint32_t dt_relsz = 0;
-  uint32_t dt_relent = 0;
+  unsigned long dt_relsz = 0;
+  unsigned long dt_relent = 0;
   // search DT_REL, DT_RELSZ, DT_RELENT
   while (tmp->d_tag != DT_NULL && (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0))
     {
@@ -125,6 +125,9 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 	  *reloc_addr += (ElfW(Addr))load_base;
 	}
     }
+  // Note that, technically, we could also relocate DT_JMPREL entries but
+  // this would be fairly complex so, it's easier to just make sure that
+  // our generated ldso binary does not contain any.
 }
 
 void stage1_finalize (void)
