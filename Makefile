@@ -9,9 +9,9 @@ LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
 
 all: ldso libvdl.so elfedit
-	$(MAKE) -C test
 
 test: FORCE
+	$(MAKE) -C test
 	$(MAKE) -C test run
 FORCE:
 
