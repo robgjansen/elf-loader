@@ -22,7 +22,7 @@ class DebugData:
         self.__lines = file.readlines ()
         self.__current = 0
         self.__re1 = re.compile ('<([^>]+)><([^>]+)>:[^A]*Abbrev Number:.*\d+.*\((\w+)\)')
-        self.__re2 = re.compile ('<[^>]+>[^D]*(DW_AT_\w+)([^:]*:)+ <?([^ \t><\)]+)[ >\t\)]*$')
+        self.__re2 = re.compile ('<[^>]+>[^D]*(DW_AT_\w+)([^:]*:)+ <?0?x?([^ \t><\)]+)[ >\t\)]*$')
         return
     def rewind (self):
         self.__current = 0
