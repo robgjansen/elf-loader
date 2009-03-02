@@ -30,6 +30,7 @@ prepare_stage2 (unsigned long entry_point_struct)
   stage2_input.program_envp = (const char **)tmp;
   while (READ_POINTER (tmp) != 0) {} // skip envp
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
+  stage2_input.sysinfo = 0;
   stage2_input.program_phdr = 0;
   stage2_input.program_phnum = 0;
   auxvt_tmp = auxvt;
