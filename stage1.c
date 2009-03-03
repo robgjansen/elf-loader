@@ -51,8 +51,7 @@ prepare_stage2 (unsigned long entry_point_struct)
       auxvt_tmp++;
     }
   if (stage2_input.program_phdr == 0 ||
-      stage2_input.program_phnum == 0 ||
-      stage2_input.sysinfo == 0)
+      stage2_input.program_phnum == 0)
     {
       system_exit (-3);
     }
