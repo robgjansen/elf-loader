@@ -28,9 +28,9 @@ machine_resolve_trampoline:
 	# because addl will clobber the z flag.
 	jz fail
 	# cleanup all the stack.
-	addl $28,%esp
+	addl $24,%esp
 	# jump on return value from vdl_file_reloc_one_plt
-	jmp *-4(%esp)
+	ret
 	# cleanup all the stack
 fail:	addl $28,%esp
 	# return to the caller
