@@ -2,6 +2,7 @@
 #include "syscall.h"
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <sys/param.h> // for EXEC_PAGESIZE
 
 /* The magic checks below for -256 are probably misterious to non-kernel programmers:
  * they come from the fact that we call the raw system calls, not the libc wrappers
@@ -13,16 +14,21 @@
 
 void *system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
 {
-  unsigned long status = SYSCALL6(mmap2, start, length, prot, flags, fd, offset / 4096);
+  int status = SYSCALL6(mmap2, start, length, prot, flags, fd, offset / 4096);
   if (status < 0 && status > -256)
     {
       return MAP_FAILED;
     }
   return (void*)status;
 }
-void system_munmap (uint8_t *start, size_t size)
+int system_munmap (uint8_t *start, size_t size)
 {
-  SYSCALL2 (munmap, start, size);
+  int status = SYSCALL2 (munmap, start, size);
+  if (status < 0 && status > -256)
+    {
+      return -1;
+    }
+  return status;
 }
 int system_mprotect (const void *addr, size_t len, int prot)
 {
@@ -89,4 +95,11 @@ int system_set_thread_area (struct user_desc *u_info)
       return -1;
     }
   return 0;
+}
+
+int system_getpagesize (void)
+{
+  // Theoretically, this should be a dynamically-calculated value but, really, I don't
+  // know how to query the kernel for this so, instead, we use the kernel headers.
+  return EXEC_PAGESIZE;
 }
