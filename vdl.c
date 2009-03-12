@@ -332,10 +332,11 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   end = vdl_utils_max (end, info.zero_start + info.zero_size);
   map_size = end-info.ro_start;
 
+  // If this is an executable, we try to map it exactly at its base address
+  int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
   // We perform a single initial mmap to reserve all the virtual space we need
   // and, then, we map again portions of the space to make sure we get
   // the mappings we need
-  int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
   ro_start = (unsigned long) system_mmap ((void*)info.ro_start,
 					  map_size,
 					  PROT_READ, 
@@ -653,11 +654,6 @@ int vdl_get_file_info (uint32_t phnum,
   unsigned long rw_file_offset = vdl_utils_align_down (rw->p_offset, rw->p_align);
   unsigned long memset_zero_start = rw->p_vaddr+rw->p_filesz;
   unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
-  if (ro_start + ro_size != rw_start)
-    {
-      VDL_LOG_ERROR ("ro and rw maps must be adjacent\n", 1);
-      goto error;
-    }
 
   info->dynamic = dynamic->p_vaddr;
   info->ro_start = ro_start;
