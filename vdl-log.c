@@ -14,13 +14,14 @@ static void avprintf_callback (char c, void *context)
 void vdl_log_set (const char *debug_str)
 {
   VDL_LOG_FUNCTION ("debug=%s", debug_str);
+  g_vdl.logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
   if (debug_str == 0)
     {
       return;
     }
   struct VdlStringList *list = vdl_utils_strsplit (debug_str, ':');
   struct VdlStringList *cur;
-  uint32_t logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
+  uint32_t logging = 0;
   for (cur = list; cur != 0; cur = cur->next)
     {
       if (vdl_utils_strisequal (cur->str, "debug"))
