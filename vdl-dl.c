@@ -82,15 +82,20 @@ int vdl_dlclose_private (void *handle)
   return 0;
 }
 
+char *vdl_dlerror_private (void)
+{
+  // indicates that no error happened
+  return 0;
+}
+
 EXPORT void *vdl_dlopen_public (const char *filename, int flag)
 {
   return vdl_dlopen_private (filename, flag);
 }
 
-EXPORT char *vdl_dlerror (void)
+EXPORT char *vdl_dlerror_public (void)
 {
-  //XXX
-  return "";
+  return vdl_dlerror_private ();
 }
 
 EXPORT void *vdl_dlsym_public (void *handle, const char *symbol)
