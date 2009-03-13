@@ -39,21 +39,36 @@ enum VdlLookupType
   LOOKUP_LOCAL_ONLY,
 };
 
+// the file_ prefix indicates that this variable identifies
+// a file offset from the start of the file.
+// the mem_ prefix indicates that this variable indentifies
+// a pointer in memory
+// the _align postfix indicates that this variable identifies
+// a variable aligned to the underlying aligning constraint.
+struct VdlFileMap
+{
+  unsigned long file_start_align;
+  unsigned long file_size_align;
+  // mem_start_align is the memory equivalent of file_start_align
+  unsigned long mem_start_align;
+  // mem_size_align is the memory equivalent of file_size_align
+  unsigned long mem_size_align;
+  // mem_zero_start locates the start of a zero-memset area.
+  unsigned long mem_zero_start;
+  unsigned long mem_zero_size;
+  // mem_anon_start_align locates the start of a set of 
+  // zero-initialized anon pages.
+  unsigned long mem_anon_start_align;
+  unsigned long mem_anon_size_align;
+};
+
 struct VdlFileInfo
 {
   // vaddr of DYNAMIC program header
   unsigned long dynamic;
 
-  unsigned long ro_start;
-  unsigned long ro_size;
-  unsigned long rw_start;
-  unsigned long rw_size;
-  unsigned long zero_start;
-  unsigned long zero_size;
-  unsigned long ro_file_offset;
-  unsigned long rw_file_offset;
-  unsigned long memset_zero_start;
-  unsigned long memset_zero_size;
+  struct VdlFileMap ro_map;
+  struct VdlFileMap rw_map;
 };
 
 enum {
@@ -61,6 +76,7 @@ enum {
   VDL_GC_GREY = 1,
   VDL_GC_WHITE = 2
 };
+
 
 struct VdlFile
 {
@@ -83,12 +99,8 @@ struct VdlFile
   char *name;
   dev_t st_dev;
   ino_t st_ino;
-  unsigned long ro_start;
-  unsigned long ro_size;
-  unsigned long rw_start;
-  unsigned long rw_size;
-  unsigned long zero_start;
-  unsigned long zero_size;
+  struct VdlFileMap ro_map;
+  struct VdlFileMap rw_map;
   // indicates if the deps field has been initialized correctly
   uint32_t deps_initialized : 1;
   // indicates if the has_tls field has been initialized correctly

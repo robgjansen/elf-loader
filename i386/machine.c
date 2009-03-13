@@ -146,6 +146,10 @@ machine_lazy_setup (struct VdlFile *file)
   // Entry 2 is set to a pointer to the associated VdlFile
   // Entry 3 is set to the asm trampoline machine_resolve_trampoline
   unsigned long *got = (unsigned long *) vdl_file_get_dynamic_p (file, DT_PLTGOT);
+  if (got == 0)
+    {
+      return;
+    }
   got[1] = (unsigned long)file;
   got[2] = (unsigned long) machine_resolve_trampoline;  
 }

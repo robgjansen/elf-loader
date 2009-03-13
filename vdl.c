@@ -115,11 +115,20 @@ vdl_file_append (struct VdlFile *item)
   item->prev = cur;
   item->next = 0;
 }
+static struct VdlFileMap
+file_map_add_load_base (struct VdlFileMap map, unsigned long load_base)
+{
+  struct VdlFileMap result = map;
+  result.mem_start_align += load_base;
+  result.mem_zero_start += load_base;
+  result.mem_anon_start_align += load_base;
+  return result;
+}
 struct VdlFile *vdl_file_new (unsigned long load_base,
-				 const struct VdlFileInfo *info,
-				 const char *filename, 
-				 const char *name,
-				 struct VdlContext *context)
+			      const struct VdlFileInfo *info,
+			      const char *filename, 
+			      const char *name,
+			      struct VdlContext *context)
 {
   struct VdlFile *file = vdl_utils_new (struct VdlFile);
 
@@ -132,12 +141,8 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->context = context;
   file->st_dev = 0;
   file->st_ino = 0;
-  file->ro_start = load_base + info->ro_start;
-  file->ro_size = info->ro_size;
-  file->rw_start = load_base + info->rw_start;
-  file->rw_size = info->rw_size;
-  file->zero_start = load_base + info->zero_start;
-  file->zero_size = info->zero_size;
+  file->ro_map = file_map_add_load_base (info->ro_map, load_base);
+  file->rw_map = file_map_add_load_base (info->rw_map, load_base);
   file->deps_initialized = 0;
   file->tls_initialized = 0;
   file->init_called = 0;
@@ -245,20 +250,84 @@ char *vdl_search_filename (const char *name)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
   struct VdlStringList *cur;
-  for (cur = g_vdl.search_dirs; cur != 0; cur = cur->next)
+  if (name[0] != '/')
     {
-      char *fullname = vdl_utils_strconcat (cur->str, "/", name, 0);
-      if (vdl_utils_exists (fullname))
+      // if the filename we are looking for does not start with a '/',
+      // it is a relative filename so, we can try to locate it with the
+      // search dirs.
+      for (cur = g_vdl.search_dirs; cur != 0; cur = cur->next)
 	{
-	  return fullname;
+	  char *fullname = vdl_utils_strconcat (cur->str, "/", name, 0);
+	  if (vdl_utils_exists (fullname))
+	    {
+	      return fullname;
+	    }
+	  vdl_utils_strfree (fullname);
 	}
-      vdl_utils_strfree (fullname);
     }
   if (vdl_utils_exists (name))
     {
       return vdl_utils_strdup (name);
     }
   return 0;
+}
+static void
+file_map_do (struct VdlFileMap map,
+	     int fd, int prot,
+	     unsigned long load_base)
+{
+  VDL_LOG_FUNCTION ("fd=0x%x, prot=0x%x, load_base=0x%lx", fd, prot, load_base);
+  int int_result;
+  unsigned long address;
+  // unmap the area
+  int_result = system_munmap ((void*)(load_base + map.mem_start_align),
+			      map.mem_size_align);
+  VDL_LOG_ASSERT (int_result == 0, "munmap can't possibly fail here");
+  // Now, map again the area at the right location.
+  address = (unsigned long) system_mmap ((void*)load_base + map.mem_start_align,
+					 map.mem_size_align,
+					 prot,
+					 MAP_PRIVATE | MAP_FIXED,
+					 fd, map.file_start_align);
+  VDL_LOG_ASSERT (address == load_base + map.mem_start_align, "Unable to perform remapping");
+  if (map.mem_zero_size != 0)
+    {
+      // make sure that the last partly zero page is PROT_WRITE
+      if (!(prot & PROT_WRITE))
+	{
+	  int_result = system_mprotect ((void *)vdl_utils_align_down (load_base + map.mem_zero_start,
+								      system_getpagesize ()),
+					system_getpagesize (),
+					prot | PROT_WRITE);
+	  VDL_LOG_ASSERT (int_result == 0, "Unable to change protection to zeroify last page");
+	}
+      // zero the end of map
+      vdl_utils_memset ((void*)(load_base + map.mem_zero_start), 0, map.mem_zero_size);
+      // now, restore the previous protection if needed
+      if (!(prot & PROT_WRITE))
+	{
+	  int_result = system_mprotect ((void*)vdl_utils_align_down (load_base + map.mem_zero_start,
+								     system_getpagesize ()),
+					system_getpagesize (),
+					prot);
+	  VDL_LOG_ASSERT (int_result == 0, "Unable to restore protection from last page of mapping");
+	}
+    }
+
+  if (map.mem_anon_size_align > 0)
+    {
+      // now, unmap the extended file mapping for the zero pages.
+      int_result = system_munmap ((void*)(load_base + map.mem_anon_start_align),
+				  map.mem_anon_size_align);
+      VDL_LOG_ASSERT (int_result == 0, "again, munmap can't possibly fail here");
+      // then, map zero pages.
+      address = (unsigned long) system_mmap ((void*)load_base + map.mem_anon_start_align,
+					     map.mem_anon_size_align, 
+					     prot,
+					     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+					     -1, 0);
+      VDL_LOG_ASSERT (address != -1, "Unable to map zero pages\n");
+    }
 }
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				     const char *filename, 
@@ -268,11 +337,9 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   ElfW(Ehdr) header;
   ElfW(Phdr) *phdr = 0;
   size_t bytes_read;
+  unsigned long mapping_start = 0;
+  unsigned long mapping_size = 0;
   int fd = -1;
-  unsigned long ro_start = 0;
-  unsigned long rw_start = 0;
-  unsigned long zero_start = 0;
-  unsigned long map_size = 0;
   struct VdlFileInfo info;
 
   fd = system_open_ro (filename);
@@ -319,81 +386,53 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
-  if (header.e_phoff <info.ro_file_offset || 
-      header.e_phoff + header.e_phnum * header.e_phentsize > info.ro_file_offset + info.ro_size)
+  if (header.e_phoff <info.ro_map.file_start_align || 
+      header.e_phoff + header.e_phnum * header.e_phentsize > 
+      info.ro_map.file_start_align + info.ro_map.file_size_align)
     {
       VDL_LOG_ERROR ("program header table not included in ro map in %s\n", filename);
       goto error;
     }
 
   // calculate the size of the total mapping required
-  unsigned long end = info.ro_start + info.ro_size;
-  end = vdl_utils_max (end, info.rw_start + info.rw_size);
-  end = vdl_utils_max (end, info.zero_start + info.zero_size);
-  map_size = end-info.ro_start;
+  {
+    unsigned long end = info.ro_map.mem_start_align + info.ro_map.mem_size_align;
+    end = vdl_utils_max (end, info.rw_map.mem_start_align + info.rw_map.mem_size_align);
+    mapping_size = end - info.ro_map.mem_start_align;
+  }
 
   // If this is an executable, we try to map it exactly at its base address
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
   // We perform a single initial mmap to reserve all the virtual space we need
   // and, then, we map again portions of the space to make sure we get
   // the mappings we need
-  ro_start = (unsigned long) system_mmap ((void*)info.ro_start,
-					  map_size,
-					  PROT_READ, 
-					  MAP_PRIVATE | fixed, 
-					  fd, info.ro_file_offset);
-  if (ro_start == -1)
+  mapping_start = (unsigned long) system_mmap ((void*)info.ro_map.mem_start_align,
+					       mapping_size,
+					       PROT_NONE,
+					       MAP_PRIVATE | fixed,
+					       fd, info.ro_map.file_start_align);
+  if (mapping_start == -1)
     {
-      VDL_LOG_ERROR ("Unable to perform mapping for %s\n", filename);
+      VDL_LOG_ERROR ("Unable to allocate complete mapping for %s\n", filename);
       goto error;
     }
+  VDL_LOG_ASSERT (!fixed || (fixed && mapping_start == info.ro_map.mem_start_align),
+		  "We need a fixed address and we did not get it but this should have failed mmap");
   // calculate the offset between the start address we asked for and the one we got
-  unsigned long load_base = ro_start - info.ro_start;
-  if (fixed && load_base != 0)
-    {
-      VDL_LOG_ERROR ("We need a fixed address and we did not get it in %s\n", filename);
-      goto error;
-    }
-  // Now, unmap the rw area
-  system_munmap ((void*)(load_base + info.rw_start),
-		 info.rw_size);
-  // Now, map again the rw area at the right location.
-  rw_start = (unsigned long) system_mmap ((void*)load_base + info.rw_start,
-					  info.rw_size,
-					  PROT_READ | PROT_WRITE, 
-					  MAP_PRIVATE | MAP_FIXED, 
-					  fd, info.rw_file_offset);
-  if (rw_start == -1)
-    {
-      VDL_LOG_ERROR ("Unable to perform rw mapping for %s\n", filename);
-      goto error;
-    }
+  unsigned long load_base = mapping_start - info.ro_map.mem_start_align;
 
-  // zero the end of rw map
-  vdl_utils_memset ((void*)(load_base + info.memset_zero_start), 0, info.memset_zero_size);
+  // remap the portions we want.
+  file_map_do (info.ro_map, fd, PROT_READ, load_base);
+  file_map_do (info.rw_map, fd, PROT_READ | PROT_WRITE, load_base);
 
-  // first, unmap the extended file mapping for the zero pages.
-  system_munmap ((void*)(load_base + info.zero_start),
-		 info.zero_size);
-  // then, map zero pages.
-  zero_start = (unsigned long) system_mmap ((void*)load_base + info.zero_start,
-					    info.zero_size, 
-					    PROT_READ | PROT_WRITE, 
-					    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-					    -1, 0);
-  VDL_LOG_DEBUG ("maps: ro=0x%x:0x%x, rw=0x%x:0x%x, zero=0x%x:0x%x, memset_zero_start=0x%x:0x%x, "
-		 "ro_offset=0x%x, rw_offset=0x%x\n", 
-		 load_base + info.ro_start, info.ro_size,
-		 load_base + info.rw_start, info.rw_size,
-		 load_base + info.zero_start, info.zero_size,
-		 load_base + info.memset_zero_start, info.memset_zero_size,
-		 info.ro_file_offset, info.rw_file_offset);
-  if (zero_start == -1)
+  // unmap the hole between ro and rw area
+  unsigned long hole_start = info.ro_map.mem_start_align + info.ro_map.mem_size_align;
+  unsigned long hole_size = info.rw_map.mem_start_align - hole_start;
+  if (hole_size > 0)
     {
-      VDL_LOG_ERROR ("Unable to map zero pages for %s\n", filename);
-      goto error;
+      int result = system_munmap ((void*)hole_start, hole_size);
+      VDL_LOG_ASSERT (result == 0, "Hole could not be unmapped");
     }
-
   struct stat st_buf;
   if (system_fstat (filename, &st_buf) == -1)
     {
@@ -402,8 +441,8 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
     }
 
   struct VdlFile *file = vdl_file_new (load_base, &info, 
-					  filename, name,
-					  context);
+				       filename, name,
+				       context);
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
@@ -419,9 +458,9 @@ error:
     {
       vdl_utils_free (phdr, header.e_phnum * header.e_phentsize);
     }
-  if (ro_start != 0)
+  if (mapping_start != 0)
     {
-      system_munmap ((void*)ro_start, map_size);
+      system_munmap ((void*)mapping_start, mapping_size);
     }
   return 0;
 }
@@ -572,6 +611,31 @@ int vdl_file_map_deps (struct VdlFile *item)
     }
   return 0;
 }
+static struct VdlFileMap 
+pt_load_to_file_map (const ElfW(Phdr) *phdr)
+{
+  struct VdlFileMap map;
+  map.file_start_align = vdl_utils_align_down (phdr->p_offset, phdr->p_align);
+  map.file_size_align = vdl_utils_align_up (phdr->p_offset+phdr->p_filesz, 
+					    phdr->p_align) - map.file_start_align;
+  map.mem_start_align = vdl_utils_align_down (phdr->p_vaddr, phdr->p_align);
+  map.mem_size_align = vdl_utils_align_up (phdr->p_vaddr+phdr->p_memsz, 
+					   phdr->p_align) - map.mem_start_align;
+  map.mem_anon_start_align = vdl_utils_align_up (phdr->p_vaddr + phdr->p_filesz,
+						 phdr->p_align);
+  map.mem_anon_size_align = vdl_utils_align_up (phdr->p_vaddr + phdr->p_memsz,
+						phdr->p_align) - map.mem_anon_start_align;
+  map.mem_zero_start = phdr->p_vaddr + phdr->p_filesz;
+  if (map.mem_anon_size_align > 0)
+    {
+      map.mem_zero_size = map.mem_anon_start_align - map.mem_zero_start;
+    }
+  else
+    {
+      map.mem_zero_size = phdr->p_memsz - phdr->p_filesz;
+    }
+  return map;
+}
 int vdl_get_file_info (uint32_t phnum,
 		       ElfW(Phdr) *phdr,
 		       struct VdlFileInfo *info)
@@ -619,12 +683,6 @@ int vdl_get_file_info (uint32_t phnum,
       VDL_LOG_ERROR ("ro load area does not include elf header\n", 1);
       goto error;
     }
-  if (ro->p_memsz != ro->p_filesz)
-    {
-      VDL_LOG_ERROR ("file and memory size should be equal: 0x%x != 0x%x\n",
-		     ro->p_memsz, ro->p_filesz);
-      goto error;
-    }
   if (ro->p_offset != 0)
     {
       VDL_LOG_ERROR ("The ro map should include the ELF header. off=0x%x\n",
@@ -643,29 +701,9 @@ int vdl_get_file_info (uint32_t phnum,
       goto error;
     }
 
-
-  unsigned long ro_start = vdl_utils_align_down (ro->p_vaddr, ro->p_align);
-  unsigned long ro_size = vdl_utils_align_up (ro->p_memsz, ro->p_align);
-  unsigned long rw_start = vdl_utils_align_down (rw->p_vaddr, rw->p_align);
-  unsigned long rw_size = vdl_utils_align_up (rw->p_vaddr+rw->p_filesz-rw_start, rw->p_align);
-  unsigned long zero_size = vdl_utils_align_up (rw->p_vaddr+rw->p_memsz-rw_start, rw->p_align) - rw_size;
-  unsigned long zero_start = vdl_utils_align_up (rw->p_vaddr + rw->p_filesz, rw->p_align);
-  unsigned long ro_file_offset = vdl_utils_align_down (ro->p_offset, ro->p_align);
-  unsigned long rw_file_offset = vdl_utils_align_down (rw->p_offset, rw->p_align);
-  unsigned long memset_zero_start = rw->p_vaddr+rw->p_filesz;
-  unsigned long memset_zero_size = rw_start+rw_size-memset_zero_start;
-
+  info->ro_map = pt_load_to_file_map (ro);
+  info->rw_map = pt_load_to_file_map (rw);
   info->dynamic = dynamic->p_vaddr;
-  info->ro_start = ro_start;
-  info->ro_size = ro_size;
-  info->rw_start = rw_start;
-  info->rw_size = rw_size;
-  info->ro_file_offset = ro_file_offset;
-  info->rw_file_offset = rw_file_offset;
-  info->zero_start = zero_start;
-  info->zero_size = zero_size;
-  info->memset_zero_start = memset_zero_start;
-  info->memset_zero_size = memset_zero_size;
 
   return 1;
  error:
@@ -1144,7 +1182,7 @@ unsigned long vdl_file_get_entry_point (struct VdlFile *file)
   // This piece of code assumes that the ELF header starts at the
   // first byte of the ro map. This is verified in vdl_get_file_info
   // so we are safe with this assumption.
-  ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_start;
+  ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_map.mem_start_align;
   return header->e_entry + file->load_base;
 }
 
@@ -1186,8 +1224,8 @@ void vdl_file_tls (struct VdlFile *file)
     }
   file->tls_initialized = 1;
 
-  ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_start;
-  ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_start + header->e_phoff);
+  ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_map.mem_start_align;
+  ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_map.mem_start_align + header->e_phoff);
   ElfW(Phdr) *pt_tls = vdl_utils_search_phdr (phdr, header->e_phnum, PT_TLS);
   if (pt_tls == 0)
     {
@@ -1195,7 +1233,7 @@ void vdl_file_tls (struct VdlFile *file)
       return;
     }
   file->has_tls = 1;
-  file->tls_tmpl_start = file->ro_start + pt_tls->p_offset;
+  file->tls_tmpl_start = file->ro_map.mem_start_align + pt_tls->p_offset;
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;

@@ -10,9 +10,22 @@ void vdl_utils_linkmap_print (void)
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
       vdl_log_printf (VDL_LOG_PRINT, 
-		      "load_base=0x%x , ro_start=0x%x , ro_end=0x%x , file=%s\n", 
-		      cur->load_base, cur->ro_start, cur->ro_start + cur->ro_size, 
-		      cur->filename);
+		      "load_base=0x%x , file=%s\n"
+		      "\tro_start=0x%x , ro_end=0x%x\n"
+		      "\tro_zero_start=0x%x , ro_zero_end=0x%x\n"
+		      "\tro_anon_start=0x%x , ro_anon_end=0x%x\n"
+		      "\trw_start=0x%x , rw_end=0x%x\n", 
+		      
+		      cur->load_base, 
+		      cur->filename,
+		      cur->ro_map.mem_start_align, 
+		      cur->ro_map.mem_start_align + cur->ro_map.mem_size_align, 
+		      cur->ro_map.mem_zero_start,
+		      cur->ro_map.mem_zero_start + cur->ro_map.mem_zero_size,
+		      cur->ro_map.mem_anon_start_align,
+		      cur->ro_map.mem_anon_start_align + cur->ro_map.mem_anon_size_align,
+		      cur->rw_map.mem_start_align, 
+		      cur->rw_map.mem_start_align + cur->rw_map.mem_size_align);
     }
 }
 
