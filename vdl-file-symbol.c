@@ -74,6 +74,12 @@ vdl_file_lookup_begin (const struct VdlFile *file,
   ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_HASH);
   uint32_t *dt_gnu_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_GNU_HASH);
 
+  if (vdl_utils_strisequal (name, "Accessibility_Image__classid"))
+    {
+      int loop = 1; 
+      while (loop) {}
+    }
+
   if (i.dt_strtab == 0 || i.dt_symtab == 0)
     {
       i.type = NO_SYM;
@@ -383,14 +389,33 @@ vdl_file_symbol_lookup (struct VdlFile *file,
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
 
-  // lookup the symbol in the global scope first
+  struct VdlFileList *first = 0;
+  struct VdlFileList *second = 0;
+  switch (file->lookup_type)
+    {
+    case LOOKUP_LOCAL_GLOBAL:
+      first = file->local_scope;
+      second = file->context->global_scope;
+      break;
+    case LOOKUP_GLOBAL_LOCAL:
+      first = file->context->global_scope;
+      second = file->local_scope;
+      break;
+    case LOOKUP_GLOBAL_ONLY:
+      first = file->context->global_scope;
+      second = 0;
+      break;
+    case LOOKUP_LOCAL_ONLY:
+      first = file->local_scope;
+      second = 0;
+      break;
+    }
   int ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver,
-					    flags, file->context->global_scope, match);
+					    flags, first, match);
   if (!ok)
     {
-      // and in the local scope.
       ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver,
-					    flags, file->local_scope, match);
+					    flags, second, match);
     }
   return ok;
 }

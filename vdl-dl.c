@@ -11,7 +11,7 @@
 #include "export.h"
 
 
-void *vdl_dlopen_private (const char *filename, int flag)
+void *vdl_dlopen_private (const char *filename, int flags)
 {
   char *full_filename = vdl_search_filename (filename);
   if (full_filename == 0)
@@ -35,21 +35,26 @@ void *vdl_dlopen_private (const char *filename, int flag)
       goto error;
     }
   struct VdlFileList *deps = vdl_file_gather_all_deps_breadth_first (mapped_file);
-  if (flag & RTLD_GLOBAL)
+  mapped_file->local_scope = deps;
+  if (flags & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.
-      g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, deps);
+      struct VdlFileList *copy = vdl_file_list_copy (deps);
+      g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, copy);
       vdl_file_list_unicize (g_vdl.contexts->global_scope);
+    }
+  if (flags & RTLD_DEEPBIND)
+    {
+      mapped_file->lookup_type = LOOKUP_LOCAL_GLOBAL;
     }
   else
     {
-      // otherwise, setup that object's local scope.
-      mapped_file->local_scope = deps;
+      mapped_file->lookup_type = LOOKUP_GLOBAL_LOCAL;
     }
 
   vdl_file_tls (mapped_file);
 
-  vdl_file_reloc (mapped_file, g_vdl.bind_now || flag & RTLD_NOW);
+  vdl_file_reloc (mapped_file, g_vdl.bind_now || flags & RTLD_NOW);
 
   gdb_notify ();
 
