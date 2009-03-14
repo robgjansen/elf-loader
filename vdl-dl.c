@@ -7,6 +7,7 @@
 #include "vdl-dl.h"
 #include "vdl-gc.h"
 #include "vdl-file-reloc.h"
+#include "vdl-file-symbol.h"
 #include "export.h"
 
 

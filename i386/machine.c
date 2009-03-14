@@ -3,6 +3,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-file-reloc.h"
+#include "vdl-file-symbol.h"
 #include "config.h"
 #include <sys/mman.h>
 

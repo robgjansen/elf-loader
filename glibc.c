@@ -5,6 +5,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-dl.h"
+#include "vdl-file-symbol.h"
 #include "config.h"
 #include <elf.h>
 #include <dlfcn.h>

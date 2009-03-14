@@ -231,29 +231,11 @@ void vdl_file_call_init (struct VdlFile *file);
 void vdl_file_list_call_fini (struct VdlFileList *list);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
 
-struct SymbolMatch
-{
-  const struct VdlFile *file;
-  const ElfW(Sym) *symbol;
-};
-enum LookupFlag {
-  // indicates whether the symbol lookup is allowed to 
-  // find a matching symbol in the main binary. This is
-  // typically used to perform the lookup associated
-  // with a R_*_COPY relocation.
-  LOOKUP_NO_EXEC = 1
-};
-int vdl_file_symbol_lookup (struct VdlFile *file,
-			    const char *name, 
-			    const ElfW(Vernaux) *ver,
-			    enum LookupFlag flags,
-			    struct SymbolMatch *match);
 struct VdlFile *vdl_file_new_main (unsigned long phnum,
 				   ElfW(Phdr)*phdr,
 				   int argc, 
 				   const char **argv, 
 				   const char **envp);
-unsigned long vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name);
 
 void vdl_file_tls (struct VdlFile *file);
 ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
