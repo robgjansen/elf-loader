@@ -74,12 +74,6 @@ vdl_file_lookup_begin (const struct VdlFile *file,
   ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_HASH);
   uint32_t *dt_gnu_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_GNU_HASH);
 
-  if (vdl_utils_strisequal (name, "Accessibility_Image__classid"))
-    {
-      int loop = 1; 
-      while (loop) {}
-    }
-
   if (i.dt_strtab == 0 || i.dt_symtab == 0)
     {
       i.type = NO_SYM;

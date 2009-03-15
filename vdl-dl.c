@@ -29,13 +29,15 @@ void *vdl_dlopen_private (const char *filename, int flags)
       VDL_LOG_ERROR ("Unable to load: \"%s\"\n", full_filename);
       goto error;
     }
-  if (!vdl_file_map_deps (mapped_file))
+  struct VdlFileList *loaded = 0;
+  if (!vdl_file_map_deps (mapped_file, &loaded))
     {
       VDL_LOG_ERROR ("Unable to map dependencies of \"%s\"\n", full_filename);
       goto error;
     }
+  loaded = vdl_file_list_prepend_one (loaded, mapped_file);
+
   struct VdlFileList *deps = vdl_file_gather_all_deps_breadth_first (mapped_file);
-  mapped_file->local_scope = deps;
   if (flags & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.
@@ -43,13 +45,20 @@ void *vdl_dlopen_private (const char *filename, int flags)
       g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, copy);
       vdl_file_list_unicize (g_vdl.contexts->global_scope);
     }
-  if (flags & RTLD_DEEPBIND)
+
+  // setup the local scope of each newly-loaded file.
+  struct VdlFileList *cur;
+  for (cur = loaded; cur != 0; cur = cur->next)
     {
-      mapped_file->lookup_type = LOOKUP_LOCAL_GLOBAL;
-    }
-  else
-    {
-      mapped_file->lookup_type = LOOKUP_GLOBAL_LOCAL;
+      cur->item->local_scope = deps;
+      if (flags & RTLD_DEEPBIND)
+	{
+	  cur->item->lookup_type = LOOKUP_LOCAL_GLOBAL;
+	}
+      else
+	{
+	  cur->item->lookup_type = LOOKUP_GLOBAL_LOCAL;
+	}
     }
 
   vdl_file_tls (mapped_file);

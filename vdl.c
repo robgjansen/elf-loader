@@ -153,6 +153,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   // no need to initialize gc_color because it is always 
   // initialized when needed by vdl_gc
   file->gc_symbols_resolved_in = 0;
+  file->lookup_type = LOOKUP_GLOBAL_LOCAL;
   file->local_scope = 0;
   file->deps = 0;
   file->name = vdl_utils_strdup (name);
@@ -521,7 +522,7 @@ find_by_dev_ino (struct VdlContext *context,
   return 0;
 }
 
-int vdl_file_map_deps (struct VdlFile *item)
+int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
 
@@ -581,6 +582,10 @@ int vdl_file_map_deps (struct VdlFile *item)
 	}
       // The file is really not yet mapped so, we have to map it
       dep = vdl_file_map_single (item->context, filename, name);
+      if (loaded != 0)
+	{
+	  *loaded = vdl_file_list_append_one (*loaded, dep);
+	}
       
       // add the new file to the list of dependencies
       deps = vdl_file_list_append_one (deps, dep);
@@ -593,7 +598,7 @@ int vdl_file_map_deps (struct VdlFile *item)
   struct VdlFileList *dep;
   for (dep = deps; dep != 0; dep = dep->next)
     {
-      if (!vdl_file_map_deps (dep->item))
+      if (!vdl_file_map_deps (dep->item, loaded))
 	{
 	  goto error;
 	}
@@ -605,10 +610,9 @@ int vdl_file_map_deps (struct VdlFile *item)
   return 1;
  error:
   vdl_utils_str_list_free (dt_needed);
-  if (deps != 0)
-    {
-      vdl_file_list_free (deps);
-    }
+  vdl_file_list_free (deps);
+  vdl_file_list_free (*loaded);
+  *loaded = 0;
   return 0;
 }
 static struct VdlFileMap 

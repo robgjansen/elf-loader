@@ -62,7 +62,7 @@ interpreter_new (unsigned long load_base, struct VdlContext *context)
   // we must be careful to not relocate it twice.
   file->reloced = 1;
 
-  if (!vdl_file_map_deps (file))
+  if (!vdl_file_map_deps (file, 0))
     {
       goto error;
     }
@@ -255,7 +255,7 @@ stage2_initialize (struct Stage2Input input)
 
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
-  VDL_LOG_ASSERT (vdl_file_map_deps (main_file), 
+  VDL_LOG_ASSERT (vdl_file_map_deps (main_file, 0), 
 		  "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
