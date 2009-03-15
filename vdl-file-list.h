@@ -17,4 +17,6 @@ struct VdlFileList *vdl_file_list_remove (struct VdlFileList *list,
 					  struct VdlFileList *item);
 struct VdlFileList *vdl_file_list_free_one (struct VdlFileList *list, 
 					    struct VdlFile *item);
+struct VdlFileList *vdl_file_list_find (struct VdlFileList *list,
+					struct VdlFile *item);
 #endif /* VDL_FILE_LIST_H */

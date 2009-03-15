@@ -260,7 +260,7 @@ stage2_initialize (struct Stage2Input input)
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
-  struct VdlFileList *all_deps = vdl_file_gather_all_deps_breadth_first (main_file);
+  struct VdlFileList *all_deps = vdl_file_gather_unique_deps_breadth_first (main_file);
   global_scope = vdl_file_list_append (global_scope, all_deps);
   vdl_file_list_unicize (global_scope);
   context->global_scope = global_scope;

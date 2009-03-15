@@ -37,7 +37,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
     }
   loaded = vdl_file_list_prepend_one (loaded, mapped_file);
 
-  struct VdlFileList *deps = vdl_file_gather_all_deps_breadth_first (mapped_file);
+  struct VdlFileList *deps = vdl_file_gather_unique_deps_breadth_first (mapped_file);
   if (flags & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.

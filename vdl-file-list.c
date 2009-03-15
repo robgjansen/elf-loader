@@ -168,3 +168,17 @@ void vdl_file_list_unicize (struct VdlFileList *list)
 	}
     }
 }
+struct VdlFileList *
+vdl_file_list_find (struct VdlFileList *list,
+		    struct VdlFile *item)
+{
+  struct VdlFileList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
+    {
+      if (cur->item == item)
+	{
+	  return cur;
+	}
+    }
+  return 0;
+}
