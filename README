@@ -37,3 +37,4 @@ The current roadmap calls for the implementation of:
   - port to x86-64
   - addition of the new features I need
   - fix gdb support to debug programs not loaded with PT_INTERP
+  - info threads does not work
