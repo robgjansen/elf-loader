@@ -4,6 +4,7 @@
 #include "system.h"
 #include "vdl.h"
 #include "alloc.h"
+#include "futex.h"
 #include <elf.h>
 #include <link.h>
 
@@ -74,6 +75,7 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->tls_static_size = 0;
   vdl->tls_static_align = 0;
   vdl->tls_n_dtv = 0;
+  futex_init (&vdl->futex);
 
   // after this call to alloc_initialize is completed,
   // we are allowed to allocate heap memory.

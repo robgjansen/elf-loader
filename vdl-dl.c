@@ -8,11 +8,13 @@
 #include "vdl-gc.h"
 #include "vdl-file-reloc.h"
 #include "vdl-file-symbol.h"
+#include "machine.h"
 #include "export.h"
-
 
 void *vdl_dlopen_private (const char *filename, int flags)
 {
+  futex_lock (&g_vdl.futex);
+
   char *full_filename = vdl_search_filename (filename);
   if (full_filename == 0)
     {
@@ -73,8 +75,10 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
   mapped_file->count++;
 
+  futex_unlock (&g_vdl.futex);
   return mapped_file;
  error:
+  futex_unlock (&g_vdl.futex);
   return 0;
 }
 
@@ -90,10 +94,14 @@ void *vdl_dlsym_private (void *handle, const char *symbol)
 
 int vdl_dlclose_private (void *handle)
 {
+  futex_lock (&g_vdl.futex);
+
   struct VdlFile *file = (struct VdlFile*)handle;
   file->count--;
   vdl_gc ();
   gdb_notify ();
+
+  futex_unlock (&g_vdl.futex);
   return 0;
 }
 

@@ -241,3 +241,23 @@ unsigned long machine_tcb_get_sysinfo (void)
   return sysinfo;
 }
 
+uint32_t machine_cmpxchg (uint32_t *ptr, uint32_t old, uint32_t new)
+{
+  uint32_t prev;
+  asm volatile ("lock cmpxchgl %1,%2"
+		: "=a"(prev)
+		: "r"(new), "m"(*ptr), "0"(old)
+		: "memory");
+  return prev;
+}
+
+uint32_t machine_atomic_dec (uint32_t *ptr)
+{
+  int32_t prev = -1;
+  asm volatile ("lock xadd %0,%1\n"
+		:"=q"(prev)
+	        :"m"(*ptr), "0"(prev)
+		:"memory", "cc");
+  return prev;
+}
+

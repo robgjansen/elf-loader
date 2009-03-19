@@ -7,6 +7,7 @@
 #include <link.h>
 #include "alloc.h"
 #include "system.h"
+#include "futex.h"
 
 #if __ELF_NATIVE_CLASS == 32
 #define ELFW_R_SYM ELF32_R_SYM
@@ -209,6 +210,7 @@ struct Vdl
   unsigned long tls_static_size;
   unsigned long tls_static_align;
   unsigned long tls_n_dtv;
+  struct futex futex;
 };
 
 

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <linux/unistd.h>
 #include <asm/ldt.h>
 
@@ -20,5 +21,7 @@ void system_close (int fd);
 void system_exit (int status);
 int system_set_thread_area (struct user_desc *u_info);
 int system_getpagesize (void);
+void system_futex_wake (uint32_t *uaddr, uint32_t val);
+void system_futex_wait (uint32_t *uaddr, uint32_t val);
 
 #endif /* SYSTEM_H */

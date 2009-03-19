@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <sys/param.h> // for EXEC_PAGESIZE
+#include <linux/futex.h>
 
 /* The magic checks below for -256 are probably misterious to non-kernel programmers:
  * they come from the fact that we call the raw system calls, not the libc wrappers
@@ -102,4 +103,12 @@ int system_getpagesize (void)
   // Theoretically, this should be a dynamically-calculated value but, really, I don't
   // know how to query the kernel for this so, instead, we use the kernel headers.
   return EXEC_PAGESIZE;
+}
+void system_futex_wake (uint32_t *uaddr, uint32_t val)
+{
+  SYSCALL6(futex, uaddr, FUTEX_WAKE, val, 0, 0, 0);
+}
+void system_futex_wait (uint32_t *uaddr, uint32_t val)
+{
+  SYSCALL6(futex, uaddr, FUTEX_WAIT, val, 0, 0, 0);
 }

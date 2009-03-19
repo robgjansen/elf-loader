@@ -21,5 +21,7 @@ void machine_tcb_set_sysinfo (unsigned long sysinfo);
 unsigned long machine_tcb_get (void);
 unsigned long *machine_tcb_get_dtv (void);
 unsigned long machine_tcb_get_sysinfo (void);
+uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);
+uint32_t machine_atomic_dec (uint32_t *val);
 
 #endif /* MACHINE_H */
