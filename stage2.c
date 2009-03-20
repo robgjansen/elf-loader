@@ -89,7 +89,7 @@ do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char
       char *ld_preload_filename = vdl_search_filename (ld_preload);
       if (ld_preload_filename == 0)
 	{
-	  VDL_LOG_ERROR ("Could not find %s\n", ld_preload);
+	  VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", ld_preload);
 	  goto error;
 	}
       // map it in memory.
