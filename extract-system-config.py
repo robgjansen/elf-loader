@@ -125,6 +125,16 @@ class DebugData:
             return None
         return self.find_member (member, item)
 
+class CoundNotFindFile:
+    pass
+
+def search_debug_file():
+    files_to_try = ['/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug', \
+                        '/usr/lib/debug/ld-linux.so.2']
+    for file in files_to_try:
+        if os.path.isfile (file):
+            return file
+    raise CouldNotFindFile ()
         
 def usage():
     print ''
@@ -147,8 +157,13 @@ def main(argv):
         elif opt in ('-d', '--debug'):
             debug_filename = arg
 
+    if config_filename != '':
+        config = open (config_filename, 'w')
+    else:
+        config = sys.stdout
+    if debug_filename == '':
+        debug_filename = search_debug_file ()
     debug = DebugData (debug_filename)
-    config = open (config_filename, 'w')
     data = debug.get_struct_size ('rtld_global')
     if data is None:
         sys.exit (1)
