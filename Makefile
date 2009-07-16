@@ -7,6 +7,9 @@ LDFLAGS=$(OPT)
 #we need libgcc for 64bit arithmetic functions
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
+ARCH=$(shell uname -p)
+LDSO_FILE=/lib/ld-linux.so.2
+LIBDL_FILE=/lib/libdl.so.2
 
 all: ldso libvdl.so elfedit
 
@@ -15,16 +18,23 @@ test: FORCE
 	$(MAKE) -C test run
 FORCE:
 
+LDSO_ARCH_OBJECTS=\
+$(ARCH)/machine.o $(ARCH)/stage0.o $(ARCH)/resolv.S 
 LDSO_OBJECTS=\
-stage1.o stage2.o avprintf-cb.o dprintf.o vdl-utils.o vdl-log.o vdl.o system.o alloc.o glibc.o gdb.o vdl-dl.o i386/machine.o i386/stage0.o i386/resolv.S interp.o vdl-file-reloc.o vdl-file-list.o vdl-gc.o vdl-file-symbol.o futex.o 
+stage1.o stage2.o avprintf-cb.o \
+dprintf.o vdl-utils.o vdl-log.o \
+vdl.o system.o alloc.o glibc.o \
+gdb.o vdl-dl.o interp.o vdl-file-reloc.o \
+vdl-file-list.o vdl-gc.o vdl-file-symbol.o \
+futex.o $(LDSO_ARCH_OBJECTS)
 
 # dependency rules.
-i386/machine.o: config.h
+$(ARCH)/machine.o: config.h
 glibc.o: config.h
 ldso: $(LDSO_OBJECTS) ldso.version
 # build rules.
 %.o:%.c
-	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/i386 -fpic -fvisibility=hidden -o $@ -c $<
+	$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(PWD) -I$(PWD)/$(ARCH) -fpic -fvisibility=hidden -o $@ -c $<
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso:
@@ -32,9 +42,9 @@ ldso:
 
 # we have two generated files and need to build them.
 ldso.version: readversiondef vdl-dl.version
-	./readversiondef /lib/ld-linux.so.2 | cat vdl-dl.version - > $@
+	./readversiondef $(LDSO_FILE) | cat vdl-dl.version - > $@
 config.h:
-	./extract-system-config.py --debug /usr/lib/debug/ld-linux.so.2 --config config.h
+	./extract-system-config.py >$@
 # build the program used to generate ldso.version
 readversiondef.o: readversiondef.c
 	$(CC) $(CFLAGS) -c -o $@ $^
@@ -42,7 +52,7 @@ readversiondef: readversiondef.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 libvdl.version: readversiondef
-	./readversiondef /lib/libdl.so.2 > $@
+	./readversiondef $(LIBDL_FILE) > $@
 libvdl.o: libvdl.c
 	$(CC) $(CFLAGS) -fvisibility=hidden -fpic -o $@ -c $< 
 libvdl.so: libvdl.o ldso libvdl.version
@@ -55,8 +65,8 @@ elfedit: elfedit.o
 
 clean: 
 	-rm -f elfedit readversiondef core hello hello-ldso 2> /dev/null
-	-rm -f ldso libvdl.so *.o  i386/*.o 2>/dev/null
-	-rm -f *~ i386/*~ 2>/dev/null
-	-rm -f \#* i386/\#* 2>/dev/null
-	-rm -f config.h ldso.version 2>/dev/null
+	-rm -f ldso libvdl.so *.o  $(ARCH)/*.o 2>/dev/null
+	-rm -f *~ $(ARCH)/*~ 2>/dev/null
+	-rm -f \#* $(ARCH)/\#* 2>/dev/null
+	-rm -f ldso.version 2>/dev/null
 	$(MAKE) -C test clean
