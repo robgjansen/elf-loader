@@ -11,6 +11,7 @@
  *
  * Notes:
  * All registers except %eax must be saved (but ptrace may violate that)
+ * return value in %eax, indicates error in range -1,-256
  */                      
 #define SYSCALL1(name,arg1)						\
   ({									\

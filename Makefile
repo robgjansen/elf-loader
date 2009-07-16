@@ -27,7 +27,7 @@ test: FORCE
 FORCE:
 
 LDSO_ARCH_OBJECTS=\
-$(ARCH)/machine.o $(ARCH)/stage0.o $(ARCH)/resolv.o
+$(ARCH)/system.o $(ARCH)/machine.o $(ARCH)/stage0.o $(ARCH)/resolv.o 
 LDSO_OBJECTS=\
 stage1.o stage2.o avprintf-cb.o \
 dprintf.o vdl-utils.o vdl-log.o \

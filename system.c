@@ -13,15 +13,6 @@
  * the kernel returns -errno to indicate an error, the expected value otherwise.
  */
 
-void *system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
-{
-  int status = SYSCALL6(mmap2, start, length, prot, flags, fd, offset / 4096);
-  if (status < 0 && status > -256)
-    {
-      return MAP_FAILED;
-    }
-  return (void*)status;
-}
 int system_munmap (uint8_t *start, size_t size)
 {
   int status = SYSCALL2 (munmap, start, size);
