@@ -478,6 +478,7 @@ convert_name (const char *name)
   } hardcoded_names [] = 
       {{"/lib/ld-linux.so.2", "ldso"},
        {"ld-linux.so.2", "ldso"},
+       {"/lib64/ld-linux-x86-64.so.2", "ldso"},
        {"libdl.so.2", "libvdl.so"}
       };
   int i; 
