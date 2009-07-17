@@ -1,0 +1,8 @@
+  - i386: figure out if we can do correct function pointer comparisons 
+    across shared object boundaries. ex: function defined in shared library,
+    pointer taken in executable, given to shared library, comparison must be
+    equal. The issue here is the relationship between the shared library
+    PLTs/GOT and main executable PLT/GOT.
+
+  - make sure we use the minimum permissions for ro code sections: some of these
+    sections might not need EXEC protection
