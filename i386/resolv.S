@@ -20,18 +20,20 @@ machine_resolve_trampoline:
 	test %eax,%eax
 	# save return value in case we have to jump there
 	movl %eax,24(%esp)
+	# clear the arguments we pushed on the stack
+	addl $8,%esp
 	# restore caller-saved registers
-	movl 16(%esp),%eax
-	movl 12(%esp),%ecx
-	movl 8(%esp),%edx
+	pop %edx
+	pop %ecx
+	pop %eax
 	# test the z flag: must do this before addl
 	# because addl will clobber the z flag.
 	jz fail
-	# cleanup all the stack.
-	addl $24,%esp
+	# cleanup the second argument pushed by PLT0
+	addl $4,%esp
 	# jump on return value from vdl_file_reloc_one_plt
 	ret
-	# cleanup all the stack
-fail:	addl $28,%esp
+	# cleanup both arguments pushed by PLT0 and PLTX respectively
+fail:	addl $8,%esp
 	# return to the caller
 	ret
