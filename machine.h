@@ -23,5 +23,6 @@ unsigned long *machine_tcb_get_dtv (void);
 unsigned long machine_tcb_get_sysinfo (void);
 uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);
 uint32_t machine_atomic_dec (uint32_t *val);
+const char *machine_get_system_search_dirs (void);
 
 #endif /* MACHINE_H */

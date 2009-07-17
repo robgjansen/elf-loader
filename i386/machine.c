@@ -261,3 +261,14 @@ uint32_t machine_atomic_dec (uint32_t *ptr)
   return prev;
 }
 
+const char *
+machine_get_system_search_dirs (void)
+{
+  // XXX: first is for my ubuntu box.
+  static const char *dirs = "/lib/tls/i686/cmov:"
+    "/lib:" 
+    "/lib32:"
+    "/usr/lib:"
+    "/usr/lib32";
+  return dirs;
+}

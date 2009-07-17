@@ -16,21 +16,7 @@
 static struct VdlStringList *
 get_system_search_dirs (void)
 {
-  // XXX: first is for my ubuntu box.
-  const char *dirs[] = {"/lib/tls/i686/cmov",
-			"/lib", "/lib64", "/lib32",
-			"/usr/lib", "/usr/lib64", "/usr/lib32"};
-  struct VdlStringList *list = 0;
-  int i;
-  for (i = 0; i < sizeof (dirs)/sizeof(char *); i++)
-    {
-      struct VdlStringList *tmp = vdl_utils_new (struct VdlStringList);
-      tmp->str = vdl_utils_strdup (dirs[i]);
-      tmp->next = list;
-      list = tmp;
-    }
-  list = vdl_utils_str_list_reverse (list);
-  return list;
+  return vdl_utils_strsplit (machine_get_system_search_dirs (), ':');
 }
 
 static struct VdlFile *
