@@ -9,9 +9,9 @@
 #include <link.h>
 
 
-#define READ_INT(p)				\
-  ({int v = *((int*)p);				\
-    p+=sizeof(int);				\
+#define READ_LONG(p)				\
+  ({long v = *((long*)p);			\
+    p+=sizeof(long);				\
     v;})
 
 #define READ_POINTER(p)				\
@@ -24,7 +24,10 @@ prepare_stage2 (unsigned long entry_point_struct)
   struct Stage2Input stage2_input;
   unsigned long tmp = entry_point_struct;
   ElfW(auxv_t) *auxvt, *auxvt_tmp;
-  stage2_input.program_argc = READ_INT (tmp); // skip argc
+  // although the C convention for argc is to be an int (as such, 4 bytes
+  // on both i386 and x86_64), the kernel ABI has a long argc (as such,
+  // 4 bytes on i386 and 8 bytes on x86_64).
+  stage2_input.program_argc = READ_LONG (tmp); // skip argc
   DPRINTF("argc=0x%x\n", stage2_input.program_argc);
   stage2_input.program_argv = (const char **)tmp;
   tmp += sizeof(char *)*(stage2_input.program_argc+1); // skip argv
