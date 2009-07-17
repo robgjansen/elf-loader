@@ -3,6 +3,8 @@
 	.globl stage0
 	.type  stage0,@function
 stage0:
+	# ABI says we need to set this to 0 to mark the deepest frame
+	xorl %ebp, %ebp
 	movl %esp,%esi
 	# set dl_fini field of TrampolineInformation
 	pushl %esi
