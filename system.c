@@ -79,15 +79,6 @@ void system_exit (int status)
 {
   SYSCALL1 (exit, status);
 }
-int system_set_thread_area (struct user_desc *u_info)
-{
-  int status = SYSCALL1 (set_thread_area, u_info);
-  if (status < 0 && status  -256)
-    {
-      return -1;
-    }
-  return 0;
-}
 
 int system_getpagesize (void)
 {

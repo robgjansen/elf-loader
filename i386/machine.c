@@ -6,6 +6,7 @@
 #include "vdl-file-symbol.h"
 #include "config.h"
 #include <sys/mman.h>
+#include <asm/ldt.h>
 
 static int do_lookup_and_log (struct VdlFile *file,
 			      const char *symbol_name,
@@ -196,7 +197,7 @@ void machine_tcb_allocate_and_set (unsigned long tcb_size)
   desc.seg_not_present = 0;
   desc.useable = 1;
   
-  int status = system_set_thread_area (&desc);
+  int status = SYSCALL1 (set_thread_area, &desc);
   VDL_LOG_ASSERT (status == 0, "Unable to set TCB");
 
   // set_thread_area allocated an entry in the GDT and returned
