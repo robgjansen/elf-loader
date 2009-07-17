@@ -423,7 +423,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   unsigned long load_base = mapping_start - info.ro_map.mem_start_align;
 
   // remap the portions we want.
-  file_map_do (info.ro_map, fd, PROT_READ, load_base);
+  file_map_do (info.ro_map, fd, PROT_READ | PROT_EXEC, load_base);
   file_map_do (info.rw_map, fd, PROT_READ | PROT_WRITE, load_base);
 
   // unmap the hole between ro and rw area
