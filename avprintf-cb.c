@@ -426,6 +426,7 @@ int avprintf_cb (avprintf_callback_t user_cb, void *user_context, char const *st
                                 params.width = 0;
                                 params.flags = 0;
                         } else if (validate_ascii_7_bit (*str)) {
+                                maprintf_cb (cb, context, "\n--ERROR-- non ascii string\n");
                                 goto error;
                         } else {
                                 avprintf_output (*str);
@@ -688,6 +689,7 @@ int avprintf_cb (avprintf_callback_t user_cb, void *user_context, char const *st
                         case CHAR_c:
                                 c = (char) va_arg (list, int);
                                 if (validate_ascii_7_bit (c)) {
+                                        maprintf_cb (cb, context, "\n--ERROR-- non ascii string\n");
                                         goto error;
                                 }
                                 avprintf_output ((unsigned char)c);
@@ -698,6 +700,8 @@ int avprintf_cb (avprintf_callback_t user_cb, void *user_context, char const *st
                                 s = (char *) va_arg (list, char *);
                                 while (*s != CHAR_NUL) {
                                         if (validate_ascii_7_bit (*s)) {
+                                                maprintf_cb (cb, context, 
+                                                             "\n--ERROR-- non ascii string\n");
                                                 goto error;
                                         } else if (params.flags & FLAG_PRECISION &&
                                                    (params.precision == 0)) {
