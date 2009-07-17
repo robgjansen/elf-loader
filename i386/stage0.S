@@ -20,8 +20,11 @@ L1:	leal -L1(%ebx),%ebx
 	# allocated on the stack
 	pushl %esp
 	call stage1
+	# read dl_fini field of TrampolineInformation
 	movl 16(%esp),%edx
+	# read entry_point field of TrampolineInformation
 	movl 12(%esp),%esi
+	# read entry_point_struct of TrampolineInformation
 	movl 8(%esp),%esp
 	xorl %eax, %eax
 	jmp *%esi
