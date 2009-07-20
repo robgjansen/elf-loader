@@ -5,9 +5,10 @@
 #include "vdl-file-reloc.h"
 #include "vdl-file-symbol.h"
 #include "config.h"
+#include "syscall.h"
+#include <sys/mman.h>
 #include <sys/mman.h>
 #include <asm/prctl.h> // for ARCH_SET_FS
-#include "syscall.h"
 
 static int do_lookup_and_log (struct VdlFile *file,
 			      const char *symbol_name,
@@ -199,4 +200,13 @@ machine_get_system_search_dirs (void)
     "/lib64:" 
     "/usr/lib64";
   return dirs;
+}
+void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
+{
+  long int status = SYSCALL6(mmap, start, length, prot, flags, fd, offset);
+  if (status < 0 && status > -4095)
+    {
+      return MAP_FAILED;
+    }
+  return (void*)status;
 }

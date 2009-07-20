@@ -1,5 +1,6 @@
 #include "system.h"
 #include "syscall.h"
+#include "machine.h"
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <sys/param.h> // for EXEC_PAGESIZE
@@ -12,6 +13,11 @@
  * In practice, since there are less than 256 errnos defined (on my system, 131), 
  * the kernel returns -errno to indicate an error, the expected value otherwise.
  */
+
+void *system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
+{
+  return machine_system_mmap (start, length, prot, flags, fd, offset);
+}
 
 int system_munmap (uint8_t *start, size_t size)
 {
