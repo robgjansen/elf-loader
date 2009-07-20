@@ -6,3 +6,7 @@
 
   - make sure we use the minimum permissions for ro code sections: some of these
     sections might not need EXEC protection
+
+  - rename system_mmap to machine_system_mmap
+
+  - make sure machine_install_trampoline works 

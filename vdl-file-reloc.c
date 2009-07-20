@@ -3,11 +3,13 @@
 #include "vdl-log.h"
 
 static ElfW(Vernaux) *
-sym_to_vernaux (unsigned long index,
-		ElfW(Half) *dt_versym, 
-		ElfW(Verneed) *dt_verneed,
-		unsigned long dt_verneednum)
+sym_to_vernaux (struct VdlFile *file,
+		unsigned long index)
 {
+  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
+  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
+  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
+
   if (dt_versym != 0 && dt_verneed != 0 && dt_verneednum != 0)
     {
       // the same offset used to look in the symbol table (dt_symtab)
@@ -43,87 +45,17 @@ sym_to_vernaux (unsigned long index,
   return 0;
 }
 
-static void
-vdl_file_reloc_plt (struct VdlFile *file)
+static unsigned long
+process_rel (struct VdlFile *file, ElfW(Rel) *rel)
 {
-  VDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
   const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
   ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
-  
-  if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
-      dt_jmprel == 0 || dt_strtab == 0 || 
-      dt_symtab == 0)
-    {
-      return;
-    }
-  int i;
-  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
-    {
-      ElfW(Rel) *rel = &dt_jmprel[i];
-      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-      ElfW(Vernaux) *ver = sym_to_vernaux (ELFW_R_SYM (rel->r_info),
-					   dt_versym, dt_verneed, dt_verneednum);
-      const char *symbol_name;
-      if (sym->st_name == 0)
-	{
-	  symbol_name = 0;
-	}
-      else
-	{
-	  symbol_name = dt_strtab + sym->st_name;
-	}
-      machine_perform_relocation (file, rel, sym, ver, symbol_name);
-    }
-}
-static void
-vdl_file_lazy_reloc_plt (struct VdlFile *file)
-{
-  VDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_jmprel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
-  
-  if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
-      dt_jmprel == 0)
-    {
-      return;
-    }
-  int i;
-  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
-    {
-      ElfW(Rel) *rel = &dt_jmprel[i];
-      unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
-      *reloc_addr += file->load_base;
-    }
-}
-unsigned long vdl_file_reloc_one_plt (struct VdlFile *file, 
-				      unsigned long offset)
-{
-  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
-  
-  if (dt_pltrel != DT_REL || dt_pltrelsz == 0 || 
-      dt_jmprel == 0 || dt_strtab == 0 || 
-      dt_symtab == 0)
+  if (dt_strtab == 0 || dt_symtab == 0)
     {
       return 0;
     }
-  ElfW(Rel) *rel = (ElfW(Rel)*)(dt_jmprel+offset);
   ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-  ElfW(Vernaux) *ver = sym_to_vernaux (ELFW_R_SYM (rel->r_info),
-				       dt_versym, dt_verneed, dt_verneednum);
+  ElfW(Vernaux) *ver = sym_to_vernaux (file, ELFW_R_SYM (rel->r_info));
   const char *symbol_name;
   if (sym->st_name == 0)
     {
@@ -133,25 +65,138 @@ unsigned long vdl_file_reloc_one_plt (struct VdlFile *file,
     {
       symbol_name = dt_strtab + sym->st_name;
     }
-  unsigned long symbol = machine_perform_relocation (file, rel, sym, ver, symbol_name);
+  unsigned long symbol = machine_reloc_rel (file, rel, sym, ver, symbol_name);
+  return symbol;
+}
+
+static unsigned long
+process_rela (struct VdlFile *file, ElfW(Rela) *rela)
+{
+  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
+  if (dt_strtab == 0 || dt_symtab == 0)
+    {
+      return 0;
+    }
+  ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rela->r_info)];
+  ElfW(Vernaux) *ver = sym_to_vernaux (file, ELFW_R_SYM (rela->r_info));
+  const char *symbol_name;
+  if (sym->st_name == 0)
+    {
+      symbol_name = 0;
+    }
+  else
+    {
+      symbol_name = dt_strtab + sym->st_name;
+    }
+  unsigned long symbol = machine_reloc_rela (file, rela, sym, ver, symbol_name);
+  return symbol;
+}
+
+static void
+vdl_file_reloc_jmprel (struct VdlFile *file)
+{
+  VDL_LOG_FUNCTION ("file=%s", file->name);
+  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);  
+  if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) ||
+      dt_pltrelsz == 0 || 
+      dt_jmprel == 0)
+    {
+      return;
+    }
+  if (dt_pltrel == DT_REL)
+    {
+      int i;
+      for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
+	{
+	  ElfW(Rel) *rel = &(((ElfW(Rel)*)dt_jmprel)[i]);
+	  process_rel (file, rel);
+	}
+    }
+  else
+    {
+      int i;
+      for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rela)); i++)
+	{
+	  ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
+	  process_rela (file, rela);
+	}
+    }
+}
+static void
+vdl_file_lazy_reloc_jmprel (struct VdlFile *file)
+{
+  VDL_LOG_FUNCTION ("file=%s", file->name);
+  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  
+  if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
+      dt_pltrelsz == 0 || 
+      dt_jmprel == 0)
+    {
+      return;
+    }
+  if (dt_pltrel == DT_REL)
+    {
+      int i;
+      for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
+	{
+	  ElfW(Rel) *rel = &(((ElfW(Rel)*)dt_jmprel)[i]);
+	  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
+	  *reloc_addr += file->load_base;
+	}
+    }
+  else
+    {
+      int i;
+      for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rela)); i++)
+	{
+	  ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
+	  unsigned long *reloc_addr = (unsigned long*) (rela->r_offset + file->load_base);
+	  // XXX why is the addend unused ?
+	  *reloc_addr += file->load_base;
+	}
+    }
+}
+unsigned long vdl_file_reloc_one_jmprel (struct VdlFile *file, 
+				      unsigned long offset)
+{
+  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  
+  if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
+      dt_pltrelsz == 0 || 
+      dt_jmprel == 0)
+    {
+      return 0;
+    }
+  unsigned long symbol;
+  if (dt_pltrel == DT_REL)
+    {
+      ElfW(Rel) *rel = &((ElfW(Rel)*)dt_jmprel)[offset];
+      symbol = process_rel (file, rel);
+    }
+  else
+    {
+      ElfW(Rela) *rela = &((ElfW(Rela)*)dt_jmprel)[offset];
+      symbol = process_rela (file, rela);
+    }
   return symbol;
 }
 
 
 void
-vdl_file_reloc_got (struct VdlFile *file)
+vdl_file_reloc_dtrel (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_REL);
   unsigned long dt_relsz = vdl_file_get_dynamic_v (file, DT_RELSZ);
   unsigned long dt_relent = vdl_file_get_dynamic_v (file, DT_RELENT);
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
-  if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0 ||
-      dt_strtab == 0 || dt_symtab == 0)
+  if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0)
     {
       return;
     }
@@ -159,19 +204,26 @@ vdl_file_reloc_got (struct VdlFile *file)
   for (i = 0; i < dt_relsz/dt_relent; i++)
     {
       ElfW(Rel) *rel = &dt_rel[i];
-      ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-      ElfW(Vernaux) *ver = sym_to_vernaux (ELFW_R_SYM (rel->r_info),
-					   dt_versym, dt_verneed, dt_verneednum);
-      const char *symbol_name;
-      if (sym->st_name == 0)
-	{
-	  symbol_name = 0;
-	}
-      else
-	{
-	  symbol_name = dt_strtab + sym->st_name;
-	}
-      machine_perform_relocation (file, rel, sym, ver, symbol_name);
+      process_rel (file, rel);
+    }
+}
+
+void
+vdl_file_reloc_dtrela (struct VdlFile *file)
+{
+  VDL_LOG_FUNCTION ("file=%s", file->name);
+  ElfW(Rela) *dt_rela = (ElfW(Rela)*)vdl_file_get_dynamic_p (file, DT_RELA);
+  unsigned long dt_relasz = vdl_file_get_dynamic_v (file, DT_RELASZ);
+  unsigned long dt_relaent = vdl_file_get_dynamic_v (file, DT_RELAENT);
+  if (dt_rela == 0 || dt_relasz == 0 || dt_relaent == 0)
+    {
+      return;
+    }
+  uint32_t i;
+  for (i = 0; i < dt_relasz/dt_relaent; i++)
+    {
+      ElfW(Rela) *rela = &dt_rela[i];
+      process_rela (file, rela);
     }
 }
 
@@ -190,18 +242,19 @@ void vdl_file_reloc (struct VdlFile *file, int now)
       vdl_file_reloc (cur->item, now);
     }
 
-  vdl_file_reloc_got (file);
+  vdl_file_reloc_dtrel (file);
+  vdl_file_reloc_dtrela (file);
   if (now)
     {
       // perform full PLT relocs _now_
-      vdl_file_reloc_plt (file);
+      vdl_file_reloc_jmprel (file);
     }
   else
     {
       // perform simple PLT reloc to make each
       // associated GOT entry point to the right
       // jmp initially
-      vdl_file_lazy_reloc_plt (file);
+      vdl_file_lazy_reloc_jmprel (file);
       // then, make sure the loader gets called
       // whenever the code jumps into a PLT entry.
       machine_lazy_setup (file);

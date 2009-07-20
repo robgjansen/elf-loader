@@ -25,11 +25,11 @@ static int do_lookup_and_log (struct VdlFile *file,
   return 1;
 }
 unsigned long
-machine_perform_relocation (struct VdlFile *file,
-			    const ElfW(Rel) *rel,
-			    const ElfW(Sym) *sym,
-			    const ElfW(Vernaux) *ver,
-			    const char *symbol_name)
+machine_reloc_rel (struct VdlFile *file,
+		   const ElfW(Rel) *rel,
+		   const ElfW(Sym) *sym,
+		   const ElfW(Vernaux) *ver,
+		   const char *symbol_name)
 {
   VDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
 		    file->filename, (symbol_name != 0)?symbol_name:"", 
@@ -138,6 +138,17 @@ machine_perform_relocation (struct VdlFile *file,
     }
   return *reloc_addr;
 }
+unsigned long
+machine_reloc_rela (struct VdlFile *file,
+		    const ElfW(Rela) *rela,
+		    const ElfW(Sym) *sym,
+		    const ElfW(Vernaux) *ver,
+		    const char *symbol_name)
+{
+  VDL_LOG_ASSERT (0, "i386 does not use rela entries");
+  return 0;
+}
+
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
 void
 machine_lazy_setup (struct VdlFile *file)
