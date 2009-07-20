@@ -15,7 +15,7 @@ test%-ldso: test%
 	@cp $^ $@
 	@../elfedit $@ ../ldso
 run-test%: test%-ldso FORCE
-	@-LD_LIBRARY_PATH=.:../ ./$^ > $(OUTPUT_DIR)/test$* 2>/dev/null || true;
+	@-LD_LIBRARY_PATH=.:../ ./$< > $(OUTPUT_DIR)/test$* 2>/dev/null || true;
 	@-diff -q $(OUTPUT_DIR)/test$* $(OUTPUT_DIR)/test$*.ref > /dev/null; \
 		if test $$? -eq 0; then echo "PASS $@"; else echo "FAIL $@"; fi
 FORCE:
