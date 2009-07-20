@@ -8,3 +8,5 @@
     sections might not need EXEC protection
 
   - make sure machine_install_trampoline works 
+
+  - PT_INTERP will be invalid when main exec is loader itself

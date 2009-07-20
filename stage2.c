@@ -20,7 +20,9 @@ get_system_search_dirs (void)
 }
 
 static struct VdlFile *
-interpreter_new (unsigned long load_base, struct VdlContext *context)
+interpreter_new (unsigned long load_base, 
+		 const char *pt_interp,
+		 struct VdlContext *context)
 {
   /* We make many assumptions here:
    *   - The loader is an ET_DYN
@@ -40,10 +42,19 @@ interpreter_new (unsigned long load_base, struct VdlContext *context)
       VDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
       goto error;
     }
+  const char *full_filename;
+  if (pt_interp == 0)
+    {
+      full_filename = LDSO_SONAME;
+    }
+  else
+    {
+      full_filename = pt_interp;
+    }
   struct VdlFile *file = vdl_file_new (load_base, &info, 
-					  LDSO_SONAME,
-					  LDSO_SONAME,
-					  context);
+				       full_filename,
+				       LDSO_SONAME,
+				       context);
   // the interpreter has already been reloced during stage1, so, 
   // we must be careful to not relocate it twice.
   file->reloced = 1;
@@ -167,6 +178,17 @@ get_global_link_map (void)
   return retval;
 }
 
+static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned long phnum)
+{
+  // XXX will not work when main exec is loader itself
+  ElfW(Phdr) *pt_interp = vdl_utils_search_phdr (phdr, phnum, PT_INTERP);
+  if (pt_interp == 0)
+    {
+      return 0;
+    }
+  return (char*)(main->load_base + pt_interp->p_vaddr);
+}
+
 struct Stage2Output
 stage2_initialize (struct Stage2Input input)
 {
@@ -233,6 +255,8 @@ stage2_initialize (struct Stage2Input input)
   // scope.
   struct VdlFile *interpreter;
   interpreter = interpreter_new (input.interpreter_load_base,
+				 get_pt_interp (main_file, input.program_phdr, 
+						input.program_phnum),
 				 context);
   struct VdlFileList *global_scope = 0;
 
