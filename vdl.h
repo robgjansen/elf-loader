@@ -192,7 +192,7 @@ struct Vdl
   // the following fields are part of the gdb/libc ABI. Don't touch them.
   int version; // always 1
   struct VdlFile *link_map;
-  int (*breakpoint)(void);
+  void (*breakpoint)(void);
   enum VdlState state;
   unsigned long interpreter_load_base;
   // the following fields are not part of the ABI

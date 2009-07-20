@@ -5,11 +5,10 @@
 
 // The name of this function is important: gdb hardcodes 
 // this name itself.
-static int _r_debug_state (void)
+static void _r_debug_state (void)
 {
   // GDB
   // the debugger will put a breakpoint here.
-  return 1;
 }
 
 void gdb_initialize (struct VdlFile *file)
