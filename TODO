@@ -10,3 +10,5 @@
   - make sure machine_install_trampoline works 
 
   - PT_INTERP will be invalid when main exec is loader itself
+
+  - dlopen: must be careful to re-open already-opened files
