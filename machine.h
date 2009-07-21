@@ -14,7 +14,7 @@ unsigned long machine_reloc_rela (struct VdlFile *file, const ElfW(Rela) *rela,
 void machine_start_trampoline (void *entry_point_struct, int skip_argc,
 			       void (*dl_fini) (void), void (*entry_point) (void));
 void machine_insert_trampoline (unsigned long from, unsigned long to);
-void machine_lazy_setup (struct VdlFile *file);
+void machine_lazy_reloc (struct VdlFile *file);
 void machine_tcb_allocate_and_set (unsigned long tcb_size);
 void machine_tcb_set_dtv (unsigned long *dtv);
 void machine_tcb_set_sysinfo (unsigned long sysinfo);

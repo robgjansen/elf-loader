@@ -125,44 +125,6 @@ vdl_file_reloc_jmprel (struct VdlFile *file)
 	}
     }
 }
-static void
-vdl_file_lazy_reloc_jmprel (struct VdlFile *file)
-{
-  VDL_LOG_FUNCTION ("file=%s", file->name);
-  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
-  
-  if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
-      dt_pltrelsz == 0 || 
-      dt_jmprel == 0)
-    {
-      return;
-    }
-  if (dt_pltrel == DT_REL)
-    {
-      int i;
-      for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
-	{
-	  ElfW(Rel) *rel = &(((ElfW(Rel)*)dt_jmprel)[i]);
-	  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
-	  *reloc_addr += file->load_base;
-	}
-    }
-  else
-    {
-      int i;
-      for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rela)); i++)
-	{
-	  ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
-	  unsigned long *reloc_addr = (unsigned long*) (rela->r_offset + file->load_base);
-	  // so far, the only platform I have tested this codepath on is x86_64
-	  // and on this platform, r_addend is ignored. 
-	  // XXX: I really don't understand this.
-	  *reloc_addr += file->load_base;
-	}
-    }
-}
 unsigned long vdl_file_reloc_one_jmprel (struct VdlFile *file, 
 				      unsigned long offset)
 {
@@ -253,12 +215,6 @@ void vdl_file_reloc (struct VdlFile *file, int now)
     }
   else
     {
-      // perform simple PLT reloc to make each
-      // associated GOT entry point to the right
-      // jmp initially
-      vdl_file_lazy_reloc_jmprel (file);
-      // then, make sure the loader gets called
-      // whenever the code jumps into a PLT entry.
-      machine_lazy_setup (file);
+      machine_lazy_reloc (file);
     }
 }

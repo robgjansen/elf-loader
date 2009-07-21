@@ -151,21 +151,51 @@ machine_reloc_rela (struct VdlFile *file,
 }
 
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
-void
-machine_lazy_setup (struct VdlFile *file)
+void machine_lazy_reloc (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   // setup lazy binding by setting the GOT entries 2 and 3
   // as specified by the ELF i386 ABI.
   // Entry 2 is set to a pointer to the associated VdlFile
   // Entry 3 is set to the asm trampoline machine_resolve_trampoline
-  unsigned long *got = (unsigned long *) vdl_file_get_dynamic_p (file, DT_PLTGOT);
-  if (got == 0)
+  unsigned long dt_pltgot = vdl_file_get_dynamic_p (file, DT_PLTGOT);
+  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+
+  if (dt_pltgot == 0 || 
+      (dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
+      dt_pltrelsz == 0 || 
+      dt_jmprel == 0)
     {
       return;
     }
+  // if this platform does prelinking, the prelinker has stored
+  // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero
+  unsigned long *got = (unsigned long *) dt_pltgot;
+  unsigned long plt = got[1];
   got[1] = (unsigned long)file;
-  got[2] = (unsigned long) machine_resolve_trampoline;  
+  got[2] = (unsigned long) machine_resolve_trampoline;
+
+  int i;
+  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rela)); i++)
+    {
+      ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
+      unsigned long reloc_addr = rela->r_offset + file->load_base;
+      unsigned long *preloc_addr = (unsigned long*) reloc_addr;
+      if (plt == 0)
+	{
+	  // we are not prelinked
+	  *preloc_addr += file->load_base;
+	}
+      else
+	{
+	  // we are prelinked so, we have to redo the work done by the compile-time
+	  // linker: we calculate the address of the instruction right after the
+	  // jump of PLT[i]
+	  *preloc_addr = file->load_base + plt +  (reloc_addr - (dt_pltgot + 3*4)) * 4;
+	}
+    }
 }
 
 void machine_insert_trampoline (unsigned long from, unsigned long to)
