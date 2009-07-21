@@ -12,3 +12,5 @@
   - PT_INTERP will be invalid when main exec is loader itself
 
   - dlopen: must be careful to re-open already-opened files
+
+  - get rid of calls everywhere to vdl_file_get_dynamic. Cache the result in VdlFile
