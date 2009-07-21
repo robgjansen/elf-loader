@@ -7,6 +7,7 @@
 
 void vdl_file_reloc (struct VdlFile *file, int now);
 // offset is in bytes, return value is reloced symbol
+// called from machine_resolve_trampoline 
 unsigned long vdl_file_reloc_one_plt (struct VdlFile *file, 
 				      unsigned long offset);
 
