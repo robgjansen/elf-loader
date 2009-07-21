@@ -148,7 +148,8 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
     }
 
   // relocate entries in dt_rela. Same as above, slightly different
-  // I have seen these used on x86_64
+  // I have seen these used on x86_64. Theoretically, i386 could
+  // use them with prelinking in some (rare) cases.
   for (i = 0; i < dt_relasz; i+=dt_relaent)
     {
       ElfW(Rela) *tmp = (ElfW(Rela)*)(((uint8_t*)dt_rela) + i);
