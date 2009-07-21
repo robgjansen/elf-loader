@@ -621,6 +621,7 @@ static struct VdlFileMap
 pt_load_to_file_map (const ElfW(Phdr) *phdr)
 {
   struct VdlFileMap map;
+  VDL_LOG_ASSERT (phdr->p_type == PT_LOAD, "Invalid program header");
   map.file_start_align = vdl_utils_align_down (phdr->p_offset, phdr->p_align);
   map.file_size_align = vdl_utils_align_up (phdr->p_offset+phdr->p_filesz, 
 					    phdr->p_align) - map.file_start_align;
