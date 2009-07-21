@@ -49,6 +49,13 @@ interpreter_new (unsigned long load_base,
     }
   else
     {
+      // It's important to initialize the filename of the interpreter
+      // entry in the linkmap to the PT_INTERP of the main binary for
+      // gdb. gdb initializes its first linkmap with an entry which describes
+      // the loader with a filename equal to PT_INTERP so, if we don't use
+      // the same value, gdb will incorrectly believe that the loader entry
+      // has been removed which can lead to certain bad things to happen
+      // in the first call to r_debug_state.
       full_filename = pt_interp;
     }
   struct VdlFile *file = vdl_file_new (load_base, &info, 
