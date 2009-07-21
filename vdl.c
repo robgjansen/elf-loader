@@ -524,6 +524,61 @@ find_by_dev_ino (struct VdlContext *context,
   return 0;
 }
 
+struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
+					   const char *requested_filename,
+					   struct VdlFileList **loaded)
+{
+  // Try to see if we don't have a hardcoded name conversion
+  const char *name = convert_name (requested_filename);
+  // if the file is already mapped within this context,
+  // get it and add it to deps
+  struct VdlFile *file = find_by_name (context, name);
+  if (file != 0)
+    {
+      return file;
+    }
+  // Search the file in the filesystem
+  char *filename = vdl_search_filename (name);
+  if (filename == 0)
+    {
+      VDL_LOG_ERROR ("Could not find %s\n", name);
+      return 0;
+    }
+  // get information about file.
+  struct stat buf;
+  if (system_fstat (filename, &buf) == -1)
+    {
+      VDL_LOG_ERROR ("Cannot stat %s\n", filename);
+      vdl_utils_strfree (filename);
+      return 0;
+    }
+  // If you create a symlink to a binary and link to the
+  // symlinks rather than the underlying binary, the DT_NEEDED
+  // entries record different names for the same binary so,
+  // the search by name above will fail. So, here, we stat
+  // the file we found and check that none of the files
+  // already mapped in the same context have the same ino/dev
+  // pair. If they do, we don't need to re-map the file
+  // and can re-use the previous map.
+  file = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
+  if (file != 0)
+    {
+      vdl_utils_strfree (filename);
+      return file;
+    }
+  // The file is really not yet mapped so, we have to map it
+  file = vdl_file_map_single (context, filename, name);
+
+  if (loaded != 0)
+    {
+      *loaded = vdl_file_list_append_one (*loaded, file);
+    }
+
+  vdl_utils_strfree (filename);
+
+  return file;
+}
+
 int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
@@ -542,57 +597,10 @@ int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded)
   struct VdlStringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
-      // Try to see if we don't have a hardcoded name conversion
-      const char *name = convert_name (cur->str);
-      // if the file is already mapped within this context,
-      // get it and add it to deps
-      struct VdlFile *dep = find_by_name (item->context, name);
-      if (dep != 0)
-	{
-	  deps = vdl_file_list_append_one (deps, dep);
-	  continue;
-	}
-      // Search the file in the filesystem
-      char *filename = vdl_search_filename (name);
-      if (filename == 0)
-	{
-	  VDL_LOG_ERROR ("Could not find %s\n", name);
-	  goto error;
-	}
-      // get information about file.
-      struct stat buf;
-      if (system_fstat (filename, &buf) == -1)
-	{
-	  VDL_LOG_ERROR ("Cannot stat %s\n", filename);
-	  vdl_utils_strfree (filename);
-	  goto error;
-	}
-      // If you create a symlink to a binary and link to the
-      // symlinks rather than the underlying binary, the DT_NEEDED
-      // entries record different names for the same binary so,
-      // the search by name above will fail. So, here, we stat
-      // the file we found and check that none of the files
-      // already mapped in the same context have the same ino/dev
-      // pair. If they do, we don't need to re-map the file
-      // and can re-use the previous map.
-      dep = find_by_dev_ino (item->context, buf.st_dev, buf.st_ino);
-      if (dep != 0)
-	{
-	  deps = vdl_file_list_append_one (deps, dep);
-	  vdl_utils_strfree (filename);
-	  continue;
-	}
-      // The file is really not yet mapped so, we have to map it
-      dep = vdl_file_map_single (item->context, filename, name);
-      if (loaded != 0)
-	{
-	  *loaded = vdl_file_list_append_one (*loaded, dep);
-	}
+      struct VdlFile *dep = vdl_file_map_single_maybe (item->context, cur->str, loaded);
       
       // add the new file to the list of dependencies
       deps = vdl_file_list_append_one (deps, dep);
-
-      vdl_utils_strfree (filename);
     }
   vdl_utils_str_list_free (dt_needed);
 

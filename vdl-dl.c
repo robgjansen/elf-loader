@@ -15,31 +15,22 @@ void *vdl_dlopen_private (const char *filename, int flags)
 {
   futex_lock (&g_vdl.futex);
 
-  // XXX should lookup an already-mapped file of the same matching file+flags ?
-
-  char *full_filename = vdl_search_filename (filename);
-  if (full_filename == 0)
-    {
-      VDL_LOG_ERROR ("Could not find %s\n", filename);
-      goto error;
-    }
   // map it in memory using the normal context, that is, the
   // first context in the context list.
-  struct VdlFile *mapped_file = vdl_file_map_single (g_vdl.contexts,
-						     full_filename, 
-						     filename);
+  struct VdlFileList *loaded = 0;
+  struct VdlFile *mapped_file = vdl_file_map_single_maybe (g_vdl.contexts,
+							   filename,
+							   &loaded);
   if (mapped_file == 0)
     {
-      VDL_LOG_ERROR ("Unable to load: \"%s\"\n", full_filename);
+      VDL_LOG_ERROR ("Unable to load: \"%s\"\n", filename);
       goto error;
     }
-  struct VdlFileList *loaded = 0;
   if (!vdl_file_map_deps (mapped_file, &loaded))
     {
-      VDL_LOG_ERROR ("Unable to map dependencies of \"%s\"\n", full_filename);
+      VDL_LOG_ERROR ("Unable to map dependencies of \"%s\"\n", filename);
       goto error;
     }
-  loaded = vdl_file_list_prepend_one (loaded, mapped_file);
 
   struct VdlFileList *deps = vdl_file_gather_unique_deps_breadth_first (mapped_file);
   if (flags & RTLD_GLOBAL)
@@ -64,6 +55,8 @@ void *vdl_dlopen_private (const char *filename, int flags)
 	  cur->item->lookup_type = LOOKUP_GLOBAL_LOCAL;
 	}
     }
+  vdl_file_list_free (loaded);
+
   vdl_file_list_free (deps);
 
   vdl_file_tls (mapped_file);

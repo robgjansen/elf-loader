@@ -227,6 +227,9 @@ void vdl_file_delete (struct VdlFile *file);
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				    const char *filename, 
 				    const char *name);
+struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
+					   const char *requested_filename,
+					   struct VdlFileList **loaded);
 int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded);
 struct VdlFileList *vdl_file_gather_unique_deps_breadth_first (struct VdlFile *file);
 void vdl_file_call_init (struct VdlFile *file);
