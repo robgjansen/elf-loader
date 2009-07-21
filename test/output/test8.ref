@@ -1,4 +1,4 @@
-libtest7 constructor
+libtest8 constructor
 enter main
 libh constructor
 libg constructor
@@ -10,4 +10,4 @@ libh destructor
 special destructor in libh.so
 dlclose libg.so completed
 leave main
-libtest7 destructor
+libtest8 destructor
