@@ -14,6 +14,9 @@ int main (int argc, char *argv[])
   void (*function_g_f) (void) = dlsym (g, "function_g_f");
   function_g_f ();
 
+  // libf.so will not be unloaded until we dlclose libg.so
+  // because the call to function_g_f above creates
+  // a dependency from g to f.
   dlclose (f);
   printf ("dlclose libf.so completed\n");
 
