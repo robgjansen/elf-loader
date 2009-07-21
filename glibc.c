@@ -10,6 +10,7 @@
 #include <elf.h>
 #include <dlfcn.h>
 #include <link.h>
+#include <stdbool.h>
 
 
 #define EXPORT __attribute__ ((visibility("default")))
@@ -102,10 +103,10 @@ static int vdl_dl_addr (const void *address, Dl_info *info,
   return 0;
 }
 
-// It's hard to believe but _dl_get_tls_static_info did get this 
-// treatment in the libc so, we have to do the same if we want to
-// make sure that the pthread library can call us.
-# ifdef __i386__
+// It's hard to believe but _dl_get_tls_static_info as well as other functions
+// did get this treatment in the libc loader so, we have to do the same if we 
+// want to make sure that the pthread library can call us.
+# if defined (__i386__)
 #  define internal_function   __attribute ((regparm (3), stdcall))
 # else
 #  define internal_function
@@ -121,6 +122,29 @@ _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
   *alignp = g_vdl.tls_static_align;
 }
 
+void *
+internal_function
+_dl_allocate_tls_init (void *result)
+{
+  return 0;
+}
+void
+internal_function
+_dl_deallocate_tls (void *tcb, bool dealloc_tcb)
+{
+}
+void *
+internal_function
+_dl_allocate_tls (void *mem)
+{
+  return 0;
+}
+int
+internal_function
+_dl_make_stack_executable (void **stack_endp)
+{
+  return 0;
+}
 
 void glibc_startup_finished (void) 
 {
