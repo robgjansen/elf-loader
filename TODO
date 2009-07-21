@@ -4,6 +4,25 @@
     equal. The issue here is the relationship between the shared library
     PLTs/GOT and main executable PLT/GOT.
 
+from prelink document:
+----------------------
+Function pointer equality requirement for functions called from executables. When address of 
+some global function is taken, at least C and C++ require that this pointer is the same in the 
+whole program. Executables typically contain position dependent code, so when code in the 
+executable takes address of some function not defined in the executable itself, that address 
+must be link time constant. Linker accomplishes this by creating at PLT slot for the function 
+unless there was one already and resolving to the address of PLT slot. The symbol for the 
+function is created with st value equal to address of the PLT slot, but st shndx set to SHN 
+UNDEF. Such symbols are treated specially by the dynamic linker, in that PLT relocations resolve 
+to first symbol in the global search scope after the executable, while symbol lookups for all 
+other relocation types return the address of the symbol in the executable. Unfortunately, GNU 
+linker doesn’t differentiate between taking address of a function in an executable (especially 
+one for which no dynamic relocation is possible in case it is in read-only segment) and just 
+calling the function, but never taking its address. If it cleared the st value field of the SHN 
+UNDEF function symbols in case nothing in the executable takes the function’s address, several 
+prelink conflict could disappear (SHN UNDEF symbols with st value set to 0 are treated always as 
+real undefined symbols by the dynamic linker).
+
   - make sure we use the minimum permissions for ro code sections: some of these
     sections might not need EXEC protection
 
