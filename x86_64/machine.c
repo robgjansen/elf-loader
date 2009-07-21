@@ -180,6 +180,9 @@ void machine_lazy_reloc (struct VdlFile *file)
     }
   // if this platform does prelinking, the prelinker has stored
   // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero
+  // no, there is no documentation about this other than the code
+  // of the compile-time linker(actually, bfd), dynamic loader and 
+  // the prelinker
   unsigned long *got = (unsigned long *) dt_pltgot;
   unsigned long plt = got[1];
   got[1] = (unsigned long)file;

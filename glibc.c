@@ -112,12 +112,19 @@ static int vdl_dl_addr (const void *address, Dl_info *info,
 #  define internal_function
 # endif
 
-// used by __pthread_initialize_minimal_internal from nptl/init.c
 void
 internal_function
  EXPORT
 _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
 {
+  // This method is called from __pthread_initialize_minimal_internal (nptl/init.c)
+  // It is called from the .init constructors in libpthread.so
+  // We thus must make sure that we have correctly initialized all static tls data
+  // structures _before_ calling the constructors.
+  // Both of these variables are used by the pthread library to correctly
+  // size and align the stack for every newly-created thread. i.e., the pthread
+  // library allocates on the stack the static tls area and delegates initialization
+  // to _dl_allocate_tls_init below.
   *sizep = g_vdl.tls_static_size;
   *alignp = g_vdl.tls_static_align;
 }
