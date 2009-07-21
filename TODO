@@ -33,3 +33,5 @@ real undefined symbols by the dynamic linker).
   - get rid of calls everywhere to vdl_file_get_dynamic. Cache the result in VdlFile
 
   - get rid of gc_symbols_resolved_in and use the GOT instead.
+
+  - implement _dl_* functions in glibc.c
