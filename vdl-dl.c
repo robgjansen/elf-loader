@@ -15,6 +15,8 @@ void *vdl_dlopen_private (const char *filename, int flags)
 {
   futex_lock (&g_vdl.futex);
 
+  // XXX should lookup an already-mapped file of the same matching file+flags ?
+
   char *full_filename = vdl_search_filename (filename);
   if (full_filename == 0)
     {
@@ -52,7 +54,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
   struct VdlFileList *cur;
   for (cur = loaded; cur != 0; cur = cur->next)
     {
-      cur->item->local_scope = deps;
+      cur->item->local_scope = vdl_file_list_copy (deps);
       if (flags & RTLD_DEEPBIND)
 	{
 	  cur->item->lookup_type = LOOKUP_LOCAL_GLOBAL;
@@ -62,6 +64,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 	  cur->item->lookup_type = LOOKUP_GLOBAL_LOCAL;
 	}
     }
+  vdl_file_list_free (deps);
 
   vdl_file_tls (mapped_file);
 
