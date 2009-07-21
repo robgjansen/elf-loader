@@ -156,7 +156,9 @@ vdl_file_lazy_reloc_jmprel (struct VdlFile *file)
 	{
 	  ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
 	  unsigned long *reloc_addr = (unsigned long*) (rela->r_offset + file->load_base);
-	  // XXX why is the addend unused ?
+	  // so far, the only platform I have tested this codepath on is x86_64
+	  // and on this platform, r_addend is ignored. 
+	  // XXX: I really don't understand this.
 	  *reloc_addr += file->load_base;
 	}
     }
