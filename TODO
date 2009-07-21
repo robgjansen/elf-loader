@@ -31,3 +31,5 @@ real undefined symbols by the dynamic linker).
   - PT_INTERP will be invalid when main exec is loader itself
 
   - get rid of calls everywhere to vdl_file_get_dynamic. Cache the result in VdlFile
+
+  - get rid of gc_symbols_resolved_in and use the GOT instead.
