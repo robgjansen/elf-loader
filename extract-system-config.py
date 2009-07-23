@@ -204,6 +204,11 @@ def main(argv):
         sys.exit (1)
     config.write ('#define CONFIG_TCB_SYSINFO_OFFSET ' + str(data.data) + '\n')
 
+    data = debug.get_typedef_member_offset ('tcbhead_t', 'stack_guard')
+    if data is None:
+        sys.exit (1)
+    config.write ('#define CONFIG_TCB_STACK_GUARD ' + str(data.data) + '\n')
+
 if __name__ == "__main__":
     main(sys.argv[1:])
 
