@@ -309,6 +309,8 @@ machine_get_system_search_dirs (void)
 {
   // XXX: first is for my ubuntu box.
   static const char *dirs = "/lib/tls/i686/cmov:"
+    "/lib/tls:" 
+    "/lib/i686:"
     "/lib:" 
     "/lib32:"
     "/usr/lib:"
