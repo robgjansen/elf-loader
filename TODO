@@ -42,3 +42,25 @@ real undefined symbols by the dynamic linker).
 
   - make sure that if there is an error during loading, we can undo
     it in dlopen
+
+  - figure out what to do with:
+     EXTERN void (*_dl_init_static_tls) (struct link_map *);
+     I have no idea what the above is used for. It appears to be unused
+     EXTERN void (*_dl_wait_lookup_done) (void);
+     the above appears to have been deleted
+/* If loading a shared object requires that we make the stack executable
+     when it was not, we do it by calling this function.
+     It returns an errno code or zero on success.  */
+  EXTERN int (*_dl_make_stack_executable_hook) (void **) internal_function;
+  EXTERN void **(*_dl_error_catch_tsd) (void) __attribute__ ((const));
+  // theoretically, the rtld_load_lock could be implemented
+  // completely within the loader without asking libpthread to do anything.
+  EXTERN void (*_dl_rtld_lock_recursive) (void *);
+  EXTERN void (*_dl_rtld_unlock_recursive) (void *);
+  _dl_stack_flags (used by libpthread to check whether stacks should be executable)
+  _dl_load_lock (used by libpthread to initialize correctly its dl lock)
+
+   - really need to use a loaded list to for call_init to avoid the init_called flag
+
+   - test futexes/ actually, read the futex documentation. Don't rely on the stupid futex
+     manpage.
