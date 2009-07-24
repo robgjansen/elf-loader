@@ -1,6 +1,11 @@
 #ifndef FUTEX_H
 #define FUTEX_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdint.h>
 
 struct futex
@@ -11,5 +16,9 @@ struct futex
 void futex_init (struct futex *futex);
 void futex_lock (struct futex *futex);
 void futex_unlock (struct futex *futex);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FUTEX_H */
