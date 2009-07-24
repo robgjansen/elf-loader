@@ -80,11 +80,17 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
   glibc_patch (mapped_file);
 
-  vdl_file_call_init (mapped_file);
-
   mapped_file->count++;
 
+  // we need to release the lock before calling the initializers 
+  // XXX: this is not going to work completely right until
+  // vdl_file_call_init works on the list loaded instead
+  // of being recursive and using the init_called flag.
   futex_unlock (&g_vdl.futex);
+
+  // call_init can't fail, really.
+  vdl_file_call_init (mapped_file);
+
   return mapped_file;
  error:
   // XXX: here, we should attempt to undo the loading of all loaded
