@@ -1,15 +1,22 @@
 #include "futex.h"
 #include <pthread.h>
 struct futex g_futex;
-unsigned int g_shared_var = 0;
+unsigned int g_shared_var;
 
 void *
 futex_thread_a (void*)
 {
-  for (unsigned int i = 0; i < 100000000; i++)
+  for (unsigned int i = 0; i < 10000; i++)
     {
       futex_lock (&g_futex);
-      g_shared_var++;
+      g_shared_var = i;
+      for (unsigned int j = 0; j < 10000; j++)
+	{
+	  if (g_shared_var != i)
+	    {
+	      return (void*)-1;
+	    }
+	}
       futex_unlock (&g_futex);
     }
   return (void*)0;
@@ -18,10 +25,17 @@ futex_thread_a (void*)
 void *
 futex_thread_b (void*)
 {
-  for (unsigned int i = 100000000; i > 0; i--)
+  for (unsigned int i = 10000; i > 0; i--)
     {
       futex_lock (&g_futex);
-      g_shared_var--;
+      g_shared_var = i;
+      for (unsigned int j = 0; j < 10000; j++)
+	{
+	  if (g_shared_var != i)
+	    {
+	      return (void*)-1;
+	    }
+	}
       futex_unlock (&g_futex);
     }
   return (void*)0;
@@ -39,5 +53,5 @@ test_futex(void)
   void *retb;
   pthread_join (tha, &reta);
   pthread_join (thb, &retb);
-  return reta == 0 && retb == 0 && g_shared_var == 0;
+  return reta == 0 && retb == 0;
 }
