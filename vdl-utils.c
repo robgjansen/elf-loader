@@ -33,7 +33,7 @@ void vdl_utils_linkmap_print (void)
 void *vdl_utils_malloc (size_t size)
 {
   VDL_LOG_FUNCTION ("size=%d", size);
-#ifdef DEBUG_ENABLE
+#ifdef MALLOC_DEBUG_ENABLE
   unsigned long *buffer = (unsigned long*)alloc_malloc (&g_vdl.alloc, 
 							size+2*sizeof(unsigned long));
   buffer[0] = (unsigned long)buffer;
@@ -46,7 +46,7 @@ void *vdl_utils_malloc (size_t size)
 void vdl_utils_free (void *buffer, size_t size)
 {
   VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
-#ifdef DEBUG_ENABLE
+#ifdef MALLOC_DEBUG_ENABLE
   unsigned long *buf = (unsigned long*)buffer;
   VDL_LOG_ASSERT (buf[-2] == (unsigned long)(buf-2), "freeing invalid buffer");
   VDL_LOG_ASSERT (buf[-1] == size, "freeing invalid size");
