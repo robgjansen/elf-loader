@@ -128,6 +128,7 @@ vdl_file_reloc_jmprel (struct VdlFile *file)
 unsigned long vdl_file_reloc_one_jmprel (struct VdlFile *file, 
 				      unsigned long offset)
 {
+  futex_lock (&g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
   unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
   unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
@@ -149,6 +150,7 @@ unsigned long vdl_file_reloc_one_jmprel (struct VdlFile *file,
       ElfW(Rela) *rela = &((ElfW(Rela)*)dt_jmprel)[offset];
       symbol = process_rela (file, rela);
     }
+  futex_unlock (&g_vdl.futex);
   return symbol;
 }
 
