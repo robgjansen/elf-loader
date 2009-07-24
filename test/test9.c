@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
+#include <string.h>
 LIB(test9)
 
 static __thread int g_count = 0;
@@ -63,31 +64,31 @@ int main (int argc, char *argv[])
     }
   pthread_attr_t attr;
   status = pthread_attr_init(&attr);
-  if (status == -1)
+  if (status != 0)
     {
       return 3;
     }
   pthread_t tha;
   status = pthread_create (&tha, &attr, &thread_a, 0);
-  if (status == -1)
+  if (status != 0)
     {
       return 4;
     }
   pthread_t thb;
   status = pthread_create (&thb, &attr, &thread_b, 0);
-  if (status == -1)
+  if (status != 0)
     {
       return 5;
     }
   void *retval;
   status = pthread_join (tha, &retval);
-  if (status == -1 || retval != 0)
+  if (status != 0 || retval != 0)
     {
-      printf ("errno=%d\n", errno);
+      printf ("errno=%d/\"%s\"\n", status, strerror (status));
       return 6;
     }
   status = pthread_join (thb, &retval);
-  if (status == -1 || retval != 0)
+  if (status != 0 || retval != 0)
     {
       return 7;
     }
