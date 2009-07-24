@@ -141,6 +141,9 @@ struct VdlFile
   unsigned long tls_align;
   // TLS module index associated to this file
   // this is the index in each thread's DTV
+  // XXX: this member _must_ be at the same offset as l_tls_modid 
+  // in the glibc linkmap to allow gdb to work (gdb accesses this
+  // field for tls variable lookups)
   unsigned long tls_index;
   // offset from thread pointer to this module
   // this field is valid only for modules which

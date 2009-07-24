@@ -165,6 +165,16 @@ vdl_tls_tcb_initialize (unsigned long tcb, unsigned long sysinfo)
 }
 
 // this dtv structure is really different from the glibc one.
+// theoretically, this really does not matter because this structure
+// is supposed to be opaque to the glibc or libpthread. However,
+// life being what it is, nptl_db, the library used by gdb to debug
+// multithreaded programs, actually reads this data structure to
+// lookup tls variables (typically, really useful for errno).
+// So, our data structure has to be compatible with the glibc layout
+// at least for gdb which, in this case, is easy to do. We merely need
+// to ensure that the union field of this data structure really points
+// to tls blocks. It's really hard to feel very good about this gross 
+// hack, but, well, at least, it's supposed to work.
 struct dtv_t
 {
   union {
