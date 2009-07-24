@@ -3,6 +3,7 @@
 #include "vdl-file-list.h"
 #include "vdl.h"
 #include "vdl-log.h"
+#include "vdl-tls.h"
 
 static void
 vdl_file_remove (struct VdlFile *item)
@@ -159,6 +160,7 @@ vdl_gc (void)
     struct VdlFileList *cur;
     for (cur = unload; cur != 0; cur = cur->next)
       {
+	vdl_tls_file_deinitialize (cur->item);
 	vdl_file_delete (cur->item);
       }
   }

@@ -15,15 +15,11 @@ void machine_start_trampoline (void *entry_point_struct, int skip_argc,
 			       void (*dl_fini) (void), void (*entry_point) (void));
 void machine_insert_trampoline (unsigned long from, unsigned long to);
 void machine_lazy_reloc (struct VdlFile *file);
-void machine_tcb_allocate_and_set (unsigned long tcb_size);
-void machine_tcb_set_dtv (unsigned long *dtv);
-void machine_tcb_set_sysinfo (unsigned long sysinfo);
-unsigned long machine_tcb_get (void);
-unsigned long *machine_tcb_get_dtv (void);
-unsigned long machine_tcb_get_sysinfo (void);
 uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);
 uint32_t machine_atomic_dec (uint32_t *val);
 const char *machine_get_system_search_dirs (void);
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
+void machine_thread_pointer_set (unsigned long tp);
+unsigned long machine_thread_pointer_get (void);
 
 #endif /* MACHINE_H */

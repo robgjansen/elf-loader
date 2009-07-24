@@ -6,7 +6,9 @@
 #include "vdl-log.h"
 #include "vdl-dl.h"
 #include "vdl-file-symbol.h"
+#include "vdl-tls.h"
 #include "config.h"
+#include "export.h"
 #include <elf.h>
 #include <dlfcn.h>
 #include <link.h>
@@ -103,11 +105,45 @@ static int vdl_dl_addr (const void *address, Dl_info *info,
   return 0;
 }
 
+// definition stolen from glibc...
+struct tls_index
+{
+  unsigned long int ti_module;
+  unsigned long int ti_offset;
+};
+EXPORT void *
+__tls_get_addr (struct tls_index *ti)
+{
+  void *retval = (void*) vdl_tls_get_addr_fast (ti->ti_module, ti->ti_offset);
+  if (retval == 0)
+    {
+      futex_lock (&g_vdl.futex);      
+      retval = (void*) vdl_tls_get_addr_slow (ti->ti_module, ti->ti_offset);
+      futex_unlock (&g_vdl.futex);
+    }
+  return retval;
+}
+
 // It's hard to believe but _dl_get_tls_static_info as well as other functions
-// did get this treatment in the libc loader so, we have to do the same if we 
-// want to make sure that the pthread library can call us.
+// were defined with a non-standard calling convention as an optimization. Since
+// these functions are called by the outside world, we have to do precisely
+// the same to be compatible.
 # if defined (__i386__)
 #  define internal_function   __attribute ((regparm (3), stdcall))
+// this is the prototype for the GNU version of the i386 TLS ABI
+// note the extra leading underscore used here to identify this optimized
+// version of _get_addr
+EXPORT void *
+___tls_get_addr (struct tls_index *ti) __attribute__ ((__regparm__ (1)))
+{
+  void *retval = (void*) vdl_tls_get_addr_fast (ti->ti_module, ti->ti_offset);
+  if (retval == 0)
+    {
+      futex_lock (&g_vdl.futex);      
+      retval = (void*) vdl_tls_get_addr_slow (ti->ti_module, ti->ti_offset);
+      futex_unlock (&g_vdl.futex);
+    }
+}
 # else
 #  define internal_function
 # endif
@@ -129,22 +165,54 @@ _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
   *alignp = g_vdl.tls_static_align;
 }
 
+// This function is called from within pthread_create to initialize
+// the content of the dtv for a new thread before giving control to
+// that new thread
 void *
 internal_function
-_dl_allocate_tls_init (void *result)
+_dl_allocate_tls_init (void *tcb)
 {
+  futex_lock (&g_vdl.futex);
+
+  vdl_tls_dtv_initialize ((unsigned long)tcb);
+
+  futex_unlock (&g_vdl.futex);
   return 0;
 }
-void
-internal_function
-_dl_deallocate_tls (void *tcb, bool dealloc_tcb)
-{
-}
+// This function is called from within pthread_create to allocate
+// memory for the dtv of the thread. Optionally, the caller
+// also is able to delegate memory allocation of the tcb
+// to this function
 void *
 internal_function
 _dl_allocate_tls (void *mem)
 {
+  futex_lock (&g_vdl.futex);
+
+  unsigned long tcb = (unsigned long)mem;
+  if (tcb == 0)
+    {
+      tcb = vdl_tls_tcb_allocate ();
+    }
+  vdl_tls_dtv_allocate (tcb);
+
+  futex_unlock (&g_vdl.futex);
   return 0;
+}
+void
+internal_function
+_dl_deallocate_tls (void *ptcb, bool dealloc_tcb)
+{
+  futex_lock (&g_vdl.futex);
+
+  unsigned long tcb = (unsigned long) ptcb;
+  vdl_tls_dtv_deallocate (tcb);
+  if (dealloc_tcb)
+    {
+      vdl_tls_tcb_deallocate (tcb);
+    }
+
+  futex_unlock (&g_vdl.futex);
 }
 int
 internal_function

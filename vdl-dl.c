@@ -8,6 +8,7 @@
 #include "vdl-gc.h"
 #include "vdl-file-reloc.h"
 #include "vdl-file-symbol.h"
+#include "vdl-tls.h"
 #include "machine.h"
 #include "export.h"
 
@@ -26,6 +27,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
       VDL_LOG_ERROR ("Unable to load: \"%s\"\n", filename);
       goto error;
     }
+
   if (!vdl_file_map_deps (mapped_file, &loaded))
     {
       VDL_LOG_ERROR ("Unable to map dependencies of \"%s\"\n", filename);
@@ -55,13 +57,24 @@ void *vdl_dlopen_private (const char *filename, int flags)
 	  cur->item->lookup_type = LOOKUP_GLOBAL_LOCAL;
 	}
     }
-  vdl_file_list_free (loaded);
 
   vdl_file_list_free (deps);
 
-  vdl_file_tls (mapped_file);
+  vdl_tls_file_initialize (mapped_file);
 
   vdl_file_reloc (mapped_file, g_vdl.bind_now || flags & RTLD_NOW);
+  
+  if (vdl_tls_file_list_has_static (loaded))
+    {
+      // damn-it, one of the files we loaded
+      // has indeed a static tls block. we don't know
+      // how to handle them because that would require
+      // adding space to the already-allocated static tls
+      // which, by definition, can't be deallocated.
+      goto error;
+    }
+
+  vdl_file_list_free (loaded);
 
   gdb_notify ();
 
@@ -74,6 +87,8 @@ void *vdl_dlopen_private (const char *filename, int flags)
   futex_unlock (&g_vdl.futex);
   return mapped_file;
  error:
+  // XXX: here, we should attempt to undo the loading of all loaded
+  // objects.
   futex_unlock (&g_vdl.futex);
   return 0;
 }

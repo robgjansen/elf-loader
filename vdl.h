@@ -117,23 +117,22 @@ struct VdlFile
   // indicates if we patched this file for some
   // nastly glibc-isms.
   uint32_t patched : 1;
-  // indicates if this file has a TLS program entry
-  // If so, all tls_-prefixed variables are valid.
-  uint32_t has_tls : 1;
   // indicates if this represents the main executable.
   uint32_t is_executable : 1;
   uint32_t gc_color : 2;
-  // the list of objects in which we resolved a symbol 
-  // from a GOT/PLT relocation. This field is used
-  // during garbage collection from vdl_gc to detect
-  // the set of references an object holds to another one
-  // and thus avoid unloading an object which is held as a
-  // reference by another object.
-  struct VdlFileList *gc_symbols_resolved_in;
+  // indicates if this file has a TLS program entry
+  // If so, all tls_-prefixed variables are valid.
+  uint32_t has_tls : 1;
+  // indicates whether this file is part of the static TLS
+  // block
+  uint32_t tls_is_static : 1;
   // start of TLS block template
   unsigned long tls_tmpl_start;
   // size of TLS block template
   unsigned long tls_tmpl_size;
+  // the generation number when the tls template
+  // of this number was initialized
+  unsigned long tls_tmpl_gen;
   // size of TLS block zero area, located
   // right after the area initialized with the
   // TLS block template
@@ -147,6 +146,13 @@ struct VdlFile
   // this field is valid only for modules which
   // are loaded at startup.
   signed long tls_offset;
+  // the list of objects in which we resolved a symbol 
+  // from a GOT/PLT relocation. This field is used
+  // during garbage collection from vdl_gc to detect
+  // the set of references an object holds to another one
+  // and thus avoid unloading an object which is held as a
+  // reference by another object.
+  struct VdlFileList *gc_symbols_resolved_in;
   enum VdlLookupType lookup_type;
   struct VdlContext *context;
   struct VdlFileList *local_scope;
@@ -242,7 +248,6 @@ struct VdlFile *vdl_file_new_main (unsigned long phnum,
 				   const char **argv, 
 				   const char **envp);
 
-void vdl_file_tls (struct VdlFile *file);
 ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 
 char *vdl_search_filename (const char *name);

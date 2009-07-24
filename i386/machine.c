@@ -218,18 +218,12 @@ void machine_insert_trampoline (unsigned long from, unsigned long to)
   system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
 }
 
-void machine_tcb_allocate_and_set (unsigned long tcb_size)
+void machine_thread_pointer_set (unsigned long tp)
 {
-  unsigned long total_size = tcb_size + CONFIG_TCB_SIZE;
-  unsigned long buffer = (unsigned long) vdl_utils_malloc (total_size);
-  vdl_utils_memset ((void*)buffer, 0, total_size);
-  unsigned long tcb = buffer + tcb_size;
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
   struct user_desc desc;
   vdl_utils_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number
-  desc.base_addr = tcb;
+  desc.base_addr = tp;
   desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
   desc.seg_32bit = 1;
 
@@ -253,35 +247,11 @@ void machine_tcb_allocate_and_set (unsigned long tcb_size)
   int gs = (desc.entry_number << 3) | 3;
   asm ("movw %w0, %%gs" :: "q" (gs));
 }
-void machine_tcb_set_dtv (unsigned long *dtv)
-{
-  unsigned long tcb = machine_tcb_get ();
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
-}
-void machine_tcb_set_sysinfo (unsigned long sysinfo)
-{
-  unsigned long tcb = machine_tcb_get ();
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
-}
-unsigned long machine_tcb_get (void)
+unsigned long machine_thread_pointer_get (void)
 {
   unsigned long value;
   asm ("movl %%gs:0,%0" : "=r" (value) :);
   return value;
-}
-unsigned long *machine_tcb_get_dtv (void)
-{
-  unsigned long tcb = machine_tcb_get ();
-  unsigned long dtv;
-  vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
-  return (unsigned long *)dtv;
-}
-unsigned long machine_tcb_get_sysinfo (void)
-{
-  unsigned long tcb = machine_tcb_get ();
-  unsigned long sysinfo;
-  vdl_utils_memcpy (&sysinfo, (void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), sizeof (sysinfo));
-  return sysinfo;
 }
 
 uint32_t machine_cmpxchg (uint32_t *ptr, uint32_t old, uint32_t new)

@@ -9,6 +9,7 @@
 #include "machine.h"
 #include "stage2.h"
 #include "vdl-gc.h"
+#include "vdl-tls.h"
 #include <elf.h>
 #include <link.h>
 
@@ -282,43 +283,9 @@ stage2_initialize (struct Stage2Input input)
   vdl_file_list_unicize (global_scope);
   context->global_scope = global_scope;
 
-  // We gather tls information for each module. We need to
-  // do this before relocation because the TLS-type relocations 
-  // need this tls information.
-  {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	vdl_file_tls (cur);
-      }
-  }
-  // Then, we calculate the size of the memory needed for the 
-  // static and local tls model. We also initialize correctly
-  // the tls_offset field to be able to perform relocations
-  // next (the TLS relocations need the tls_offset field).
-  {
-    unsigned long tcb_size = 0;
-    unsigned long n_dtv = 0;
-    unsigned long max_align = 0;
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	if (cur->has_tls)
-	  {
-	    tcb_size += cur->tls_tmpl_size + cur->tls_init_zero_size;
-	    tcb_size = vdl_utils_align_up (tcb_size, cur->tls_align);
-	    n_dtv++;
-	    cur->tls_offset = - tcb_size;
-	    if (cur->tls_align > max_align)
-	      {
-		max_align = cur->tls_align;
-	      }
-	  }
-      }
-    g_vdl.tls_static_size = tcb_size;
-    g_vdl.tls_static_align = max_align;
-    g_vdl.tls_n_dtv = n_dtv;
-  }
+  // We need to do this before relocation because the TLS-type relocations 
+  // need tls information.
+  vdl_tls_initialize ();
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
@@ -334,29 +301,12 @@ stage2_initialize (struct Stage2Input input)
   // and the dtv. We need to wait post-reloc because the tls
   // template area used to initialize the tls blocks is likely 
   // to be modified during relocation processing.
-  {
-    machine_tcb_allocate_and_set (g_vdl.tls_static_size);
-    unsigned long tcb = machine_tcb_get ();
-    machine_tcb_set_sysinfo (input.sysinfo);
-    unsigned long *dtv = vdl_utils_malloc ((1+g_vdl.tls_n_dtv) * sizeof (unsigned long));
-    dtv[0] = g_vdl.tls_gen;
-    g_vdl.tls_gen++;
-    struct VdlFile *cur;
-    unsigned long i; // starts at 1 because 0 contains the generation
-    for (i = 1, cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	if (cur->has_tls)
-	  {
-	    // setup the dtv to point to the tls block
-	    dtv[i] = tcb + cur->tls_offset;
-	    // copy the template in the module tls block
-	    vdl_utils_memcpy ((void*)dtv[i], (void*)cur->tls_tmpl_start, cur->tls_tmpl_size);
-	    vdl_utils_memset ((void*)(dtv[i] + cur->tls_tmpl_size), 0, cur->tls_init_zero_size);
-	    i++;
-	  }
-      }
-    machine_tcb_set_dtv (dtv);
-  }
+  unsigned long tcb = vdl_tls_tcb_allocate ();
+  vdl_tls_tcb_initialize (tcb, input.sysinfo);
+  vdl_tls_dtv_allocate (tcb);
+  vdl_tls_dtv_initialize (tcb);
+  // configure the current thread to use this TCB as a thread pointer
+  machine_thread_pointer_set (tcb);
 
   // Note that we must invoke this method to notify gdb that we have
   // a valid linkmap only _after_ relocations have been done (if you do

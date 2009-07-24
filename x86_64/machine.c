@@ -212,50 +212,18 @@ void machine_insert_trampoline (unsigned long from, unsigned long to)
 {
   VDL_LOG_FUNCTION ("from=0x%x, to=0x%x", from, to);
 }
-
-void machine_tcb_allocate_and_set (unsigned long tcb_size)
+void machine_thread_pointer_set (unsigned long tp)
 {
-  unsigned long total_size = tcb_size + CONFIG_TCB_SIZE;
-  unsigned long buffer = (unsigned long) vdl_utils_malloc (total_size);
-  vdl_utils_memset ((void*)buffer, 0, total_size);
-  unsigned long tcb = buffer + tcb_size;
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
-
-  unsigned long fs = tcb;
+  unsigned long fs = tp;
   int status = SYSCALL2 (arch_prctl, ARCH_SET_FS, fs);
   VDL_LOG_DEBUG ("status=%d\n", status);
-  VDL_LOG_ASSERT (status == 0, "Unable to set TCB");
+  VDL_LOG_ASSERT (status == 0, "Unable to set TP");  
 }
-void machine_tcb_set_dtv (unsigned long *dtv)
-{
-  unsigned long tcb = machine_tcb_get ();
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
-}
-void machine_tcb_set_sysinfo (unsigned long sysinfo)
-{
-  unsigned long tcb = machine_tcb_get ();
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
-}
-unsigned long machine_tcb_get (void)
+unsigned long machine_thread_pointer_get (void)
 {
   unsigned long value = 0;
   asm ("mov %%fs:0,%0" : "=r" (value) :);
   return value;
-}
-unsigned long *machine_tcb_get_dtv (void)
-{
-  unsigned long tcb = machine_tcb_get ();
-  unsigned long dtv;
-  vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
-  return (unsigned long *)dtv;
-}
-unsigned long machine_tcb_get_sysinfo (void)
-{
-  unsigned long tcb = machine_tcb_get ();
-  unsigned long sysinfo;
-  vdl_utils_memcpy (&sysinfo, (void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), sizeof (sysinfo));
-  return sysinfo;
 }
 
 uint32_t machine_cmpxchg (uint32_t *ptr, uint32_t old, uint32_t new)
