@@ -148,9 +148,8 @@ ___tls_get_addr (struct tls_index *ti) __attribute__ ((__regparm__ (1)))
 #  define internal_function
 # endif
 
-void
+EXPORT void
 internal_function
- EXPORT
 _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
 {
   // This method is called from __pthread_initialize_minimal_internal (nptl/init.c)
@@ -168,6 +167,7 @@ _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
 // This function is called from within pthread_create to initialize
 // the content of the dtv for a new thread before giving control to
 // that new thread
+EXPORT 
 void *
 internal_function
 _dl_allocate_tls_init (void *tcb)
@@ -183,6 +183,7 @@ _dl_allocate_tls_init (void *tcb)
 // memory for the dtv of the thread. Optionally, the caller
 // also is able to delegate memory allocation of the tcb
 // to this function
+EXPORT 
 void *
 internal_function
 _dl_allocate_tls (void *mem)
@@ -199,6 +200,7 @@ _dl_allocate_tls (void *mem)
   futex_unlock (&g_vdl.futex);
   return 0;
 }
+EXPORT 
 void
 internal_function
 _dl_deallocate_tls (void *ptcb, bool dealloc_tcb)
@@ -214,6 +216,7 @@ _dl_deallocate_tls (void *ptcb, bool dealloc_tcb)
 
   futex_unlock (&g_vdl.futex);
 }
+EXPORT
 int
 internal_function
 _dl_make_stack_executable (void **stack_endp)
