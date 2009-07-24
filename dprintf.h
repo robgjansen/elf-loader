@@ -7,7 +7,7 @@
  */
 void dprintf (const char *str, ...);
 
-#ifdef DEBUG_ENABLE
+#ifdef DPRINTF_DEBUG_ENABLE
 #define DPRINTF(str,...) \
   dprintf(str, __VA_ARGS__)
 #else
