@@ -172,12 +172,16 @@ void *
 internal_function
 _dl_allocate_tls_init (void *tcb)
 {
+  if (tcb == 0)
+    {
+      return 0;
+    }
   futex_lock (&g_vdl.futex);
 
   vdl_tls_dtv_initialize ((unsigned long)tcb);
 
   futex_unlock (&g_vdl.futex);
-  return 0;
+  return tcb;
 }
 // This function is called from within pthread_create to allocate
 // memory for the dtv of the thread. Optionally, the caller
@@ -196,9 +200,10 @@ _dl_allocate_tls (void *mem)
       tcb = vdl_tls_tcb_allocate ();
     }
   vdl_tls_dtv_allocate (tcb);
+  vdl_tls_dtv_initialize ((unsigned long)tcb);
 
   futex_unlock (&g_vdl.futex);
-  return 0;
+  return (void*)tcb;
 }
 EXPORT 
 void
