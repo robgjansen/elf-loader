@@ -76,8 +76,9 @@ libvdl.so: libvdl.o ldso libvdl.version
 	$(CC) $(LDFLAGS) ldso -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
 
 elfedit: elfedit.o
-internal-tests: internal-tests.o $(LDSO_COMMON_OBJECTS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+internal-tests: LDFLAGS+=-lpthread
+internal-tests: internal-tests.o internal-test-alloc.o internal-test-futex.o $(LDSO_COMMON_OBJECTS)
+	$(CXX) $(LDFLAGS) $^ -o $@
 
 clean: 
 	-rm -f internal-tests elfedit readversiondef core hello hello-ldso 2> /dev/null
