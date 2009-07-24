@@ -1,6 +1,7 @@
 #include "test.h"
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
 LIB(test9)
 
 static __thread int g_count = 0;
@@ -82,6 +83,7 @@ int main (int argc, char *argv[])
   status = pthread_join (tha, &retval);
   if (status == -1 || retval != 0)
     {
+      printf ("errno=%d\n", errno);
       return 6;
     }
   status = pthread_join (thb, &retval);
