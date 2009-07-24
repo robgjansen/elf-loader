@@ -3,6 +3,7 @@ DEBUG+=-DMALLOC_DEBUG_ENABLE
 #OPT=-O2
 LDSO_SONAME=ldso
 CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT) -Wp,-M,-MF,.deps/$*.d
+CXXFLAGS=$(CFLAGS)
 LDFLAGS=$(OPT)
 
 #we need libgcc for 64bit arithmetic functions
@@ -19,7 +20,7 @@ LIBDL_FILE=/lib64/libdl.so.2
 LDSO_DEBUG_FILE=/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug
 endif
 
-all: ldso libvdl.so elfedit
+all: ldso libvdl.so elfedit internal-tests
 
 test: FORCE
 	$(MAKE) -C test
@@ -27,17 +28,23 @@ test: FORCE
 FORCE:
 
 LDSO_ARCH_SRC=\
-$(ARCH)/machine.c $(ARCH)/stage0.S $(ARCH)/resolv.S
-LDSO_SOURCE=\
-stage1.c stage2.c avprintf-cb.c \
+
+LDSO_COMMON_SOURCE=\
+avprintf-cb.c \
 dprintf.c vdl-utils.c vdl-log.c \
-vdl.c system.c alloc.c glibc.c \
-gdb.c vdl-dl.c interp.c vdl-file-reloc.c \
+vdl.c system.c alloc.c \
+vdl-file-reloc.c \
 vdl-file-list.c vdl-gc.c vdl-file-symbol.c \
-futex.c vdl-tls.c $(LDSO_ARCH_SRC)
-SOURCE=$(LDSO_SOURCE) libvdl.c elfedit.c readversiondef.c
+futex.c vdl-tls.c \
+$(ARCH)/machine.c $(ARCH)/resolv.S
+LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
+interp.c gdb.c glibc.c \
+stage1.c stage2.c  \
+$(ARCH)/stage0.S vdl-dl.c 
+SOURCE=$(LDSO_FULL_SOURCE) libvdl.c elfedit.c readversiondef.c
 
 LDSO_OBJECTS=$(addsuffix .o,$(basename $(LDSO_SOURCE)))
+LDSO_COMMON_OBJECTS=$(addsuffix .o,$(basename $(LDSO_COMMON_SOURCE)))
 
 
 
@@ -68,13 +75,12 @@ libvdl.o: libvdl.c
 libvdl.so: libvdl.o ldso libvdl.version
 	$(CC) $(LDFLAGS) ldso -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
 
-elfedit.o: elfedit.c
-	$(CC) $(CFLAGS) -o $@ -c $<
 elfedit: elfedit.o
-	$(CC) $(LDFLAGS) -o $@ $^
+internal-tests: internal-tests.o $(LDSO_COMMON_OBJECTS)
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 clean: 
-	-rm -f elfedit readversiondef core hello hello-ldso 2> /dev/null
+	-rm -f internal-tests elfedit readversiondef core hello hello-ldso 2> /dev/null
 	-rm -f ldso libvdl.so *.o  $(ARCH)/*.o 2>/dev/null
 	-rm -f *~ $(ARCH)/*~ 2>/dev/null
 	-rm -f \#* $(ARCH)/\#* 2>/dev/null

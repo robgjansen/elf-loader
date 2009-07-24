@@ -13,3 +13,4 @@ ldso.version$
 libvdl.version$
 config.h$
 readversiondef$
+internal-tests$

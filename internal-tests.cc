@@ -1,7 +1,9 @@
-#include "../alloc.h"
 #include <list>
+#include <iostream>
+#include <string.h>
+#include "alloc.h"
 
-int main (int argc, char *argv[])
+bool test_alloc (void)
 {
   struct Alloc alloc;
   alloc_initialize (&alloc);
@@ -41,5 +43,20 @@ int main (int argc, char *argv[])
 
   alloc_destroy (&alloc);
 
-  return 0;
+  return true;
+}
+
+#define RUN_TEST(name)					\
+  do {							\
+    bool result = test_##name ();			\
+    if (!result) {ok = false;}				\
+    const char *result_string = result?"PASS":"FAIL";	\
+    std::cout << #name << "=" << result_string << std::endl;	\
+  } while (false)
+
+int main (int argc, char *argv[])
+{
+  bool ok = true;
+  RUN_TEST (alloc);
+  return ok?0:1;
 }
