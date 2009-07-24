@@ -1,8 +1,8 @@
 CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-L.
 
-TESTS=test0 test01 test1 test2 test3 test4 test5 test6 test7 test8 test9
-TARGETS=hello libh.so libg.so libf.so libe.so libd.so libb.so liba.so \
+TESTS=test0 test01 test1 test2 test3 test4 test5 test6 test7 test8 test9 test10
+TARGETS=hello libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
 all: $(TARGETS)
@@ -47,6 +47,7 @@ libh.so:
 test0: LDFLAGS+=-la
 test01: LDFLAGS+=-lb -la
 test9: LDFLAGS+=-lpthread
+test10: LDFLAGS+=-lpthread
 
 clean:
 	-rm -f *.o *~ 2>/dev/null
