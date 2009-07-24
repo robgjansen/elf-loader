@@ -1,7 +1,8 @@
-#DEBUG=-DDEBUG_ENABLE
+#DEBUG=-DPRINTF_DEBUG_ENABLE
+DEBUG+=-DMALLOC_DEBUG_ENABLE
 #OPT=-O2
 LDSO_SONAME=ldso
-CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT)
+CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT) -Wp,-M,-MF,.deps/$*.d
 LDFLAGS=$(OPT)
 
 #we need libgcc for 64bit arithmetic functions
@@ -18,7 +19,6 @@ LIBDL_FILE=/lib64/libdl.so.2
 LDSO_DEBUG_FILE=/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug
 endif
 
-
 all: ldso libvdl.so elfedit
 
 test: FORCE
@@ -26,19 +26,21 @@ test: FORCE
 	$(MAKE) -C test run
 FORCE:
 
-LDSO_ARCH_OBJECTS=\
-$(ARCH)/machine.o $(ARCH)/stage0.o $(ARCH)/resolv.o 
-LDSO_OBJECTS=\
-stage1.o stage2.o avprintf-cb.o \
-dprintf.o vdl-utils.o vdl-log.o \
-vdl.o system.o alloc.o glibc.o \
-gdb.o vdl-dl.o interp.o vdl-file-reloc.o \
-vdl-file-list.o vdl-gc.o vdl-file-symbol.o \
-futex.o $(LDSO_ARCH_OBJECTS)
+LDSO_ARCH_SRC=\
+$(ARCH)/machine.c $(ARCH)/stage0.S $(ARCH)/resolv.S
+LDSO_SOURCE=\
+stage1.c stage2.c avprintf-cb.c \
+dprintf.c vdl-utils.c vdl-log.c \
+vdl.c system.c alloc.c glibc.c \
+gdb.c vdl-dl.c interp.c vdl-file-reloc.c \
+vdl-file-list.c vdl-gc.c vdl-file-symbol.c \
+futex.c vdl-tls.c $(LDSO_ARCH_SRC)
+SOURCE=$(LDSO_SOURCE) libvdl.c elfedit.c readversiondef.c
 
-# dependency rules.
-$(ARCH)/machine.o: config.h
-glibc.o: config.h
+LDSO_OBJECTS=$(addsuffix .o,$(basename $(LDSO_SOURCE)))
+
+
+
 ldso: $(LDSO_OBJECTS) ldso.version
 # build rules.
 %.o:%.c
@@ -78,3 +80,5 @@ clean:
 	-rm -f \#* $(ARCH)/\#* 2>/dev/null
 	-rm -f ldso.version 2>/dev/null
 	$(MAKE) -C test clean
+
+-include $(SRC:%.o=.deps/%.d)
