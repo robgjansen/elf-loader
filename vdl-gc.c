@@ -124,7 +124,7 @@ static struct VdlFileList *vdl_gc_get_white (void)
   return vdl_file_list_reverse (white);
 }
 
-static struct VdlFileList *
+struct VdlFileList *
 vdl_gc_get_objects_to_unload (void)
 {
   struct VdlFileList *all_free = 0;
@@ -146,24 +146,3 @@ vdl_gc_get_objects_to_unload (void)
   return all_free;
 }
 
-void
-vdl_gc (void)
-{
-  // first, we gather the list of all objects to unload/delete
-  struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
-
-  vdl_file_list_call_fini (unload);
-
-  // we have to wait until all the finalizers are run to 
-  // delete the files 
-  {
-    struct VdlFileList *cur;
-    for (cur = unload; cur != 0; cur = cur->next)
-      {
-	vdl_tls_file_deinitialize (cur->item);
-	vdl_file_delete (cur->item);
-      }
-  }
-
-  vdl_file_list_free (unload);
-}

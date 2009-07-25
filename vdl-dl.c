@@ -115,7 +115,29 @@ int vdl_dlclose_private (void *handle)
 
   struct VdlFile *file = (struct VdlFile*)handle;
   file->count--;
-  vdl_gc ();
+
+  // first, we gather the list of all objects to unload/delete
+  struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
+
+  futex_unlock (&g_vdl.futex);
+
+  vdl_file_list_call_fini (unload);
+
+  futex_lock (&g_vdl.futex);
+
+  // we have to wait until all the finalizers are run to 
+  // delete the files 
+  {
+    struct VdlFileList *cur;
+    for (cur = unload; cur != 0; cur = cur->next)
+      {
+	vdl_tls_file_deinitialize (cur->item);
+	vdl_file_delete (cur->item);
+      }
+  }
+
+  vdl_file_list_free (unload);
+
   gdb_notify ();
 
   futex_unlock (&g_vdl.futex);
