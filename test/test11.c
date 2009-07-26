@@ -4,6 +4,7 @@ LIB(test11)
 
 int main (int argc, char *argv[])
 {
-  dlopen ("libselinux.so.1", RTLD_LAZY);
+  void *p = malloc (10);
+  free (p);
   return 0;
 }
