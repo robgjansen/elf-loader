@@ -1,5 +1,5 @@
 #include "test.h"
-#include <dlfcn.h>
+#include <stdlib.h>
 LIB(test11)
 
 int main (int argc, char *argv[])
