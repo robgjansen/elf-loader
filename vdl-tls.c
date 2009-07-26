@@ -62,6 +62,7 @@ vdl_tls_file_initialize (struct VdlFile *file)
   file->tls_is_static = (dt_flags & DF_STATIC_TLS)?1:0;
   file->tls_tmpl_gen = g_vdl.tls_gen;
   g_vdl.tls_gen++;
+  g_vdl.tls_n_dtv++;
 
   struct VdlFileList *cur;
   for (cur = file->deps; cur != 0; cur = cur->next)
@@ -81,6 +82,7 @@ void vdl_tls_file_deinitialize (struct VdlFile *file)
   if (file->has_tls)
     {
       g_vdl.tls_gen++;
+      g_vdl.tls_n_dtv--;
     }
 }
 
@@ -139,7 +141,6 @@ vdl_tls_initialize (void)
       }
     g_vdl.tls_static_size = vdl_utils_align_up (tcb_size, max_align);
     g_vdl.tls_static_align = max_align;
-    g_vdl.tls_n_dtv = n_dtv;
   }
 }
 
