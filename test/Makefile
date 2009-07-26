@@ -1,7 +1,7 @@
 CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-L.
 
-TESTS=test0 test01 test1 test2 test3 test4 test5 test6 test7 test8 test8.5 test9 test10
+TESTS=test0 test0_1 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10
 TARGETS=hello libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
@@ -45,8 +45,8 @@ libf.so:
 libg.so: LDFLAGS+=-lh
 libh.so:
 test0: LDFLAGS+=-la
-test01: LDFLAGS+=-lb -la
-test8.5: LDFLAGS+=-lpthread
+test0_1: LDFLAGS+=-lb -la
+test8_5: LDFLAGS+=-lpthread
 test9: LDFLAGS+=-lpthread
 test10: LDFLAGS+=-lpthread
 
