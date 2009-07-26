@@ -208,6 +208,7 @@ stage2_initialize (struct Stage2Input input)
 
   struct VdlFile *main_file;
   struct VdlContext *context;
+  const char *pt_interp;
   if (is_loader (input.program_phnum, input.program_phdr))
     {
       // the interpreter is run as a normal program. We behave like the libc
@@ -227,6 +228,7 @@ stage2_initialize (struct Stage2Input input)
       // the filename for the main exec is "" for gdb.
       main_file = vdl_file_map_single (context, program, "");
       output.n_argv_skipped = 1;
+      pt_interp = LDSO_SONAME;
     }
   else
     {
@@ -251,6 +253,8 @@ stage2_initialize (struct Stage2Input input)
 				input.program_argv[0],
 				context);
       output.n_argv_skipped = 0;
+      pt_interp = get_pt_interp (main_file, input.program_phdr, 
+				 input.program_phnum);
     }
   main_file->count++;
   main_file->is_executable = 1;
@@ -263,8 +267,7 @@ stage2_initialize (struct Stage2Input input)
   // scope.
   struct VdlFile *interpreter;
   interpreter = interpreter_new (input.interpreter_load_base,
-				 get_pt_interp (main_file, input.program_phdr, 
-						input.program_phnum),
+				 pt_interp,
 				 context);
   struct VdlFileList *global_scope = 0;
 
