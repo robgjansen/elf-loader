@@ -105,7 +105,8 @@ void *vdl_dlsym_private (void *handle, const char *symbol)
   struct VdlFile *file = (struct VdlFile*)handle;
   // XXX: the lookup should be a lookup in local scope, not
   // only in this binary.
-  unsigned long v = vdl_file_symbol_lookup_local (file, symbol);
+  unsigned long size;
+  unsigned long v = vdl_file_symbol_lookup_local (file, symbol, &size);
   return (void*)v;
 }
 

@@ -208,9 +208,13 @@ void machine_lazy_reloc (struct VdlFile *file)
 	}
     }
 }
-void machine_insert_trampoline (unsigned long from, unsigned long to)
+bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size)
 {
-  VDL_LOG_FUNCTION ("from=0x%x, to=0x%x", from, to);
+  VDL_LOG_FUNCTION ("from=0x%lx, to=0x%lx, from_size=0x%lx", from, to, from_size);
+  if (from_size < 14)
+    {
+      return false;
+    }
   // In this code, we assume that the target symbol is bigger than
   // our jump and that none of that code is running yet so, we don't have
   // to worry about modifying a piece of code which is running already.
@@ -232,6 +236,7 @@ void machine_insert_trampoline (unsigned long from, unsigned long to)
   buffer[12] = (to >> 48) & 0xff;
   buffer[13] = (to >> 56) & 0xff;
   system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
+  return true;
 }
 void machine_thread_pointer_set (unsigned long tp)
 {

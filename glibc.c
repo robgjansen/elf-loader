@@ -264,24 +264,25 @@ void glibc_patch (struct VdlFile *file)
       glibc_patch (cur->item);
     }
 
-  unsigned long addr = vdl_file_symbol_lookup_local (file, "_dl_addr");
+  unsigned long size;
+  unsigned long addr = vdl_file_symbol_lookup_local (file, "_dl_addr", &size);
   if (addr != 0)
     {
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dl_addr);
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dl_addr, size);
     }
-  addr = vdl_file_symbol_lookup_local (file, "__libc_dlopen_mode");
+  addr = vdl_file_symbol_lookup_local (file, "__libc_dlopen_mode", &size);
   if (addr != 0)
     {
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen_private);
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen_private, size);
     }
-  addr = vdl_file_symbol_lookup_local (file, "__libc_dlclose");
+  addr = vdl_file_symbol_lookup_local (file, "__libc_dlclose", &size);
   if (addr != 0)
     {
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose_private);
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose_private, size);
     }
-  addr = vdl_file_symbol_lookup_local (file, "__libc_dlsym");
+  addr = vdl_file_symbol_lookup_local (file, "__libc_dlsym", &size);
   if (addr != 0)
     {
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlsym_private);
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlsym_private, size);
     }
 }

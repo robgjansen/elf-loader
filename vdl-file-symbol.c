@@ -418,7 +418,8 @@ vdl_file_symbol_lookup (struct VdlFile *file,
   return ok;
 }
 unsigned long 
-vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name)
+vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name,
+			      unsigned long *size)
 {
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
@@ -426,6 +427,7 @@ vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name)
   while (vdl_file_lookup_has_next (&i))
     {
       unsigned long index = vdl_file_lookup_next (&i);
+      *size = i.dt_symtab[index].st_size;
       return file->load_base + i.dt_symtab[index].st_value;
     }
   return 0;
