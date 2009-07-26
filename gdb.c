@@ -23,8 +23,8 @@ void gdb_initialize (struct VdlFile *file)
   // in the DT_DEBUG entry of the main executable dynamic section
   // because this is where gdb goes to look to find the pointer and
   // lookup an inferior's linkmap.
-  unsigned long dt_debug = vdl_file_get_dynamic_p (file, DT_DEBUG);
-  unsigned long *p = (unsigned long *)&(dt_debug);
+  ElfW(Dyn) *dt_debug = vdl_file_get_dynamic (file, DT_DEBUG);
+  unsigned long *p = (unsigned long *)&(dt_debug->d_un.d_ptr);
   *p = (unsigned long)&g_vdl;
 }
 
