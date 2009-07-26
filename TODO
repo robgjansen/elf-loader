@@ -26,8 +26,6 @@ real undefined symbols by the dynamic linker).
   - make sure we use the minimum permissions for ro code sections: some of these
     sections might not need EXEC protection
 
-  - make sure machine_install_trampoline works 
-
   - PT_INTERP will be invalid when main exec is loader itself
 
   - get rid of calls everywhere to vdl_file_get_dynamic. Cache the result in VdlFile
