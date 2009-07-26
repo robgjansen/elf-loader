@@ -11,8 +11,6 @@ unsigned long machine_reloc_rel (struct VdlFile *file, const ElfW(Rel) *rel,
 unsigned long machine_reloc_rela (struct VdlFile *file, const ElfW(Rela) *rela,
 				  const ElfW(Sym) *sym, const ElfW(Vernaux) *ver,
 				  const char *symbol_name);
-void machine_start_trampoline (void *entry_point_struct, int skip_argc,
-			       void (*dl_fini) (void), void (*entry_point) (void));
 void machine_insert_trampoline (unsigned long from, unsigned long to);
 void machine_lazy_reloc (struct VdlFile *file);
 uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);
