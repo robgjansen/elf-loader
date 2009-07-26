@@ -14,3 +14,4 @@ libvdl.version$
 config.h$
 readversiondef$
 internal-tests$
+display-relocs$
