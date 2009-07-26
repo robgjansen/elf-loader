@@ -160,7 +160,9 @@ _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
   // size and align the stack for every newly-created thread. i.e., the pthread
   // library allocates on the stack the static tls area and delegates initialization
   // to _dl_allocate_tls_init below.
-  *sizep = g_vdl.tls_static_size;
+  // This method must return the _total_ size for the thread tls area, including the thread descriptor
+  // stored next to it.
+  *sizep = g_vdl.tls_static_size + CONFIG_TCB_SIZE;
   *alignp = g_vdl.tls_static_align;
 }
 

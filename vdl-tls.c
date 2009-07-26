@@ -128,7 +128,7 @@ vdl_tls_initialize (void)
 	      {
 		tcb_size += cur->tls_tmpl_size + cur->tls_init_zero_size;
 		tcb_size = vdl_utils_align_up (tcb_size, cur->tls_align);
-		cur->tls_offset = - tcb_size; // specific to variant II
+		cur->tls_offset = - tcb_size;
 		if (cur->tls_align > max_align)
 		  {
 		    max_align = cur->tls_align;
@@ -137,7 +137,7 @@ vdl_tls_initialize (void)
 	    n_dtv++;
 	  }
       }
-    g_vdl.tls_static_size = tcb_size;
+    g_vdl.tls_static_size = vdl_utils_align_up (tcb_size, max_align);
     g_vdl.tls_static_align = max_align;
     g_vdl.tls_n_dtv = n_dtv;
   }
