@@ -58,7 +58,7 @@ machine_reloc_rela (struct VdlFile *file,
 	{
 	  return 0;
 	}
-      *reloc_addr = match.file->load_base + match.symbol->st_value;
+      *reloc_addr = match.file->load_base + match.symbol->st_value + rela->r_addend;
     }
   else if (type == R_X86_64_RELATIVE)
     {
@@ -109,7 +109,7 @@ machine_reloc_rela (struct VdlFile *file,
 	{
 	  v = file->tls_offset + sym->st_value;
 	}
-      *reloc_addr += v;
+      *reloc_addr += v + rela->r_addend;
     }
   else if (type == R_X86_64_DTPMOD64)
     {
@@ -149,7 +149,7 @@ machine_reloc_rela (struct VdlFile *file,
 	{
 	  v = sym->st_value;
 	}
-      *reloc_addr = v;
+      *reloc_addr = v + rela->r_addend;
     }
   else
     {
