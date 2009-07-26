@@ -60,9 +60,6 @@ real undefined symbols by the dynamic linker).
 
    - really need to use a loaded list to for call_init to avoid the init_called flag
 
-   - test futexes/ actually, read the futex documentation. Don't rely on the stupid futex
-     manpage.
-
    - make sure that tls_index is at the right offset from start of pthread descriptor.
      i.e., it needs to be at the same offset as l_modid for gdb to be able to debug tls 
      variables
