@@ -68,3 +68,5 @@ real undefined symbols by the dynamic linker).
    - make sure that tls_index is at the right offset from start of pthread descriptor.
      i.e., it needs to be at the same offset as l_modid for gdb to be able to debug tls 
      variables
+
+   - make locking policy really consistent (move locks in external wrappers)
