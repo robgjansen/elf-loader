@@ -4,7 +4,7 @@ main i=1
 th i=1
 th i=2
 main i=1
-th i=2
+th i=1
 th i=2
 main i=1
 leave main
