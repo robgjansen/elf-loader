@@ -120,7 +120,7 @@ vdl_tls_initialize (void)
   {
     unsigned long tcb_size = 0;
     unsigned long n_dtv = 0;
-    unsigned long max_align = 0;
+    unsigned long max_align = 1;
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
