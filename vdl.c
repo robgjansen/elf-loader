@@ -607,11 +607,14 @@ int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded)
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
       struct VdlFile *dep = vdl_file_map_single_maybe (item->context, cur->str, loaded);
-      
+      if (dep == 0)
+	{
+	  // oops, failed to find the requested dt_needed
+	  goto error;
+	}
       // add the new file to the list of dependencies
       deps = vdl_file_list_append_one (deps, dep);
     }
-  vdl_utils_str_list_free (dt_needed);
 
   // then, recursively map the deps of each dep.
   struct VdlFileList *dep;
@@ -622,6 +625,8 @@ int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded)
 	  goto error;
 	}
     }
+
+  vdl_utils_str_list_free (dt_needed);
 
   // Finally, update the deps
   item->deps = deps;

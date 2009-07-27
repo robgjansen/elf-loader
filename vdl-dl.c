@@ -73,7 +73,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
       // how to handle them because that would require
       // adding space to the already-allocated static tls
       // which, by definition, can't be deallocated.
-      goto static_error;
+      goto error;
     }
 
   gdb_notify ();
@@ -98,13 +98,22 @@ void *vdl_dlopen_private (const char *filename, int flags)
   futex_unlock (&g_vdl.futex);
   return mapped_file;
 
- static_error:
-  vdl_tls_file_deinitialize (loaded);
-
  error:
-  vdl_files_delete (loaded);
-  vdl_file_list_free (loaded);
-  futex_unlock (&g_vdl.futex);
+  {
+    // we don't need to call_fini here because we have not yet
+    // called call_init.
+    struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
+
+    vdl_tls_file_deinitialize (unload);
+
+    vdl_files_delete (unload);
+
+    vdl_file_list_free (unload);
+
+    gdb_notify ();
+
+    futex_unlock (&g_vdl.futex);
+  }
   return 0;
 }
 
