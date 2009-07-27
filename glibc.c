@@ -15,7 +15,6 @@
 #include <stdbool.h>
 
 
-#define EXPORT __attribute__ ((visibility("default")))
 #define WEAK __attribute__ ((weak))
 
 // Set to zero until just before main is invoked
