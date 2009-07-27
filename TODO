@@ -67,5 +67,3 @@ real undefined symbols by the dynamic linker).
    - make locking policy really consistent (move locks in external wrappers)
 
    - handle circular dependencies
-
-   - make vdl-log independent from g_vdl

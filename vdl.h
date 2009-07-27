@@ -204,8 +204,6 @@ struct Vdl
   void (*breakpoint)(void);
   enum VdlState state;
   unsigned long interpreter_load_base;
-  // the following fields are not part of the ABI
-  uint32_t logging;
   // The list of directories to search for binaries
   // in DT_NEEDED entries.
   struct VdlStringList *search_dirs;

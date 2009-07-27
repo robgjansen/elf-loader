@@ -3,6 +3,8 @@
 #include "system.h"
 #include "vdl-utils.h"
 
+uint32_t g_logging = 0;
+
 static void avprintf_callback (char c, void *context)
 {
   if (c != 0)
@@ -14,7 +16,7 @@ static void avprintf_callback (char c, void *context)
 void vdl_log_set (const char *debug_str)
 {
   VDL_LOG_FUNCTION ("debug=%s", debug_str);
-  g_vdl.logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
+  g_logging = VDL_LOG_ERR | VDL_LOG_AST | VDL_LOG_PRINT;
   if (debug_str == 0)
     {
       return;
@@ -57,7 +59,7 @@ void vdl_log_set (const char *debug_str)
 	  VDL_LOG_ERROR ("Available logging levels: debug, function, error, assert, symbol-fail, symbol-ok, reloc\n", 1);
 	}
     }
-  g_vdl.logging |= logging;
+  g_logging |= logging;
   vdl_utils_str_list_free (list);
 }
 
@@ -67,7 +69,7 @@ void vdl_log_printf (enum VdlLog log, const char *str, ...)
 {
   va_list list;
   va_start (list, str);
-  if (g_vdl.logging & log)
+  if (g_logging & log)
     {
       avprintf_cb (avprintf_callback, 0, str, list);
     }

@@ -70,7 +70,6 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->breakpoint = 0;
   vdl->state = VDL_CONSISTENT;
   vdl->interpreter_load_base = interpreter_load_base;
-  vdl->logging = 0;
   vdl->bind_now = 0; // by default, do lazy binding
   vdl->contexts = 0;
   vdl->search_dirs = 0;
