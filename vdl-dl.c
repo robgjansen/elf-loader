@@ -82,18 +82,18 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
   mapped_file->count++;
 
-  // we need to release the lock before calling the initializers 
-  // XXX: this is not going to work completely right until
-  // vdl_file_call_init works on the list loaded instead
-  // of being recursive and using the init_called flag.
-  futex_unlock (&g_vdl.futex);
+  struct VdlFileList *call_init = vdl_sort_call_init (loaded);
 
-  // call_init can't fail, really.
-  vdl_init_fini_call_init (loaded);
+  // we need to release the lock before calling the initializers 
+  futex_unlock (&g_vdl.futex);
+  vdl_init_fini_call_init (call_init);
+  futex_lock (&g_vdl.futex);
 
   // XXX must hold the lock to call free
+  vdl_file_list_free (call_init);
   vdl_file_list_free (loaded);
 
+  futex_unlock (&g_vdl.futex);
   return mapped_file;
  error:
   // XXX: here, we should attempt to undo the loading of all loaded
@@ -122,17 +122,17 @@ int vdl_dlclose_private (void *handle)
 
   // first, we gather the list of all objects to unload/delete
   struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
+  struct VdlFileList *call_fini = vdl_sort_call_fini (unload);
 
+  // must not hold the lock to call fini
   futex_unlock (&g_vdl.futex);
-
-  vdl_init_fini_call_fini (unload);
-
+  vdl_init_fini_call_fini (call_fini);
   futex_lock (&g_vdl.futex);
+
+  vdl_file_list_free (call_fini);
 
   vdl_tls_file_deinitialize (unload);
 
-  // we have to wait until all the finalizers are run to 
-  // delete the files 
   {
     struct VdlFileList *cur;
     for (cur = unload; cur != 0; cur = cur->next)

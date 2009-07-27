@@ -182,6 +182,7 @@ vdl_file_delete (struct VdlFile *file)
   vdl_utils_delete (file);
 
   // XXX: should try to unmap memory areas.
+  // XXX: should remove from global list
 }
 
 

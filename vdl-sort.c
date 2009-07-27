@@ -91,5 +91,16 @@ struct VdlFileList *vdl_sort_deps_breadth_first_one (struct VdlFile *file)
   vdl_file_list_free (deps);
 
   return output;
+}
 
+struct VdlFileList *vdl_sort_call_init (struct VdlFileList *files)
+{
+  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *init_order = vdl_file_list_reverse (fini_order);
+  return init_order;
+}
+struct VdlFileList *vdl_sort_call_fini (struct VdlFileList *files)
+{
+  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
+  return fini_order;
 }

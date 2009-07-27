@@ -324,7 +324,9 @@ stage2_initialize (struct Stage2Input input)
   glibc_initialize ();
 
   // Finally, call init functions
-  vdl_init_fini_call_init (loaded);
+  struct VdlFileList *call_init = vdl_sort_call_init (loaded);
+  vdl_init_fini_call_init (call_init);
+  vdl_file_list_free (call_init);
 
   unsigned long entry = vdl_file_get_entry_point (main_file);
   if (entry == 0)
@@ -346,7 +348,9 @@ stage2_finalize (void)
 {
   // first, invoke all destructors in the correct order
   struct VdlFileList *link_map = get_global_link_map ();
-  vdl_init_fini_call_fini (link_map);
+  struct VdlFileList *call_fini = vdl_sort_call_fini (link_map);
+  vdl_init_fini_call_fini (call_fini);
+  vdl_file_list_free (call_fini);
 
   // then, destroy every file object
   struct VdlFileList *cur;

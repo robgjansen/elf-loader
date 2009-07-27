@@ -107,26 +107,18 @@ call_init (struct VdlFile *file)
 
 void vdl_init_fini_call_init (struct VdlFileList *files)
 {
-  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
-  struct VdlFileList *init_order = vdl_file_list_reverse (fini_order);
-
   struct VdlFileList *cur;
-  for (cur = init_order; cur != 0; cur = cur->next)
+  for (cur = files; cur != 0; cur = cur->next)
     {
       call_init (cur->item);
     }
 
-  vdl_file_list_free (init_order);
 }
 void vdl_init_fini_call_fini (struct VdlFileList *files)
 {
-  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
-
   struct VdlFileList *cur;
-  for (cur = fini_order; cur != 0; cur = cur->next)
+  for (cur = files; cur != 0; cur = cur->next)
     {
       call_fini (cur->item);
     }
-
-  vdl_file_list_free (fini_order);
 }
