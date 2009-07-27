@@ -5,7 +5,9 @@
 
 /* Perform a mark and sweep garbage tri-colour collection 
  * of all VdlFile objects and returns the list of objects 
- * which can be freed.
+ * which can be freed. These objects are already
+ * removed from all global lists so, it should be safe
+ * to just delete them here
  */
 struct VdlFileList *
 vdl_gc_get_objects_to_unload (void);
