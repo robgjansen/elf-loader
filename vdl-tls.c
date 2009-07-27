@@ -3,10 +3,12 @@
 #include "config.h"
 #include "vdl-log.h"
 #include "vdl-utils.h"
+#include "vdl-sort.h"
+#include "vdl-file-list.h"
 #include "machine.h"
 
 static unsigned long
-vdl_allocate_tls_index (void)
+allocate_tls_index (void)
 {
   // This is the slowest but simplest implementation possible
   // For each possible module index, we try to find a module
@@ -35,8 +37,8 @@ vdl_allocate_tls_index (void)
   return 0; // quiet compiler
 }
 
-void
-vdl_tls_file_initialize (struct VdlFile *file)
+static void
+file_initialize (struct VdlFile *file)
 {
   if (file->tls_initialized)
     {
@@ -58,20 +60,29 @@ vdl_tls_file_initialize (struct VdlFile *file)
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;
-  file->tls_index = vdl_allocate_tls_index ();
+  file->tls_index = allocate_tls_index ();
   file->tls_is_static = (dt_flags & DF_STATIC_TLS)?1:0;
   file->tls_tmpl_gen = g_vdl.tls_gen;
   g_vdl.tls_gen++;
   g_vdl.tls_n_dtv++;
-
-  struct VdlFileList *cur;
-  for (cur = file->deps; cur != 0; cur = cur->next)
-    {
-      vdl_tls_file_initialize (cur->item);
-    }
 }
 
-void vdl_tls_file_deinitialize (struct VdlFile *file)
+void
+vdl_tls_file_initialize (struct VdlFileList *files)
+{
+  // the initialization order matters very very much to ensure
+  // that each tls module gets allocated the right tls module id
+  struct VdlFileList *sorted = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *cur;
+  for (cur = sorted; cur != 0; cur = cur->next)
+    {
+      file_initialize (cur->item);
+    }
+  vdl_file_list_free (sorted);
+}
+
+static void 
+file_deinitialize (struct VdlFile *file)
 {
   if (!file->tls_initialized)
     {
@@ -84,6 +95,16 @@ void vdl_tls_file_deinitialize (struct VdlFile *file)
       g_vdl.tls_gen++;
       g_vdl.tls_n_dtv--;
     }
+}
+
+void vdl_tls_file_deinitialize (struct VdlFileList *files)
+{
+  // the deinitialization order here does not matter at all.
+  struct VdlFileList *cur;
+  for (cur = files; cur != 0; cur = cur->next)
+    {
+      file_deinitialize (cur->item);
+    }  
 }
 
 bool
@@ -110,7 +131,7 @@ vdl_tls_initialize (void)
     struct VdlFile *cur;
     for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
       {
-	vdl_tls_file_initialize (cur);
+	file_initialize (cur);
       }
   }
   // Then, we calculate the size of the memory needed for the 

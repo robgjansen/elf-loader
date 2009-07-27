@@ -725,32 +725,6 @@ int vdl_get_file_info (uint32_t phnum,
   return 0;
 }
 
-struct VdlFileList *
-vdl_file_gather_unique_deps_breadth_first (struct VdlFile *file)
-{
-  VDL_LOG_FUNCTION ("file=%s", file->name);
-
-  struct VdlFileList *list = 0;
-
-  list = vdl_file_list_append_one (list, file);
-
-  struct VdlFileList *cur = 0;
-  for (cur = list; cur != 0; cur = cur->next)
-    {
-      struct VdlFileList *dep;
-      for (dep = cur->item->deps; dep != 0; dep = dep->next)
-	{
-	  if (vdl_file_list_find (list, dep->item) == 0)
-	    {
-	      // not found
-	      list = vdl_file_list_append_one (list, dep->item);
-	    }
-	}
-    }
-
-  return list;
-}
-
 unsigned long vdl_file_get_entry_point (struct VdlFile *file)
 {
   // This piece of code assumes that the ELF header starts at the

@@ -21,7 +21,7 @@ void vdl_tls_dtv_allocate (unsigned long tcb);
 //    - initialize the dtv generation counter
 void vdl_tls_dtv_initialize (unsigned long tcb);
 // initialize per-file tls information
-void vdl_tls_file_initialize (struct VdlFile *file);
+void vdl_tls_file_initialize (struct VdlFileList *files);
 void vdl_tls_dtv_deallocate (unsigned long tcb);
 void vdl_tls_tcb_deallocate (unsigned long tcb);
 // no need to call the _fast version with any kind of lock held
@@ -30,6 +30,6 @@ unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset);
 
 bool vdl_tls_file_list_has_static (struct VdlFileList *list);
-void vdl_tls_file_deinitialize (struct VdlFile *file);
+void vdl_tls_file_deinitialize (struct VdlFileList *files);
 
 #endif /* VDL_TLS_H */

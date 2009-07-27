@@ -36,12 +36,12 @@ vdl.c system.c alloc.c \
 vdl-file-reloc.c \
 vdl-file-list.c vdl-gc.c vdl-file-symbol.c \
 futex.c vdl-tls.c \
-$(ARCH)/machine.c $(ARCH)/resolv.S
+$(ARCH)/machine.c $(ARCH)/resolv.S \
+vdl-init-fini.c vdl-sort.c 
 LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
 interp.c gdb.c glibc.c \
 stage1.c stage2.c  \
-$(ARCH)/stage0.S vdl-dl.c \
-vdl-init-fini.c
+$(ARCH)/stage0.S vdl-dl.c
 SOURCE=$(LDSO_FULL_SOURCE) libvdl.c elfedit.c readversiondef.c
 
 LDSO_OBJECTS=$(addsuffix .o,$(basename $(LDSO_SOURCE)))

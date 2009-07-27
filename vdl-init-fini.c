@@ -1,62 +1,7 @@
 #include "vdl-init-fini.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
-
-// return the max depth.
-static uint32_t
-get_max_depth_recursive (struct VdlFileList *files, uint32_t depth)
-{
-  uint32_t max_depth = depth;
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
-    {
-      cur->item->gc_depth = vdl_utils_max (depth, cur->item->gc_depth);
-      max_depth = vdl_utils_max (get_max_depth_recursive (cur->item->deps, depth+1),
-				 max_depth);
-    }
-  return max_depth;
-}
-
-static uint32_t
-get_max_depth (struct VdlFileList *files)
-{
-  return get_max_depth_recursive (files, 1);
-}
-
-
-static struct VdlFileList *
-sort_fini (struct VdlFileList *files)
-{
-  // initialize depth to zero
-  {
-    struct VdlFileList *cur;
-    for (cur = files; cur != 0; cur = cur->next)
-      {
-	cur->item->gc_depth = 0;
-      }
-  }
-
-  // calculate depth of each file and get the max depth
-  uint32_t max_depth = get_max_depth (files);
-  
-  struct VdlFileList *output = 0;
-
-  uint32_t i;
-  for (i = 0; i < max_depth; i++)
-    {
-      // find files with matching depth and output them
-      struct VdlFileList *cur;
-      for (cur = files; cur != 0; cur = cur->next)
-	{
-	  if (cur->item->gc_depth == i)
-	    {
-	      output = vdl_file_list_append_one (output, cur->item);
-	    }
-	}
-    }
-
-  return output;
-}
+#include "vdl-sort.h"
 
 
 typedef void (*fini_function) (void);
@@ -162,26 +107,26 @@ call_init (struct VdlFile *file)
 
 void vdl_init_fini_call_init (struct VdlFileList *files)
 {
-  struct VdlFileList *fini = sort_fini (files);
-  struct VdlFileList *init = vdl_file_list_reverse (fini);
+  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *init_order = vdl_file_list_reverse (fini_order);
 
   struct VdlFileList *cur;
-  for (cur = init; cur != 0; cur = cur->next)
+  for (cur = init_order; cur != 0; cur = cur->next)
     {
       call_init (cur->item);
     }
 
-  vdl_file_list_free (init);
+  vdl_file_list_free (init_order);
 }
 void vdl_init_fini_call_fini (struct VdlFileList *files)
 {
-  struct VdlFileList *fini = sort_fini (files);
+  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
 
   struct VdlFileList *cur;
-  for (cur = fini; cur != 0; cur = cur->next)
+  for (cur = fini_order; cur != 0; cur = cur->next)
     {
       call_fini (cur->item);
     }
 
-  vdl_file_list_free (fini);
+  vdl_file_list_free (fini_order);
 }

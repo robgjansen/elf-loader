@@ -240,7 +240,6 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   const char *requested_filename,
 					   struct VdlFileList **loaded);
 int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded);
-struct VdlFileList *vdl_file_gather_unique_deps_breadth_first (struct VdlFile *file);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
 
 struct VdlFile *vdl_file_new_main (unsigned long phnum,

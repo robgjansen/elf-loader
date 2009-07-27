@@ -12,6 +12,7 @@
 #include "machine.h"
 #include "export.h"
 #include "vdl-init-fini.h"
+#include "vdl-sort.h"
 
 void *vdl_dlopen_private (const char *filename, int flags)
 {
@@ -35,7 +36,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
       goto error;
     }
 
-  struct VdlFileList *deps = vdl_file_gather_unique_deps_breadth_first (mapped_file);
+  struct VdlFileList *deps = vdl_sort_deps_breadth_first_one (mapped_file);
   if (flags & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.
@@ -61,7 +62,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
   vdl_file_list_free (deps);
 
-  vdl_tls_file_initialize (mapped_file);
+  vdl_tls_file_initialize (loaded);
 
   vdl_file_reloc (mapped_file, g_vdl.bind_now || flags & RTLD_NOW);
   
@@ -127,13 +128,14 @@ int vdl_dlclose_private (void *handle)
 
   futex_lock (&g_vdl.futex);
 
+  vdl_tls_file_deinitialize (unload);
+
   // we have to wait until all the finalizers are run to 
   // delete the files 
   {
     struct VdlFileList *cur;
     for (cur = unload; cur != 0; cur = cur->next)
       {
-	vdl_tls_file_deinitialize (cur->item);
 	vdl_file_delete (cur->item);
       }
   }
