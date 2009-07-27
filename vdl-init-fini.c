@@ -10,10 +10,11 @@ static void
 call_fini (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  if (!file->init_called || file->fini_called)
+
+  VDL_LOG_ASSERT (!file->fini_called, "file has already been deinitialized");
+  if (!file->init_called)
     {
-      // if we were never initialized properly or if
-      // we are finalized already, no need to do any work
+      // if we were never initialized properly no need to do any work
       return;
     }
   // mark the file as finalized
@@ -60,11 +61,8 @@ call_init (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
 
-  if (file->init_called)
-    {
-      // we have already been initialized
-      return;
-    }
+  VDL_LOG_ASSERT (!file->init_called, "file has already been initialized");
+
   file->init_called = 1;
 
   if (file->is_executable)
