@@ -80,8 +80,8 @@ interpreter_new (unsigned long load_base,
   return 0;
 }
 
-static struct VdlFileList *
-do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char **envp)
+struct VdlFileList *
+do_ld_preload (struct VdlContext *context, const char **envp, struct VdlFileList **loaded)
 {
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the dependencies of the main 
@@ -108,11 +108,10 @@ do_ld_preload (struct VdlContext *context, struct VdlFileList *scope, const char
 	  goto error;
 	}
       ld_preload_file->count++;
-      // add it to the global scope
-      scope = vdl_file_list_append_one (scope, ld_preload_file);
+      return vdl_file_list_append_one (0, ld_preload_file);
     }
  error:
-  return scope;
+  return 0;
 }
 
 static void
@@ -273,23 +272,24 @@ stage2_initialize (struct Stage2Input input)
   interpreter = interpreter_new (input.interpreter_load_base,
 				 pt_interp,
 				 context);
-  loaded = vdl_file_list_append_one (loaded, interpreter);
-  struct VdlFileList *global_scope = 0;
 
-  // we add the main binary to the global scope
-  global_scope = vdl_file_list_append_one (global_scope, main_file);
-
-  global_scope = do_ld_preload (context, global_scope, input.program_envp);
+  struct VdlFileList *ld_preload = do_ld_preload (context, input.program_envp, &loaded);
 
   VDL_LOG_ASSERT (vdl_file_map_deps (main_file, &loaded), 
 		  "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
+  context->global_scope = 0;
+  context->global_scope = vdl_file_list_append_one (context->global_scope, 
+						    main_file);
+  // of course, the ld_preload binary must be in there if needed.
+  context->global_scope = vdl_file_list_append (context->global_scope, 
+						ld_preload);
   struct VdlFileList *all_deps = vdl_sort_deps_breadth_first_one (main_file);
-  global_scope = vdl_file_list_append (global_scope, all_deps);
-  vdl_file_list_unicize (global_scope);
-  context->global_scope = global_scope;
+  context->global_scope = vdl_file_list_append (context->global_scope, 
+						all_deps);
+  vdl_file_list_unicize (context->global_scope);
 
   // We need to do this before relocation because the TLS-type relocations 
   // need tls information.
