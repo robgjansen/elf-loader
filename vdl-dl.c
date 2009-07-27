@@ -11,6 +11,7 @@
 #include "vdl-tls.h"
 #include "machine.h"
 #include "export.h"
+#include "vdl-init-fini.h"
 
 void *vdl_dlopen_private (const char *filename, int flags)
 {
@@ -74,8 +75,6 @@ void *vdl_dlopen_private (const char *filename, int flags)
       goto error;
     }
 
-  vdl_file_list_free (loaded);
-
   gdb_notify ();
 
   glibc_patch (mapped_file);
@@ -89,7 +88,9 @@ void *vdl_dlopen_private (const char *filename, int flags)
   futex_unlock (&g_vdl.futex);
 
   // call_init can't fail, really.
-  vdl_file_call_init (mapped_file);
+  vdl_init_fini_call_init (loaded);
+
+  vdl_file_list_free (loaded);
 
   return mapped_file;
  error:
@@ -122,7 +123,7 @@ int vdl_dlclose_private (void *handle)
 
   futex_unlock (&g_vdl.futex);
 
-  vdl_file_list_call_fini (unload);
+  vdl_init_fini_call_fini (unload);
 
   futex_lock (&g_vdl.futex);
 

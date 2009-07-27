@@ -241,8 +241,6 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   struct VdlFileList **loaded);
 int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded);
 struct VdlFileList *vdl_file_gather_unique_deps_breadth_first (struct VdlFile *file);
-void vdl_file_call_init (struct VdlFile *file);
-void vdl_file_list_call_fini (struct VdlFileList *list);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
 
 struct VdlFile *vdl_file_new_main (unsigned long phnum,
@@ -260,5 +258,4 @@ int vdl_get_file_info (uint32_t phnum,
 ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 unsigned long vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag);
 unsigned long vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag);
-void vdl_file_call_fini (struct VdlFileList *list);
 #endif /* VDL_H */

@@ -40,7 +40,8 @@ $(ARCH)/machine.c $(ARCH)/resolv.S
 LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
 interp.c gdb.c glibc.c \
 stage1.c stage2.c  \
-$(ARCH)/stage0.S vdl-dl.c 
+$(ARCH)/stage0.S vdl-dl.c \
+vdl-init-fini.c
 SOURCE=$(LDSO_FULL_SOURCE) libvdl.c elfedit.c readversiondef.c
 
 LDSO_OBJECTS=$(addsuffix .o,$(basename $(LDSO_SOURCE)))

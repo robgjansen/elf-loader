@@ -10,6 +10,7 @@
 #include "stage2.h"
 #include "vdl-gc.h"
 #include "vdl-tls.h"
+#include "vdl-init-fini.h"
 #include <elf.h>
 #include <link.h>
 
@@ -259,6 +260,8 @@ stage2_initialize (struct Stage2Input input)
   main_file->count++;
   main_file->is_executable = 1;
   gdb_initialize (main_file);
+  struct VdlFileList *loaded = 0;
+  loaded = vdl_file_list_append_one (loaded, main_file);
 
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere. We must add it to the link map only after
@@ -269,6 +272,7 @@ stage2_initialize (struct Stage2Input input)
   interpreter = interpreter_new (input.interpreter_load_base,
 				 pt_interp,
 				 context);
+  loaded = vdl_file_list_append_one (loaded, interpreter);
   struct VdlFileList *global_scope = 0;
 
   // we add the main binary to the global scope
@@ -276,7 +280,7 @@ stage2_initialize (struct Stage2Input input)
 
   global_scope = do_ld_preload (context, global_scope, input.program_envp);
 
-  VDL_LOG_ASSERT (vdl_file_map_deps (main_file, 0), 
+  VDL_LOG_ASSERT (vdl_file_map_deps (main_file, &loaded), 
 		  "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
@@ -331,13 +335,7 @@ stage2_initialize (struct Stage2Input input)
   glibc_initialize ();
 
   // Finally, call init functions
-  {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	vdl_file_call_init (cur);
-      }
-  }
+  vdl_init_fini_call_init (loaded);
 
   unsigned long entry = vdl_file_get_entry_point (main_file);
   if (entry == 0)
@@ -359,7 +357,7 @@ stage2_finalize (void)
 {
   // first, invoke all destructors in the correct order
   struct VdlFileList *link_map = get_global_link_map ();
-  vdl_file_list_call_fini (link_map);
+  vdl_init_fini_call_fini (link_map);
 
   // then, destroy every file object
   struct VdlFileList *cur;
