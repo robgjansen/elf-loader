@@ -69,6 +69,7 @@ interpreter_new (unsigned long load_base,
   // we must be careful to not relocate it twice.
   file->reloced = 1;
 
+  // XXX: theoretically, there is no need to map deps for this
   if (!vdl_file_map_deps (file, 0))
     {
       goto error;
@@ -173,7 +174,6 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
   char *soname = (char *)(dt_strtab + dt_soname);
   return vdl_utils_strisequal (soname, LDSO_SONAME);
 }
-
 static struct VdlFileList *
 get_global_link_map (void)
 {
@@ -186,7 +186,6 @@ get_global_link_map (void)
   retval = vdl_file_list_reverse (retval);
   return retval;
 }
-
 static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned long phnum)
 {
   // XXX will not work when main exec is loader itself
@@ -346,32 +345,11 @@ error:
 void
 stage2_finalize (void)
 {
-  // first, invoke all destructors in the correct order
+  // The only thing we need to do here is to invoke the destructors
+  // in the correct order. freeing other memory is uneeded
+  // because we are going to exit very soon.
   struct VdlFileList *link_map = get_global_link_map ();
   struct VdlFileList *call_fini = vdl_sort_call_fini (link_map);
   vdl_init_fini_call_fini (call_fini);
   vdl_file_list_free (call_fini);
-
-  // then, destroy every file object
-  vdl_files_delete (link_map);
-
-  vdl_file_list_free (link_map);
-  g_vdl.link_map = 0;
-
-  // destroy every context object
-  struct VdlContext *context, *next_context;
-  context = g_vdl.contexts;
-  while (context != 0)
-    {
-      // tricky: save next pointer before calling _delete
-      next_context = context->next;
-      vdl_context_delete (context);
-      context = next_context;
-    }
-  g_vdl.contexts = 0;
-
-  // delete search dirs
-  vdl_utils_str_list_free (g_vdl.search_dirs);
-  g_vdl.search_dirs = 0;
-
 }
