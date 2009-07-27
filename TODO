@@ -34,12 +34,7 @@ real undefined symbols by the dynamic linker).
 
   - implement _dl_* functions in glibc.c
 
-  - make sure that we refuse to dlopen DF_STATIC_TLS binaries
-
   - setup the stack guard within the tcbhead at some point ? 
-
-  - make sure that if there is an error during loading, we can undo
-    it in dlopen
 
   - figure out what to do with:
      EXTERN void (*_dl_init_static_tls) (struct link_map *);
