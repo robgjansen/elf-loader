@@ -1,6 +1,8 @@
 #include "vdl-file-reloc.h"
 #include "machine.h"
 #include "vdl-log.h"
+#include "vdl-sort.h"
+#include "vdl-file-list.h"
 
 static ElfW(Vernaux) *
 sym_to_vernaux (struct VdlFile *file,
@@ -94,7 +96,7 @@ process_rela (struct VdlFile *file, ElfW(Rela) *rela)
 }
 
 static void
-vdl_file_reloc_jmprel (struct VdlFile *file)
+reloc_jmprel (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
@@ -125,8 +127,9 @@ vdl_file_reloc_jmprel (struct VdlFile *file)
 	}
     }
 }
-unsigned long vdl_file_reloc_one_jmprel (struct VdlFile *file, 
-				      unsigned long offset)
+unsigned long 
+vdl_file_reloc_one_jmprel (struct VdlFile *file, 
+			   unsigned long offset)
 {
   futex_lock (&g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
@@ -155,8 +158,8 @@ unsigned long vdl_file_reloc_one_jmprel (struct VdlFile *file,
 }
 
 
-void
-vdl_file_reloc_dtrel (struct VdlFile *file)
+static void
+reloc_dtrel (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_REL);
@@ -174,8 +177,8 @@ vdl_file_reloc_dtrel (struct VdlFile *file)
     }
 }
 
-void
-vdl_file_reloc_dtrela (struct VdlFile *file)
+static void
+reloc_dtrela (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   ElfW(Rela) *dt_rela = (ElfW(Rela)*)vdl_file_get_dynamic_p (file, DT_RELA);
@@ -193,7 +196,8 @@ vdl_file_reloc_dtrela (struct VdlFile *file)
     }
 }
 
-void vdl_file_reloc (struct VdlFile *file, int now)
+static void
+do_reloc (struct VdlFile *file, int now)
 {
   if (file->reloced)
     {
@@ -201,22 +205,26 @@ void vdl_file_reloc (struct VdlFile *file, int now)
     }
   file->reloced = 1;
 
-  // relocate dependencies first:
-  struct VdlFileList *cur;
-  for (cur = file->deps; cur != 0; cur = cur->next)
-    {
-      vdl_file_reloc (cur->item, now);
-    }
-
-  vdl_file_reloc_dtrel (file);
-  vdl_file_reloc_dtrela (file);
+  reloc_dtrel (file);
+  reloc_dtrela (file);
   if (now)
     {
       // perform full PLT relocs _now_
-      vdl_file_reloc_jmprel (file);
+      reloc_jmprel (file);
     }
   else
     {
       machine_lazy_reloc (file);
+    }
+}
+
+void vdl_file_reloc (struct VdlFileList *files, int now)
+{
+  struct VdlFileList *sorted = vdl_sort_deps_breadth_first (files);
+  sorted = vdl_file_list_reverse (sorted);
+  struct VdlFileList *cur;
+  for (cur = sorted; cur != 0; cur = cur->next)
+    {
+      do_reloc (cur->item, now);
     }
 }

@@ -297,13 +297,7 @@ stage2_initialize (struct Stage2Input input)
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
-  {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	vdl_file_reloc (cur, g_vdl.bind_now);
-      }
-  }
+  vdl_file_reloc (loaded, g_vdl.bind_now);
 
   // Once relocations are done, we can initialize the tls blocks
   // and the dtv. We need to wait post-reloc because the tls

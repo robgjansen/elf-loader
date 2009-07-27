@@ -64,7 +64,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
   vdl_tls_file_initialize (loaded);
 
-  vdl_file_reloc (mapped_file, g_vdl.bind_now || flags & RTLD_NOW);
+  vdl_file_reloc (loaded, g_vdl.bind_now || flags & RTLD_NOW);
   
   if (vdl_tls_file_list_has_static (loaded))
     {
