@@ -1,7 +1,7 @@
 #ifndef GLIBC_H
 #define GLIBC_H
 
-struct VdlFile;
+struct VdlFileList;
 
 // Interfaces needed to make glibc be able to work when
 // loaded with this loader.
@@ -12,7 +12,7 @@ void glibc_startup_finished (void);
 
 void glibc_initialize (void);
 
-void glibc_patch (struct VdlFile *file);
+void glibc_patch (struct VdlFileList *files);
 
 
 #endif /* GLIBC_H */

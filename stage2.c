@@ -318,13 +318,7 @@ stage2_initialize (struct Stage2Input input)
 
   // patch glibc functions which need to be overriden.
   // This is really a hack I am not very proud of.
-  {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	glibc_patch (cur);
-      }
-  }
+  glibc_patch (loaded);
 
   // glibc-specific crap to avoid segfault in initializer
   glibc_initialize ();

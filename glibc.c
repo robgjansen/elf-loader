@@ -6,7 +6,9 @@
 #include "vdl-log.h"
 #include "vdl-dl.h"
 #include "vdl-file-symbol.h"
+#include "vdl-file-list.h"
 #include "vdl-tls.h"
+#include "vdl-sort.h"
 #include "config.h"
 #include "export.h"
 #include <elf.h>
@@ -245,7 +247,8 @@ void glibc_initialize (void)
 
 
 
-void glibc_patch (struct VdlFile *file)
+void 
+do_glibc_patch (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   if (file->patched)
@@ -255,13 +258,6 @@ void glibc_patch (struct VdlFile *file)
     }
   // mark the file as patched
   file->patched = 1;
-
-  // iterate over all deps first before initialization.
-  struct VdlFileList *cur;
-  for (cur = file->deps; cur != 0; cur = cur->next)
-    {
-      glibc_patch (cur->item);
-    }
 
   unsigned long size;
   unsigned long addr = vdl_file_symbol_lookup_local (file, "_dl_addr", &size);
@@ -284,4 +280,16 @@ void glibc_patch (struct VdlFile *file)
     {
       machine_insert_trampoline (addr, (unsigned long) &vdl_dlsym_private, size);
     }
+}
+
+void glibc_patch (struct VdlFileList *files)
+{
+  struct VdlFileList *sorted = vdl_sort_deps_breadth_first (files);
+  sorted = vdl_file_list_reverse (sorted);
+  struct VdlFileList *cur;
+  for (cur = sorted; cur != 0; cur = cur->next)
+    {
+      do_glibc_patch (cur->item);
+    }
+  vdl_file_list_free (sorted);
 }

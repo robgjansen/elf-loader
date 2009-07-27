@@ -78,7 +78,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
   gdb_notify ();
 
-  glibc_patch (mapped_file);
+  glibc_patch (loaded);
 
   mapped_file->count++;
 
@@ -91,6 +91,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
   // call_init can't fail, really.
   vdl_init_fini_call_init (loaded);
 
+  // XXX must hold the lock to call free
   vdl_file_list_free (loaded);
 
   return mapped_file;
