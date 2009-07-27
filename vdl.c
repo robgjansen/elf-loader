@@ -98,7 +98,7 @@ vdl_context_delete (struct VdlContext *context)
   vdl_utils_delete (context);
 }
 static void
-vdl_file_append (struct VdlFile *item)
+file_append (struct VdlFile *item)
 {
   VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
   if (g_vdl.link_map == 0)
@@ -158,13 +158,13 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->deps = 0;
   file->name = vdl_utils_strdup (name);
 
-  vdl_file_append (file);
+  file_append (file);
 
   return file;
 }
 
-void
-vdl_file_delete (struct VdlFile *file)
+static void
+file_delete (struct VdlFile *file)
 {
   file->next = 0;
   file->prev = 0;
@@ -182,7 +182,15 @@ vdl_file_delete (struct VdlFile *file)
   vdl_utils_delete (file);
 
   // XXX: should try to unmap memory areas.
-  // XXX: should remove from global list
+}
+
+void vdl_files_delete (struct VdlFileList *files)
+{
+  struct VdlFileList *cur;
+  for (cur = files; cur != 0; cur = cur->next)
+    {
+      file_delete (cur->item);
+    }
 }
 
 

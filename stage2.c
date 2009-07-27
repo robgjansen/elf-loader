@@ -353,11 +353,7 @@ stage2_finalize (void)
   vdl_file_list_free (call_fini);
 
   // then, destroy every file object
-  struct VdlFileList *cur;
-  for (cur = link_map; cur != 0; cur = cur->next)
-    {
-      vdl_file_delete (cur->item);
-    }
+  vdl_files_delete (link_map);
 
   vdl_file_list_free (link_map);
   g_vdl.link_map = 0;
