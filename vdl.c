@@ -339,6 +339,17 @@ file_map_do (struct VdlFileMap map,
       VDL_LOG_ASSERT (address != -1, "Unable to map zero pages\n");
     }
 }
+static void
+print_debug_map (const char *filename, const char *type,
+		 struct VdlFileMap map)
+{
+  VDL_LOG_DEBUG ("%s %s file=0x%llx/0x%llx mem=0x%llx/0x%llx zero=0x%llx/0x%llx anon=0x%llx/0x%llx\n",
+		 filename, type,
+		 map.file_start_align, map.file_size_align,
+		 map.mem_start_align, map.mem_size_align,
+		 map.mem_zero_start, map.mem_zero_size,
+		 map.mem_anon_start_align, map.mem_anon_size_align);
+}
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				     const char *filename, 
 				     const char *name)
@@ -396,6 +407,8 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
+  print_debug_map (filename, "ro", info.ro_map);
+  print_debug_map (filename, "rw", info.rw_map);
   if (header.e_phoff <info.ro_map.file_start_align || 
       header.e_phoff + header.e_phnum * header.e_phentsize > 
       info.ro_map.file_start_align + info.ro_map.file_size_align)
@@ -440,7 +453,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   unsigned long hole_size = info.rw_map.mem_start_align - hole_start;
   if (hole_size > 0)
     {
-      int result = system_munmap ((void*)hole_start, hole_size);
+      int result = system_munmap ((void*)(load_base+hole_start), hole_size);
       VDL_LOG_ASSERT (result == 0, "Hole could not be unmapped");
     }
   struct stat st_buf;
