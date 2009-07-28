@@ -22,8 +22,6 @@ EXPORT char *dlerror(void)
 
 EXPORT void *dlsym(void *handle, const char *symbol)
 {
-  // extract the return address of the caller and pass it down
-  // it's used later to figure out which binary is calling this function
   return vdl_dlsym_public (handle, symbol, RETURN_ADDRESS);
 }
 
