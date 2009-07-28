@@ -70,15 +70,24 @@ file_initialize (struct VdlFile *file)
 void
 vdl_tls_file_initialize (struct VdlFileList *files)
 {
-  // the initialization order matters very very much to ensure
-  // that each tls module gets allocated the right tls module id
-  struct VdlFileList *sorted = vdl_sort_deps_breadth_first (files);
+  // The only thing we need to make sure here is that the executable 
+  // gets assigned tls module id 1 if needed.
   struct VdlFileList *cur;
-  for (cur = sorted; cur != 0; cur = cur->next)
+  for (cur = files; cur != 0; cur = cur->next)
     {
-      file_initialize (cur->item);
+      if (cur->item->is_executable)
+	{
+	  file_initialize (cur->item);
+	  break;
+	}
     }
-  vdl_file_list_free (sorted);
+  for (cur = files; cur != 0; cur = cur->next)
+    {
+      if (!cur->item->is_executable)
+	{
+	  file_initialize (cur->item);
+	}
+    }
 }
 
 static void 
