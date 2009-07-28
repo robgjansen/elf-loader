@@ -60,3 +60,5 @@ real undefined symbols by the dynamic linker).
    - make locking policy really consistent (move locks in external wrappers)
 
    - handle circular dependencies
+
+   - handle RTLD_NEXT and RTLD_DEFAULT
