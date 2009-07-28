@@ -4,4 +4,6 @@ global:
 	vdl_dlclose_public;
 	vdl_dlsym_public;
 	vdl_dlerror_public;
+	vdl_dladdr_public;
+	vdl_dlvsym_public;
 };
