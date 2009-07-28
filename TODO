@@ -61,3 +61,4 @@ real undefined symbols by the dynamic linker).
 
    - handle circular dependencies
 
+   - implement dlerror with per-thread state.

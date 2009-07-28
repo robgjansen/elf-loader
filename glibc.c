@@ -10,7 +10,7 @@
 #include "vdl-tls.h"
 #include "vdl-sort.h"
 #include "config.h"
-#include "export.h"
+#include "macros.h"
 #include <elf.h>
 #include <dlfcn.h>
 #include <link.h>
@@ -251,7 +251,7 @@ dlsym_hack (void *handle, const char *symbol)
 {
   // extract the return address of the caller and pass it down
   // it's used later to figure out which binary is calling this function
-  return vdl_dlsym_private (handle, symbol, (unsigned long)__builtin_return_address (0));
+  return vdl_dlsym_private (handle, symbol, RETURN_ADDRESS);
 }
 
 

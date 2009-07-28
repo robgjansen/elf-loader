@@ -11,7 +11,7 @@
 #include "vdl-file-symbol.h"
 #include "vdl-tls.h"
 #include "machine.h"
-#include "export.h"
+#include "macros.h"
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
 
@@ -229,9 +229,20 @@ int vdl_dlclose_private (void *handle)
 
 char *vdl_dlerror_private (void)
 {
+  // XXX
   // indicates that no error happened
   return 0;
 }
+
+int vdl_dladdr_private (void *addr, Dl_info *info)
+{
+  return 0;
+}
+void *vdl_dlvsym_private (void *handle, char *symbol, char *version, unsigned long caller)
+{
+  return 0;
+}
+
 
 EXPORT void *vdl_dlopen_public (const char *filename, int flag)
 {
@@ -251,4 +262,12 @@ EXPORT void *vdl_dlsym_public (void *handle, const char *symbol, unsigned long c
 EXPORT int vdl_dlclose_public (void *handle)
 {
   return vdl_dlclose_private (handle);
+}
+EXPORT int vdl_dladdr_public (void *addr, Dl_info *info)
+{
+  return vdl_dladdr_private (addr, info);
+}
+EXPORT void *vdl_dlvsym_public (void *handle, char *symbol, char *version, unsigned long caller)
+{
+  return vdl_dlvsym_private (handle, symbol, version, caller);
 }

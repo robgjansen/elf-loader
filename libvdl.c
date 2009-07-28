@@ -1,4 +1,4 @@
-#include "export.h"
+#include "macros.h"
 #include "vdl-dl.h"
 
 /* We provide these wrappers to be able to export a libvdl.so
@@ -24,10 +24,19 @@ EXPORT void *dlsym(void *handle, const char *symbol)
 {
   // extract the return address of the caller and pass it down
   // it's used later to figure out which binary is calling this function
-  return vdl_dlsym_public (handle, symbol, (unsigned long)__builtin_return_address (0));
+  return vdl_dlsym_public (handle, symbol, RETURN_ADDRESS);
 }
 
 EXPORT int dlclose(void *handle)
 {
   return vdl_dlclose_public (handle);
 }
+EXPORT int vdl_dladdr (void *addr, Dl_info *info)
+{
+  return vdl_dladdr_public (addr, info);
+}
+EXPORT void *vdl_dlvsym (void *handle, char *symbol, char *version)
+{
+  return vdl_dlvsym_public (handle, symbol, version, RETURN_ADDRESS);
+}
+
