@@ -99,13 +99,6 @@ static void **vdl_dl_error_catch_tsd (void)
   return &data;
 }
 
-static int vdl_dl_addr (const void *address, Dl_info *info,
-			struct link_map **mapp, const ElfW(Sym) **symbolp)
-{
-  VDL_LOG_FUNCTION ("address=%p, info=%p, mapp=%p, symbolp=%p", address, info, mapp, symbolp);
-  return 0;
-}
-
 // definition stolen from glibc...
 struct tls_index
 {
