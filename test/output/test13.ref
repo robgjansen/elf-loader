@@ -1,0 +1,7 @@
+libf constructor
+libtest13 constructor
+called function_f in main
+called function_f in main
+called function_f
+libtest13 destructor
+libf destructor
