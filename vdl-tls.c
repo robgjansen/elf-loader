@@ -56,7 +56,7 @@ file_initialize (struct VdlFile *file)
       return;
     }
   file->has_tls = 1;
-  file->tls_tmpl_start = file->ro_map.mem_start_align + pt_tls->p_offset;
+  file->tls_tmpl_start = file->load_base + pt_tls->p_vaddr;
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;
