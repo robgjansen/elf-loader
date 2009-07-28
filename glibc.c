@@ -246,6 +246,14 @@ void glibc_initialize (void)
 }
 
 
+static void *
+dlsym_hack (void *handle, const char *symbol)
+{
+  // extract the return address of the caller and pass it down
+  // it's used later to figure out which binary is calling this function
+  return vdl_dlsym_private (handle, symbol, (unsigned long)__builtin_return_address (0));
+}
+
 
 void 
 do_glibc_patch (struct VdlFile *file)
@@ -278,7 +286,7 @@ do_glibc_patch (struct VdlFile *file)
   addr = vdl_file_symbol_lookup_local (file, "__libc_dlsym", &size);
   if (addr != 0)
     {
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlsym_private, size);
+      machine_insert_trampoline (addr, (unsigned long) &dlsym_hack, size);
     }
 }
 

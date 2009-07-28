@@ -359,7 +359,7 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 	  if (symbol_version_matches (cur->item, file, ver_needed, index))
 	    {
 	      // We have resolved the symbol
-	      if (cur->item != file)
+	      if (cur->item != file && file != 0)
 		{
 		  // The symbol has been resolved in another binary. Make note of this.
 		  file->gc_symbols_resolved_in = vdl_file_list_prepend_one (file->gc_symbols_resolved_in, 
@@ -431,4 +431,17 @@ vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name,
       return file->load_base + i.dt_symtab[index].st_value;
     }
   return 0;
+}
+
+
+int
+vdl_file_symbol_lookup_scope (const char *name, 
+			      struct VdlFileList *scope,
+			      struct SymbolMatch *match)
+{
+  unsigned long elf_hash = vdl_elf_hash (name);
+  uint32_t gnu_hash = vdl_gnu_hash (name);
+  int ok = vdl_file_do_symbol_lookup_scope (0, name, elf_hash, gnu_hash, 0,
+					    0, scope, match);
+  return ok;
 }

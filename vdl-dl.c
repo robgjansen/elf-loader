@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "vdl.h"
 #include "vdl-log.h"
 #include "vdl-utils.h"
@@ -13,6 +14,26 @@
 #include "export.h"
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
+
+struct VdlFile *
+caller_to_file (unsigned long caller)
+{
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      if (caller >= cur->ro_map.mem_start_align &&
+	  caller <= (cur->ro_map.mem_start_align + cur->ro_map.mem_size_align))
+	{
+	  return cur;
+	}
+      if (caller >= cur->rw_map.mem_start_align &&
+	  caller <= (cur->rw_map.mem_start_align + cur->rw_map.mem_size_align))
+	{
+	  return cur;
+	}
+    }
+  return 0;
+}
 
 void *vdl_dlopen_private (const char *filename, int flags)
 {
@@ -117,15 +138,63 @@ void *vdl_dlopen_private (const char *filename, int flags)
   return 0;
 }
 
-void *vdl_dlsym_private (void *handle, const char *symbol)
+void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 {
-  // XXX handle RTLD_DEFAULT and RTLD_NEXT
+  futex_lock (&g_vdl.futex);
+  struct VdlFileList *scope;
+  struct VdlFile *caller_file = caller_to_file (caller);
   struct VdlFile *file = (struct VdlFile*)handle;
-  // XXX: the lookup should be a lookup in local scope, not
-  // only in this binary.
-  unsigned long size;
-  unsigned long v = vdl_file_symbol_lookup_local (file, symbol, &size);
-  return (void*)v;
+  if (caller_file == 0)
+    {
+      // XXX: need to store dlerror somewhere
+      goto error;
+    }
+  if (handle == RTLD_DEFAULT)
+    {
+      scope = caller_file->context->global_scope;
+    }
+  else if (handle == RTLD_NEXT)
+    {
+      scope = caller_file->context->global_scope;
+      // skip all objects before the caller object
+      bool found = false;
+      struct VdlFileList *cur;
+      for (cur = scope; cur != 0; cur = cur->next)
+	{
+	  if (cur->item == caller_file)
+	    {
+	      // go to the next object
+	      scope = cur->next;
+	      found = true;
+	      break;
+	    }
+	}
+      if (!found)
+	{
+	  // XXX: need to store dlerror somewhere
+	  goto error;
+	}
+    }
+  else
+    {
+      if (file == 0)
+	{
+	  // XXX: need to store dlerror somewhere
+	  goto error;
+	}
+      scope = file->local_scope;
+    }
+  struct SymbolMatch match;
+  if (!vdl_file_symbol_lookup_scope (symbol, scope, &match))
+    {
+      // XXX: need to store dlerror somewhere
+      goto error;
+    }
+  futex_unlock (&g_vdl.futex);
+  return (void*)(match.file->load_base + match.symbol->st_value);
+ error:
+  futex_unlock (&g_vdl.futex);
+  return 0;
 }
 
 int vdl_dlclose_private (void *handle)
@@ -174,9 +243,9 @@ EXPORT char *vdl_dlerror_public (void)
   return vdl_dlerror_private ();
 }
 
-EXPORT void *vdl_dlsym_public (void *handle, const char *symbol)
+EXPORT void *vdl_dlsym_public (void *handle, const char *symbol, unsigned long caller)
 {
-  return vdl_dlsym_private (handle, symbol);
+  return vdl_dlsym_private (handle, symbol, caller);
 }
 
 EXPORT int vdl_dlclose_public (void *handle)

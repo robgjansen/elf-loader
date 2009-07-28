@@ -61,4 +61,3 @@ real undefined symbols by the dynamic linker).
 
    - handle circular dependencies
 
-   - handle RTLD_NEXT and RTLD_DEFAULT

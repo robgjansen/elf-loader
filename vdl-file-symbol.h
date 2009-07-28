@@ -22,7 +22,11 @@ int vdl_file_symbol_lookup (struct VdlFile *file,
 			    const ElfW(Vernaux) *ver,
 			    enum LookupFlag flags,
 			    struct SymbolMatch *match);
-unsigned long vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name,
+unsigned long vdl_file_symbol_lookup_local (const struct VdlFile *file, 
+					    const char *name,
 					    unsigned long *symbol_size);
+int vdl_file_symbol_lookup_scope (const char *name, 
+				  struct VdlFileList *scope,
+				  struct SymbolMatch *match);
 
 #endif /* VDL_FILE_SYMBOL_H */
