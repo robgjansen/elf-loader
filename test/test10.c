@@ -24,10 +24,9 @@ static void *thread (void*ctx)
   return 0;
 }
 
-int main (int argc, char *argv[])
+static void
+test_one (void)
 {
-  printf ("enter main\n");
-
   void *handle = dlopen ("libi.so", RTLD_LAZY);
 
   g_get_i = (int *(*) (void)) dlsym (handle, "get_i");
@@ -52,6 +51,16 @@ int main (int argc, char *argv[])
 
   pthread_join (th, 0);
   printf ("main i=%d\n", *i);
+
+  dlclose (handle);
+}
+
+int main (int argc, char *argv[])
+{
+  printf ("enter main\n");
+
+  test_one ();
+  test_one ();
 
   printf ("leave main\n");
   return 0;
