@@ -51,7 +51,7 @@ test8_5: LDFLAGS+=-lpthread
 test9: LDFLAGS+=-lpthread
 test10: LDFLAGS+=-lpthread
 test11:
-test12: LDFLAGS+=
+test12: LDFLAGS+=-lpthread
 test13: LDFLAGS+=-lf
 run-test12: TEST_PRE_COMMAND=rm libl.so
 

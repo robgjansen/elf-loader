@@ -13,7 +13,19 @@ void function_f (void)
 int main (int argc, char *argv[])
 {
   function_f ();
-  void (*fct_f)(void) = (void (*)(void)) dlsym (RTLD_DEFAULT, "function_f");
+  const char *error = dlerror ();
+  void (*fct_f)(void) = (void (*)(void)) dlsym (RTLD_DEFAULT, "function_x");
+  error = dlerror ();
+  if (error != 0)
+    {
+      printf ("oops. Could not find function_x: \"%s\"\n", error);
+    }
+  error = dlerror ();
+  if (error == 0)
+    {
+      printf ("error has been cleared\n");
+    }
+  fct_f = (void (*)(void)) dlsym (RTLD_DEFAULT, "function_f");
   fct_f ();
   fct_f = (void (*)(void)) dlsym (RTLD_NEXT, "function_f");
   fct_f ();
