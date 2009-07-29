@@ -59,10 +59,8 @@ real undefined symbols by the dynamic linker).
 
    - make locking policy really consistent (move locks in external wrappers)
 
-   - handle circular dependencies
-
    - implement and patch in glibc __libc_dlerror_tsd ? Where is this thing coming from ?
 
-   - implement RPATH and RUNPATH
-
    - implement dladdr and dlvsym
+
+   - handle ORIGIN and PLATFORM
