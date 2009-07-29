@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include "vdl.h"
 #include "vdl-log.h"
+#include "avprintf-cb.h"
 
 
 void vdl_utils_linkmap_print (void)
@@ -295,4 +296,33 @@ ElfW(Phdr) *vdl_utils_search_phdr (ElfW(Phdr) *phdr, int phnum, int type)
 	}
     }
   return 0;
+}
+
+// Note that this implementation is horribly inneficient but it's
+// also incredibly simple. A more efficient implementation would
+// pre-allocate a large string buffer and would create a larger
+// buffer only when needed to avoid the very very many memory
+// allocations and frees done for each caracter.
+static void avprintf_callback (char c, void *context)
+{
+  if (c != 0)
+    {
+      char **pstr = (char**)context;
+      char new_char[] = {c, 0};
+      char *new_str = vdl_utils_strconcat (*pstr, new_char, 0);
+      vdl_utils_strfree (*pstr);
+      *pstr = new_str;
+    }
+}
+
+
+char *vdl_utils_vprintf (const char *str, va_list args)
+{
+  char *retval = vdl_utils_strdup ("");
+  int status = avprintf_cb (avprintf_callback, &retval, str, args);
+  if (status < 0)
+    {
+      return 0;
+    }
+  return retval;
 }

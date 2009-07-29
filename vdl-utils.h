@@ -2,6 +2,7 @@
 #define VDL_UTILS_H
 
 #include <sys/types.h>
+#include <stdarg.h>
 #include "vdl.h"
 
 void vdl_utils_linkmap_print (void);
@@ -40,5 +41,7 @@ unsigned long vdl_utils_align_up (unsigned long v, unsigned long align);
 #define vdl_utils_max(a,b)(((a)>(b))?(a):(b))
 
 ElfW(Phdr) *vdl_utils_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
+
+char *vdl_utils_vprintf (const char *str, va_list args);
 
 #endif /* VDL_UTILS_H */
