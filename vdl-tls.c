@@ -195,25 +195,17 @@ vdl_tls_tcb_initialize (unsigned long tcb, unsigned long sysinfo)
   vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
 }
 
-// this dtv structure is really different from the glibc one.
-// theoretically, this really does not matter because this structure
-// is supposed to be opaque to the glibc or libpthread. However,
-// life being what it is, nptl_db, the library used by gdb to debug
-// multithreaded programs, actually reads this data structure to
-// lookup tls variables (typically, really useful for errno).
-// So, our data structure has to be compatible with the glibc layout
-// at least for gdb which, in this case, is easy to do. We merely need
-// to ensure that the union field of this data structure really points
-// to tls blocks. It's really hard to feel very good about this gross 
-// hack, but, well, at least, it's supposed to work.
+// This dtv structure needs to be compatible with the one used by the 
+// glibc loader. Although it's supposed to be opaque to the glibc or 
+// libpthread, it's not. nptl_db reads it to lookup tls variables (it
+// reads dtv[i].value where i >= 1 to find out the address of a target
+// tls block) and libpthread reads dtv[-1].value to find out the size
+// of the dtv array and be able to memset it to zeros.
+// The only leeway we have is in the glibc static field which we reuse
+// to store a per-dtvi generation counter.
 struct dtv_t
 {
-  union {
-    // valid for dtv[0]
-    unsigned long size;
-    // valid for all other entries
-    unsigned long pointer;
-  } u;
+  unsigned long value;
   unsigned long gen;
 };
 
@@ -221,9 +213,12 @@ void
 vdl_tls_dtv_allocate (unsigned long tcb)
 {
   // allocate a dtv for the set of tls blocks needed now
-  struct dtv_t *dtv = vdl_utils_malloc ((1+g_vdl.tls_n_dtv) * sizeof (struct dtv_t));
+  struct dtv_t *dtv = vdl_utils_malloc ((2+g_vdl.tls_n_dtv) * sizeof (struct dtv_t));
+  dtv[0].value = g_vdl.tls_n_dtv;
+  dtv[0].gen = 0;
+  dtv++;
+  dtv[0].value = 0;
   dtv[0].gen = g_vdl.tls_gen;
-  dtv[0].u.size = g_vdl.tls_n_dtv;
   vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
 }
 
@@ -243,14 +238,14 @@ vdl_tls_dtv_initialize (unsigned long tcb)
 	  if (cur->tls_is_static)
 	    {
 	      signed long dtvi = tcb + cur->tls_offset;
-	      dtv[cur->tls_index].u.pointer = dtvi;
+	      dtv[cur->tls_index].value = dtvi;
 	      // copy the template in the module tls block
 	      vdl_utils_memcpy ((void*)dtvi, (void*)cur->tls_tmpl_start, cur->tls_tmpl_size);
 	      vdl_utils_memset ((void*)(dtvi + cur->tls_tmpl_size), 0, cur->tls_init_zero_size);
 	    }
 	  else
 	    {
-	      dtv[cur->tls_index].u.pointer = 0; // unallocated
+	      dtv[cur->tls_index].value = 0; // unallocated
 	    }
 	  dtv[cur->tls_index].gen = cur->tls_tmpl_gen;
 	}
@@ -279,11 +274,11 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
   struct dtv_t *dtv;
   vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
 
-  unsigned long dtv_size = dtv[0].u.size;
+  unsigned long dtv_size = dtv[-1].value;
   unsigned long module;
   for (module = 1; module <= dtv_size; module++)
     {
-      if (dtv[module].u.pointer == 0)
+      if (dtv[module].value == 0)
 	{
 	  // this was an unallocated entry
 	  continue;
@@ -292,11 +287,11 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
       if (!file->tls_is_static)
 	{
 	  // this was not a static entry
-	  unsigned long *dtvi = (unsigned long *)dtv[module].u.pointer;
+	  unsigned long *dtvi = (unsigned long *)dtv[module].value;
 	  vdl_utils_free (dtvi, dtvi[-1]);
 	}
     }
-  vdl_utils_free (&dtv[0], (dtv[0].u.size+1)*sizeof(struct dtv_t));
+  vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
 }
 
 void
@@ -318,11 +313,11 @@ get_current_dtv (void)
 unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 {
   struct dtv_t *dtv = get_current_dtv ();
-  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].u.pointer != 0)
+  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].value != 0)
     {
       // our dtv is really uptodate _and_ the requested module block
       // has been already initialized.
-      return dtv[module].u.pointer + offset;
+      return dtv[module].value + offset;
     }
   // either we need to update the dtv or we need to initialize
   // the dtv entry to point to the requested module block
@@ -333,7 +328,7 @@ update_dtv (void)
 {
   unsigned long tp = machine_thread_pointer_get ();
   struct dtv_t *dtv = get_current_dtv ();
-  unsigned long dtv_size = dtv[0].u.size;
+  unsigned long dtv_size = dtv[-1].value;
   // first, check its size
   if (g_vdl.tls_n_dtv <= dtv_size)
     {
@@ -356,7 +351,7 @@ update_dtv (void)
 	    }
 	  VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should "
 			  "always be uptodate");
-	  if (dtv[module].u.pointer == 0)
+	  if (dtv[module].value == 0)
 	    {
 	      // this is just an un-initialized entry so, we leave it alone
 	      continue;
@@ -368,7 +363,7 @@ update_dtv (void)
 	  // new module has been allocated the same tls module index
 	  // as the old module. All we have to do here is make sure that this
 	  // entry gets initialized when it's needed
-	  dtv[module].u.pointer = 0;
+	  dtv[module].value = 0;
 	}
       // now that the dtv is updated, update the generation
       dtv[0].gen = g_vdl.tls_gen;
@@ -379,7 +374,7 @@ update_dtv (void)
   // current dtv. We need a newly-sized dtv
   vdl_tls_dtv_allocate (tp);
   struct dtv_t *new_dtv = get_current_dtv ();
-  unsigned long new_dtv_size = new_dtv[0].u.size;
+  unsigned long new_dtv_size = new_dtv[-1].value;
   unsigned long module;
   // first, initialize the common area between
   // the old and the new dtv. also, clear
@@ -392,7 +387,7 @@ update_dtv (void)
 	  // the module has been unloaded so, well,
 	  // nothing to do here. for clarity, we initialize
 	  // these entries, but it's not needed, really.
-	  new_dtv[module].u.pointer = 0;
+	  new_dtv[module].value = 0;
 	  new_dtv[module].gen = 0;
 	  continue;
 	}
@@ -402,11 +397,11 @@ update_dtv (void)
 	  new_dtv[module] = dtv[module];	  
 	  continue;
 	}
-      if (dtv[module].u.pointer == 0)
+      if (dtv[module].value == 0)
 	{
 	  // an uninitialized entry. nothing to do. for clarity, 
 	  // initialize new dtv too.
-	  new_dtv[module].u.pointer = 0;
+	  new_dtv[module].value = 0;
 	  new_dtv[module].gen = 0;
 	  continue;
 	}
@@ -416,10 +411,10 @@ update_dtv (void)
       // same tls module index.
       // first, free the old block (the size of the block is located
       // just before the start of the block)
-      unsigned long * dtvi = (unsigned long *)dtv[module].u.pointer;
+      unsigned long * dtvi = (unsigned long *)dtv[module].value;
       vdl_utils_free (dtvi, dtvi[-1]);
       // then, make sure the new block will be initialized later
-      new_dtv[module].u.pointer = 0;
+      new_dtv[module].value = 0;
       new_dtv[module].gen = 0;
     }
   // then, initialize the new area in the new dtv
@@ -429,22 +424,22 @@ update_dtv (void)
       VDL_LOG_ASSERT (file != 0, "new entries should have a file");
       VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should never"
 		      "be initialized here");
-      new_dtv[module].u.pointer = 0;
+      new_dtv[module].value = 0;
       new_dtv[module].gen = 0;
     }
   // finally, clear the old dtv
-  vdl_utils_free (&dtv[0], (dtv[0].u.size+1)*sizeof(struct dtv_t));
+  vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
 }
 unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
 {
   struct dtv_t *dtv = get_current_dtv ();
-  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].u.pointer != 0)
+  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].value != 0)
     {
       // our dtv is really uptodate _and_ the requested module block
       // has been already initialized.
-      return dtv[module].u.pointer + offset;
+      return dtv[module].value + offset;
     }
-  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].u.pointer == 0)
+  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].value == 0)
     {
       // the dtv is uptodate but the requested module block 
       // has not been initialized already
@@ -459,10 +454,10 @@ unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
       vdl_utils_memset ((void*)(((unsigned long)dtvi) + file->tls_tmpl_size), 
 			0, file->tls_init_zero_size);
       // finally, update the dtv
-      dtv[module].u.pointer = (unsigned long)dtvi;
+      dtv[module].value = (unsigned long)dtvi;
       dtv[module].gen = file->tls_tmpl_gen;
       // and return the requested value
-      return dtv[module].u.pointer + offset;
+      return dtv[module].value + offset;
     }
 
   // we know for sure that the dtv is _not_ uptodate now
