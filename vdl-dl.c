@@ -277,10 +277,12 @@ char *vdl_dlerror_private (void)
 
 int vdl_dladdr_private (void *addr, Dl_info *info)
 {
+  set_error ("dladdr unimplemented");
   return 0;
 }
 void *vdl_dlvsym_private (void *handle, char *symbol, char *version, unsigned long caller)
 {
+  set_error ("dlvsym unimplemented");
   return 0;
 }
 
