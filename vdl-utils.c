@@ -250,6 +250,31 @@ struct VdlStringList *vdl_utils_str_list_append (struct VdlStringList *start, st
       return start;
     }
 }
+struct VdlStringList * vdl_utils_str_list_prepend (struct VdlStringList *start, 
+						   struct VdlStringList *end)
+{
+  return vdl_utils_str_list_append (end, start);
+}
+struct VdlStringList *
+vdl_utils_str_list_split (struct VdlStringList *start, 
+			  struct VdlStringList *at)
+{
+  if (start == at)
+    {
+      return 0;
+    }
+  struct VdlStringList *cur;
+  for (cur = start; cur != 0; cur = cur->next)
+    {
+      if (cur->next == at)
+	{
+	  cur->next = 0;
+	  return start;
+	}
+    }
+  return start;
+}
+
 struct VdlStringList *vdl_utils_str_list_reverse (struct VdlStringList *list)
 {
   VDL_LOG_FUNCTION ("list=%p", list);
@@ -261,6 +286,21 @@ struct VdlStringList *vdl_utils_str_list_reverse (struct VdlStringList *list)
       ret = cur;
     }
   return ret;
+}
+struct VdlStringList *vdl_utils_splitpath (const char *value)
+{
+  struct VdlStringList *list = vdl_utils_strsplit (value, ':');
+  struct VdlStringList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
+    {
+      if (vdl_utils_strisequal (cur->str, ""))
+	{
+	  // the empty string is interpreted as '.'
+	  vdl_utils_strfree (cur->str);
+	  cur->str = vdl_utils_strdup (".");
+	}
+    }
+  return list;
 }
 
 

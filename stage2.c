@@ -19,7 +19,7 @@
 static struct VdlStringList *
 get_system_search_dirs (void)
 {
-  return vdl_utils_strsplit (machine_get_system_search_dirs (), ':');
+  return vdl_utils_splitpath (machine_get_system_search_dirs ());
 }
 
 static struct VdlFile *
@@ -94,7 +94,7 @@ do_ld_preload (struct VdlContext *context, const char **envp, struct VdlFileList
   if (ld_preload != 0)
     {
       // search the requested program
-      char *ld_preload_filename = vdl_search_filename (ld_preload);
+      char *ld_preload_filename = vdl_search_filename (ld_preload, 0, 0);
       if (ld_preload_filename == 0)
 	{
 	  VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", ld_preload);
@@ -120,7 +120,7 @@ setup_env_vars (const char **envp)
 {
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = vdl_utils_getenv (envp, "LD_LIBRARY_PATH");
-  struct VdlStringList *list = vdl_utils_strsplit (ld_lib_path, ':');
+  struct VdlStringList *list = vdl_utils_splitpath (ld_lib_path);
   g_vdl.search_dirs = vdl_utils_str_list_append (list, g_vdl.search_dirs);
 
   // setup logging from LD_LOG
@@ -219,7 +219,7 @@ stage2_initialize (struct Stage2Input input)
       const char *program = input.program_argv[1];
       // We need to do what the kernel usually does for us, that is,
       // search the file, and map it in memory
-      char *filename = vdl_search_filename (program);
+      char *filename = vdl_search_filename (program, 0, 0);
       VDL_LOG_ASSERT (filename != 0, "Could not find main binary");
       context = vdl_context_new (input.program_argc - 1,
 				 input.program_argv + 1,

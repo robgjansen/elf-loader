@@ -77,6 +77,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
   struct VdlFileList *loaded = 0;
   struct VdlFile *mapped_file = vdl_file_map_single_maybe (g_vdl.contexts,
 							   filename,
+							   0, 0,
 							   &loaded);
   if (mapped_file == 0)
     {
