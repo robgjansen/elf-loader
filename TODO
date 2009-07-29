@@ -61,8 +61,6 @@ real undefined symbols by the dynamic linker).
 
    - handle circular dependencies
 
-   - implement dlerror with per-thread state.
-
    - implement and patch in glibc __libc_dlerror_tsd
 
-  - implement RPATH and RUNPATH
+   - implement RPATH and RUNPATH
