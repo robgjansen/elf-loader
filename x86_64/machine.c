@@ -281,6 +281,10 @@ machine_get_system_search_dirs (void)
     "/usr/lib64";
   return dirs;
 }
+const char *machine_get_lib (void)
+{
+  return "lib64";
+}
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
 {
   long int status = SYSCALL6(mmap, start, length, prot, flags, fd, offset);

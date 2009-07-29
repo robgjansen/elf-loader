@@ -17,6 +17,7 @@ void machine_lazy_reloc (struct VdlFile *file);
 uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);
 uint32_t machine_atomic_dec (uint32_t *val);
 const char *machine_get_system_search_dirs (void);
+const char *machine_get_lib (void);
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
 void machine_thread_pointer_set (unsigned long tp);
 unsigned long machine_thread_pointer_get (void);

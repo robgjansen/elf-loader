@@ -282,6 +282,24 @@ static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
   return vdl_utils_str_list_reverse (ret);
 }
 static char *
+replace_magic (char *filename)
+{
+  char *lib = vdl_utils_strfind (filename, "$LIB");
+  if (lib != 0)
+    {
+      char saved = lib[0];
+      lib[0] = 0;
+      char *new_filename = vdl_utils_strconcat (filename,
+						machine_get_lib (),
+						lib+4, 0);
+      lib[0] = saved;
+      vdl_utils_strfree (filename);
+      VDL_LOG_DEBUG ("magic %s", new_filename);
+      return new_filename;
+    }
+  return filename;
+}
+static char *
 do_search (const char *name, 
 	   struct VdlStringList *list)
 {
@@ -289,6 +307,7 @@ do_search (const char *name,
   for (cur = list; cur != 0; cur = cur->next)
     {
       char *fullname = vdl_utils_strconcat (cur->str, "/", name, 0);
+      fullname = replace_magic (fullname);
       if (vdl_utils_exists (fullname))
 	{
 	  return fullname;
@@ -307,32 +326,31 @@ char *vdl_search_filename (const char *name,
       // if the filename we are looking for does not start with a '/',
       // it is a relative filename so, we can try to locate it with the
       // search dirs.
+      char *fullname = 0;
       if (runpath != 0)
 	{
-	  char *fullname = do_search (name, runpath);
-	  if (fullname != 0)
-	    {
-	      return fullname;
-	    }
+	  fullname = do_search (name, runpath);
 	}
       else if (rpath != 0)
 	{
-	  char *fullname = do_search (name, rpath);
-	  if (fullname != 0)
-	    {
-	      return fullname;
-	    }
+	  fullname = do_search (name, rpath);
 	}
-      char *fullname = do_search (name, g_vdl.search_dirs);
+      if (fullname != 0)
+	{
+	  return fullname;
+	}
+      fullname = do_search (name, g_vdl.search_dirs);
       if (fullname != 0)
 	{
 	  return fullname;
 	}
     }
-  if (vdl_utils_exists (name))
+  char *realname = replace_magic (vdl_utils_strdup (name));
+  if (vdl_utils_exists (realname))
     {
-      return vdl_utils_strdup (name);
+      return realname;
     }
+  vdl_utils_strfree (realname);
   return 0;
 }
 static void
