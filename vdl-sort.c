@@ -12,7 +12,7 @@ get_max_depth_recursive (struct VdlFileList *files, uint32_t depth)
   struct VdlFileList *cur;
   for (cur = files; cur != 0; cur = cur->next)
     {
-      cur->item->gc_depth = vdl_utils_max (depth, cur->item->gc_depth);
+      cur->item->depth = vdl_utils_max (depth, cur->item->depth);
       max_depth = vdl_utils_max (get_max_depth_recursive (cur->item->deps, depth+1),
 				 max_depth);
     }
@@ -33,7 +33,7 @@ vdl_sort_deps_breadth_first (struct VdlFileList *files)
     struct VdlFileList *cur;
     for (cur = files; cur != 0; cur = cur->next)
       {
-	cur->item->gc_depth = 0;
+	cur->item->depth = 0;
       }
   }
 
@@ -49,7 +49,7 @@ vdl_sort_deps_breadth_first (struct VdlFileList *files)
       struct VdlFileList *cur;
       for (cur = files; cur != 0; cur = cur->next)
 	{
-	  if (cur->item->gc_depth == i)
+	  if (cur->item->depth == i)
 	    {
 	      output = vdl_file_list_append_one (output, cur->item);
 	    }

@@ -162,7 +162,7 @@ struct VdlFile
   // list of files this file depends upon. 
   // equivalent to the content of DT_NEEDED.
   struct VdlFileList *deps;
-  uint32_t gc_depth;
+  uint32_t depth;
 };
 
 struct VdlStringList
