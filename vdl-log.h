@@ -31,12 +31,16 @@ void vdl_log_printf (enum VdlLog log, const char *str, ...);
 #define VDL_LOG_RELOC(rel)					      \
   vdl_log_printf (VDL_LOG_REL, "Unhandled reloc type=0x%x at=0x%x\n", \
 		  ELFW_R_TYPE (rel->r_info), rel->r_offset)
-#define VDL_LOG_ASSERT(predicate,str)		 \
-  if (!(predicate))				 \
-    {						 \
+#define VDL_LOG_ASSERT(predicate,str)				\
+  if (!(predicate))						\
+    {								\
       vdl_log_printf (VDL_LOG_AST, "%s:%d, %s, %s\n",		\
 		      __FILE__, __LINE__, __FUNCTION__, str);	\
-      system_exit (-1);				 \
+      {								\
+	char *p = 0;						\
+	*p = 0;							\
+      }								\
+      system_exit (-1);						\
     }
 
 // expect a ':' separated list
