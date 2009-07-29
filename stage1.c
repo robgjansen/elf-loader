@@ -78,6 +78,7 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->tls_static_align = 0;
   vdl->tls_n_dtv = 0;
   futex_init (&vdl->futex);
+  vdl->error = 0;
 
   // after this call to alloc_initialize is completed,
   // we are allowed to allocate heap memory.

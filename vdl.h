@@ -170,10 +170,11 @@ struct VdlStringList
   char *str;
   struct VdlStringList *next;
 };
+// the numbers below must match the declarations from svs4
 enum VdlState {
-  VDL_CONSISTENT,
-  VDL_ADD,
-  VDL_DELETE
+  VDL_CONSISTENT = 0,
+  VDL_ADD = 1,
+  VDL_DELETE = 2
 };
 
 struct VdlContext
@@ -194,6 +195,13 @@ struct VdlContext
   int argc;
   char **argv;
   char **envp;  
+};
+
+struct ErrorList
+{
+  char *error;
+  unsigned long thread_pointer;
+  struct ErrorList *next;
 };
 
 struct Vdl
@@ -218,6 +226,9 @@ struct Vdl
   unsigned long tls_static_align;
   unsigned long tls_n_dtv;
   struct futex futex;
+  // holds an entry for each thread which calls one a function
+  // which potentially sets the dlerror state.
+  struct ErrorList *error;
 };
 
 

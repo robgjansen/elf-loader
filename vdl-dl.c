@@ -15,6 +15,39 @@
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
 
+struct ErrorList *find_error (void)
+{
+  unsigned long thread_pointer = machine_thread_pointer_get ();
+  struct ErrorList *cur;
+  for (cur = g_vdl.error; cur != 0; cur = cur->next)
+    {
+      if (cur->thread_pointer == thread_pointer)
+	{
+	  return cur;
+	}
+    }
+  struct ErrorList * item = vdl_utils_new (struct ErrorList);
+  item->thread_pointer = thread_pointer;
+  item->error = 0;
+  item->next = g_vdl.error;
+  g_vdl.error = item;
+  return item;
+}
+
+void set_error (const char *str, ...)
+{
+  va_list list;
+  va_start (list, str);
+  char *error_string = vdl_utils_vprintf (str, list);
+  va_end (list);
+  struct ErrorList *error = find_error ();
+  if (error->error != 0)
+    {
+      vdl_utils_strfree (error->error);
+    }
+  error->error = error_string;
+}
+
 struct VdlFile *
 caller_to_file (unsigned long caller)
 {
@@ -47,13 +80,13 @@ void *vdl_dlopen_private (const char *filename, int flags)
 							   &loaded);
   if (mapped_file == 0)
     {
-      VDL_LOG_ERROR ("Unable to load: \"%s\"\n", filename);
+      set_error ("Unable to load: \"%s\"", filename);
       goto error;
     }
 
   if (!vdl_file_map_deps (mapped_file, &loaded))
     {
-      VDL_LOG_ERROR ("Unable to map dependencies of \"%s\"\n", filename);
+      set_error ("Unable to map dependencies of \"%s\"", filename);
       goto error;
     }
 
@@ -94,6 +127,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
       // how to handle them because that would require
       // adding space to the already-allocated static tls
       // which, by definition, can't be deallocated.
+      set_error ("Attempting to dlopen a file with a static tls block");
       goto error;
     }
 
@@ -146,7 +180,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
   struct VdlFile *file = (struct VdlFile*)handle;
   if (caller_file == 0)
     {
-      // XXX: need to store dlerror somewhere
+      set_error ("Can't find caller");
       goto error;
     }
   if (handle == RTLD_DEFAULT)
@@ -171,7 +205,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 	}
       if (!found)
 	{
-	  // XXX: need to store dlerror somewhere
+	  set_error ("Can't find caller in current local scope");
 	  goto error;
 	}
     }
@@ -179,7 +213,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
     {
       if (file == 0)
 	{
-	  // XXX: need to store dlerror somewhere
+	  set_error ("Invalid handle");
 	  goto error;
 	}
       scope = file->local_scope;
@@ -187,7 +221,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
   struct SymbolMatch match;
   if (!vdl_file_symbol_lookup_scope (symbol, scope, &match))
     {
-      // XXX: need to store dlerror somewhere
+      set_error ("Could not find requested symbol \"%s\"", symbol);
       goto error;
     }
   futex_unlock (&g_vdl.futex);
@@ -229,9 +263,15 @@ int vdl_dlclose_private (void *handle)
 
 char *vdl_dlerror_private (void)
 {
-  // XXX
-  // indicates that no error happened
-  return 0;
+  struct ErrorList *error = find_error ();
+  char *error_string = error->error;
+  if (error_string != 0)
+    {
+      vdl_utils_strfree (error_string);
+    }
+  // clear the error we are about to report to the user
+  error->error = 0;
+  return error_string;
 }
 
 int vdl_dladdr_private (void *addr, Dl_info *info)
