@@ -94,6 +94,26 @@ char *vdl_utils_strdup (const char *str)
   vdl_utils_memcpy (retval, str, len+1);
   return retval;
 }
+char *vdl_utils_strfind (char *str, const char *substr)
+{
+  char *cur = str;
+  while (*cur != 0)
+    {
+      char *a = cur;
+      const char *b = substr;
+      while (*a != 0 && *b != 0 && *a == *b)
+	{
+	  a++;
+	  b++;
+	}
+      if (*b == 0)
+	{
+	  return cur;
+	}
+      cur++;
+    }
+  return 0;
+}
 void vdl_utils_memcpy (void *d, const void *s, size_t len)
 {
   //VDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
