@@ -69,26 +69,6 @@ static char _rtld_local[CONFIG_RTLD_GLOBAL_SIZE];
 extern __typeof (_rtld_local) _rtld_global __attribute__ ((alias("_rtld_local"), 
 							   visibility("default")));
 
-
-EXPORT WEAK void *calloc(size_t nmemb, size_t size)
-{
-  VDL_LOG_ASSERT (0, "calloc called");
-  return 0;
-}
-EXPORT WEAK void *malloc(size_t size)
-{
-  VDL_LOG_ASSERT (0, "malloc called");
-  return 0;
-}
-EXPORT WEAK void free(void *ptr)
-{
-  VDL_LOG_ASSERT (0, "free called");
-}
-EXPORT WEAK void *realloc(void *ptr, size_t size)
-{
-  VDL_LOG_ASSERT (0, "realloc called");
-  return 0;
-}
 //_r_debug;
 //__libc_memalign;
 
