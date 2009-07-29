@@ -13,6 +13,25 @@
 
 struct Vdl g_vdl;
 
+static void
+print_debug_map (const char *filename, const char *type,
+		 struct VdlFileMap map)
+{
+  VDL_LOG_DEBUG ("%s %s file=0x%llx/0x%llx mem=0x%llx/0x%llx zero=0x%llx/0x%llx anon=0x%llx/0x%llx\n",
+		 filename, type,
+		 map.file_start_align, map.file_size_align,
+		 map.mem_start_align, map.mem_size_align,
+		 map.mem_zero_start, map.mem_zero_size,
+		 map.mem_anon_start_align, map.mem_anon_size_align);
+}
+static unsigned long 
+get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
+{
+  unsigned long end = ro_map.mem_start_align + ro_map.mem_size_align;
+  end = vdl_utils_max (end, rw_map.mem_start_align + rw_map.mem_size_align);
+  unsigned long mapping_size = end - ro_map.mem_start_align;
+  return mapping_size;
+}
 
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
 {
@@ -166,6 +185,13 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 static void
 file_delete (struct VdlFile *file)
 {
+  unsigned long mapping_size = get_total_mapping_size (file->ro_map, file->rw_map);
+  int status = system_munmap ((void*)file->ro_map.mem_start_align, mapping_size);
+  if (status == -1)
+    {
+      VDL_LOG_ERROR ("unable to unmap \"%s\"\n", file->filename);
+    }
+
   file->next = 0;
   file->prev = 0;
   vdl_file_list_free (file->deps);
@@ -181,7 +207,6 @@ file_delete (struct VdlFile *file)
   file->context = 0;
   vdl_utils_delete (file);
 
-  // XXX: should try to unmap memory areas.
 }
 
 void vdl_files_delete (struct VdlFileList *files)
@@ -339,17 +364,6 @@ file_map_do (struct VdlFileMap map,
       VDL_LOG_ASSERT (address != -1, "Unable to map zero pages\n");
     }
 }
-static void
-print_debug_map (const char *filename, const char *type,
-		 struct VdlFileMap map)
-{
-  VDL_LOG_DEBUG ("%s %s file=0x%llx/0x%llx mem=0x%llx/0x%llx zero=0x%llx/0x%llx anon=0x%llx/0x%llx\n",
-		 filename, type,
-		 map.file_start_align, map.file_size_align,
-		 map.mem_start_align, map.mem_size_align,
-		 map.mem_zero_start, map.mem_zero_size,
-		 map.mem_anon_start_align, map.mem_anon_size_align);
-}
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				     const char *filename, 
 				     const char *name)
@@ -417,12 +431,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  // calculate the size of the total mapping required
-  {
-    unsigned long end = info.ro_map.mem_start_align + info.ro_map.mem_size_align;
-    end = vdl_utils_max (end, info.rw_map.mem_start_align + info.rw_map.mem_size_align);
-    mapping_size = end - info.ro_map.mem_start_align;
-  }
+  mapping_size = get_total_mapping_size (info.ro_map, info.rw_map);
 
   // If this is an executable, we try to map it exactly at its base address
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
