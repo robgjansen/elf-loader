@@ -66,3 +66,5 @@ real undefined symbols by the dynamic linker).
    - handle ORIGIN and PLATFORM
 
    - implement BIND_NOW flag in DT_FLAGS
+
+   - should test scopes
