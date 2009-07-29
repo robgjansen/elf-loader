@@ -72,6 +72,21 @@ void *vdl_dlopen_private (const char *filename, int flags)
 {
   futex_lock (&g_vdl.futex);
 
+  if (filename == 0)
+    {
+      struct VdlFile *cur;
+      for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+	{
+	  if (cur->is_executable)
+	    {
+	      cur->count++;
+	      futex_unlock (&g_vdl.futex);
+	      return cur;
+	    }
+	}
+      VDL_LOG_ASSERT (false, "Could not find main executable within linkmap");
+    }
+
   // map it in memory using the normal context, that is, the
   // first context in the context list.
   struct VdlFileList *loaded = 0;
