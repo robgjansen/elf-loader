@@ -64,3 +64,5 @@ real undefined symbols by the dynamic linker).
    - implement and patch in glibc __libc_dlerror_tsd ? Where is this thing coming from ?
 
    - implement RPATH and RUNPATH
+
+   - implement dladdr and dlvsym
