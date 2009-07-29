@@ -64,3 +64,5 @@ real undefined symbols by the dynamic linker).
    - implement dladdr and dlvsym
 
    - handle ORIGIN and PLATFORM
+
+   - implement BIND_NOW flag in DT_FLAGS
