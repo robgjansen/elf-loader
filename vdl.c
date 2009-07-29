@@ -655,8 +655,8 @@ get_path (struct VdlFile *file, int type)
 }
 
 int vdl_file_map_deps_recursive (struct VdlFile *item, 
-				 struct VdlFileList **loaded, 
-				 struct VdlStringList *caller_rpath)
+				 struct VdlStringList *caller_rpath,
+				 struct VdlFileList **loaded)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
 
@@ -693,7 +693,7 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   struct VdlFileList *dep;
   for (dep = deps; dep != 0; dep = dep->next)
     {
-      if (!vdl_file_map_deps_recursive (dep->item, loaded, rpath))
+      if (!vdl_file_map_deps_recursive (dep->item, rpath, loaded))
 	{
 	  goto error;
 	}
@@ -721,7 +721,7 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
 int vdl_file_map_deps (struct VdlFile *item, 
 		       struct VdlFileList **loaded)
 {
-  return vdl_file_map_deps_recursive (item, loaded, 0);
+  return vdl_file_map_deps_recursive (item, 0, loaded);
 }
 static struct VdlFileMap 
 pt_load_to_file_map (const ElfW(Phdr) *phdr)
