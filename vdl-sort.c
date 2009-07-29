@@ -3,47 +3,29 @@
 #include "vdl-utils.h"
 #include <stdint.h>
 
-
-// return the max depth.
 static uint32_t
-get_max_depth_recursive (struct VdlFileList *files, uint32_t depth)
+get_max_depth (struct VdlFileList *files)
 {
-  uint32_t max_depth = depth;
+  uint32_t max_depth = 0;
   struct VdlFileList *cur;
   for (cur = files; cur != 0; cur = cur->next)
     {
-      cur->item->depth = vdl_utils_max (depth, cur->item->depth);
-      max_depth = vdl_utils_max (get_max_depth_recursive (cur->item->deps, depth+1),
+      max_depth = vdl_utils_max (cur->item->depth,
 				 max_depth);
     }
   return max_depth;
 }
 
-static uint32_t
-get_max_depth (struct VdlFileList *files)
-{
-  return get_max_depth_recursive (files, 1);
-}
-
 struct VdlFileList *
 vdl_sort_deps_breadth_first (struct VdlFileList *files)
 {
-  // initialize depth to zero
-  {
-    struct VdlFileList *cur;
-    for (cur = files; cur != 0; cur = cur->next)
-      {
-	cur->item->depth = 0;
-      }
-  }
 
-  // calculate depth of each file and get the max depth
   uint32_t max_depth = get_max_depth (files);
   
   struct VdlFileList *output = 0;
 
   uint32_t i;
-  for (i = 0; i < max_depth; i++)
+  for (i = 0; i <= max_depth; i++)
     {
       // find files with matching depth and output them
       struct VdlFileList *cur;

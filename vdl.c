@@ -176,6 +176,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->local_scope = 0;
   file->deps = 0;
   file->name = vdl_utils_strdup (name);
+  file->depth = 0;
 
   file_append (file);
 
@@ -678,13 +679,14 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   struct VdlStringList *cur;
   for (cur = dt_needed; cur != 0; cur = cur->next)
     {
-      struct VdlFile *dep = vdl_file_map_single_maybe (item->context, cur->str, 
+      struct VdlFile *dep = vdl_file_map_single_maybe (item->context, cur->str,
 						       rpath, runpath, loaded);
       if (dep == 0)
 	{
 	  // oops, failed to find the requested dt_needed
 	  goto error;
 	}
+      dep->depth = vdl_utils_max (dep->depth, item->depth + 1);
       // add the new file to the list of dependencies
       deps = vdl_file_list_append_one (deps, dep);
     }
