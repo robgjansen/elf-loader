@@ -41,8 +41,7 @@ vdl_sort_deps_breadth_first (struct VdlFileList *files)
   return output;
 }
 
-static struct VdlFileList *
-get_deps_recursive (struct VdlFile *file)
+struct VdlFileList *vdl_sort_deps_breadth_first_one (struct VdlFile *file)
 {
   struct VdlFileList *list = 0;
   list = vdl_file_list_append_one (list, file);
@@ -62,17 +61,6 @@ get_deps_recursive (struct VdlFile *file)
     }
 
   return list;
-}
-
-struct VdlFileList *vdl_sort_deps_breadth_first_one (struct VdlFile *file)
-{
-  struct VdlFileList *deps = get_deps_recursive (file);
-
-  struct VdlFileList *output = vdl_sort_deps_breadth_first (deps);
-
-  vdl_file_list_free (deps);
-
-  return output;
 }
 
 struct VdlFileList *vdl_sort_call_init (struct VdlFileList *files)
