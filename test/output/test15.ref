@@ -10,16 +10,18 @@ error looking up function_f in RTLD_DEFAULT
 calling function_f in libf
 called function_f in libf
 libf destructor
+libl constructor
 libf constructor
-libe constructor
-dlopen libef.so ok
-function_f in libef.so
+libefl constructor
+dlopen libefl.so ok
+function_f in libefl.so
 calling function_f in libf
-function_f in libef.so
+function_f in libefl.so
 reopen libf.so
-function_f in libef.so
-libe destructor
+function_f in libefl.so
+libefl destructor
 libf destructor
+libl destructor
 libf constructor
 dlopen libf.so ok
 called function_f in libf

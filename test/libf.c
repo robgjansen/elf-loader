@@ -13,3 +13,9 @@ void function_f_e (void)
 {
   function_e ();
 }
+extern void call_function_l (void);
+void call_function_f_l (void)
+{
+  printf ("calling call_function_l from libf.so\n");
+  call_function_l ();
+}

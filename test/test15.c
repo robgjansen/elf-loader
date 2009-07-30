@@ -80,11 +80,11 @@ int main (int argc, char *argv[])
   error = dlerror (); // clear error
 
   // ok, let's see what we can find in libef.so
-  handle = dlopen ("libef.so", RTLD_LAZY);
+  handle = dlopen ("libefl.so", RTLD_LAZY);
   error = dlerror ();
   if (error == 0)
     {
-      printf ("dlopen libef.so ok\n");
+      printf ("dlopen libefl.so ok\n");
     }
   // function_f in libef.so is interposed
   // before function_f in libf.so
@@ -94,14 +94,30 @@ int main (int argc, char *argv[])
     {
       fn ();
     }
-  // yes, it's really interposed
+  // yes, it's really interposed, even from libf.so
   fn = dlsym (handle, "call_function_f");
   error = dlerror ();
   if (error == 0)
     {
       fn ();
     }
-  // let's check that it's really interposed
+  // try to see if libf.so can call into libl.so
+  fn = dlsym (handle, "call_function_f_l");
+  error = dlerror ();
+  if (error == 0)
+    {
+      // yes, we can !
+      fn ();
+    }
+  // try to see if libl.so can call into libf.so
+  fn = dlsym (handle, "call_function_l_f");
+  error = dlerror ();
+  if (error == 0)
+    {
+      // yes, we can !
+      fn ();
+    }
+
   {
     void *other_handle = dlopen ("libf.so", RTLD_LAZY);
     error = dlerror ();
@@ -109,12 +125,19 @@ int main (int argc, char *argv[])
       {
 	printf ("reopen libf.so\n");
       }
-    // yes, it's really really interposed
-    fn = dlsym (handle, "function_f");
+    // it's not interposed here !
+    fn = dlsym (other_handle, "function_f");
     error = dlerror ();
     if (error == 0)
       {
 	fn ();
+      }
+    // and we can't look this up from here.
+    fn = dlsym (other_handle, "function_l");
+    error = dlerror ();
+    if (error != 0)
+      {
+	printf ("dlsym is not performing lookups according to local scope\n");
       }
     dlclose (other_handle);
     error = dlerror ();
