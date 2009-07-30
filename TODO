@@ -68,3 +68,10 @@ real undefined symbols by the dynamic linker).
    - implement BIND_NOW flag in DT_FLAGS
 
    - should test scopes
+
+   - need to change meaning of local_scope and add a loader field in VdlFile
+     Do we need to set the loader and local_scope fields in the initial
+     modules loaded ?
+
+   - must find a better way to handle the resolv trampoline debug info
+     for stack trace management from gdb
