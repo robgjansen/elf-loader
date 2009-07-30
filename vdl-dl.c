@@ -106,12 +106,15 @@ void *vdl_dlopen_private (const char *filename, int flags)
       goto error;
     }
 
-  struct VdlFileList *deps = vdl_sort_deps_breadth_first_one (mapped_file);
+  struct VdlFileList *scope = vdl_sort_deps_breadth_first (mapped_file);
   if (flags & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.
-      struct VdlFileList *copy = vdl_file_list_copy (deps);
-      g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, copy);
+      // Note that it's not a big deal if the file has already been
+      // added to the global scope in the past. We call unicize so
+      // any duplicate entries appended here will be removed immediately.
+      g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, 
+							   vdl_file_list_copy (scope));
       vdl_file_list_unicize (g_vdl.contexts->global_scope);
     }
 
@@ -119,7 +122,8 @@ void *vdl_dlopen_private (const char *filename, int flags)
   struct VdlFileList *cur;
   for (cur = loaded; cur != 0; cur = cur->next)
     {
-      cur->item->local_scope = vdl_file_list_copy (deps);
+      // XXX: below, replace mapped_file by cur->item. everything fails.
+      cur->item->local_scope = vdl_file_list_copy (scope);
       if (flags & RTLD_DEEPBIND)
 	{
 	  cur->item->lookup_type = LOOKUP_LOCAL_GLOBAL;
@@ -129,8 +133,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 	  cur->item->lookup_type = LOOKUP_GLOBAL_LOCAL;
 	}
     }
-
-  vdl_file_list_free (deps);
+  vdl_file_list_free (scope);
 
   vdl_tls_file_initialize (loaded);
 

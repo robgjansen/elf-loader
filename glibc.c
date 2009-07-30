@@ -262,7 +262,7 @@ do_glibc_patch (struct VdlFile *file)
 
 void glibc_patch (struct VdlFileList *files)
 {
-  struct VdlFileList *sorted = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *sorted = vdl_sort_increasing_depth (files);
   sorted = vdl_file_list_reverse (sorted);
   struct VdlFileList *cur;
   for (cur = sorted; cur != 0; cur = cur->next)

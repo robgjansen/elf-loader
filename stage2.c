@@ -285,7 +285,7 @@ stage2_initialize (struct Stage2Input input)
   // of course, the ld_preload binary must be in there if needed.
   context->global_scope = vdl_file_list_append (context->global_scope, 
 						ld_preload);
-  struct VdlFileList *all_deps = vdl_sort_deps_breadth_first_one (main_file);
+  struct VdlFileList *all_deps = vdl_sort_deps_breadth_first (main_file);
   context->global_scope = vdl_file_list_append (context->global_scope, 
 						all_deps);
   vdl_file_list_unicize (context->global_scope);

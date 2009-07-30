@@ -17,7 +17,7 @@ get_max_depth (struct VdlFileList *files)
 }
 
 struct VdlFileList *
-vdl_sort_deps_breadth_first (struct VdlFileList *files)
+vdl_sort_increasing_depth (struct VdlFileList *files)
 {
 
   uint32_t max_depth = get_max_depth (files);
@@ -41,7 +41,7 @@ vdl_sort_deps_breadth_first (struct VdlFileList *files)
   return output;
 }
 
-struct VdlFileList *vdl_sort_deps_breadth_first_one (struct VdlFile *file)
+struct VdlFileList *vdl_sort_deps_breadth_first (struct VdlFile *file)
 {
   struct VdlFileList *list = 0;
   list = vdl_file_list_append_one (list, file);
@@ -65,12 +65,12 @@ struct VdlFileList *vdl_sort_deps_breadth_first_one (struct VdlFile *file)
 
 struct VdlFileList *vdl_sort_call_init (struct VdlFileList *files)
 {
-  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *fini_order = vdl_sort_increasing_depth (files);
   struct VdlFileList *init_order = vdl_file_list_reverse (fini_order);
   return init_order;
 }
 struct VdlFileList *vdl_sort_call_fini (struct VdlFileList *files)
 {
-  struct VdlFileList *fini_order = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *fini_order = vdl_sort_increasing_depth (files);
   return fini_order;
 }

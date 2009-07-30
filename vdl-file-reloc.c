@@ -220,7 +220,7 @@ do_reloc (struct VdlFile *file, int now)
 
 void vdl_file_reloc (struct VdlFileList *files, int now)
 {
-  struct VdlFileList *sorted = vdl_sort_deps_breadth_first (files);
+  struct VdlFileList *sorted = vdl_sort_increasing_depth (files);
   sorted = vdl_file_list_reverse (sorted);
   struct VdlFileList *cur;
   for (cur = sorted; cur != 0; cur = cur->next)
