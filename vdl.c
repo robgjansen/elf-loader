@@ -415,7 +415,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
 				     const char *filename, 
 				     const char *name)
 {
-  VDL_LOG_FUNCTION ("contex=%p, filename=%s, name=%s", context, filename, name);
+  VDL_LOG_FUNCTION ("context=%p, filename=%s, name=%s", context, filename, name);
   ElfW(Ehdr) header;
   ElfW(Phdr) *phdr = 0;
   size_t bytes_read;
