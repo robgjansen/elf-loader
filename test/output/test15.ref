@@ -17,8 +17,15 @@ dlopen libefl.so ok
 function_f in libefl.so
 calling function_f in libf
 function_f in libefl.so
-reopen libf.so
+calling call_function_l from libf.so
+calling function_l in libl
+function_l in libefl.so
+calling call_function_f from libl.so
+calling function_f in libf
 function_f in libefl.so
+reopen libf.so
+called function_f in libf
+dlsym is not performing lookups according to local scope
 libefl destructor
 libf destructor
 libl destructor
