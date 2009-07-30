@@ -99,6 +99,7 @@ vdl_file_list_free_one (struct VdlFileList *list,
 	      return list;
 	    }
 	}
+      prev = cur;
       cur = next;
     }
   return list;
