@@ -204,7 +204,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
     }
   if (handle == RTLD_DEFAULT)
     {
-      scope = caller_file->context->global_scope;
+      scope = vdl_file_list_copy (caller_file->context->global_scope);
     }
   else if (handle == RTLD_NEXT)
     {
@@ -217,6 +217,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 	  if (cur->item == caller_file)
 	    {
 	      // go to the next object
+	      scope = vdl_file_list_copy (cur->next);
 	      scope = cur->next;
 	      found = true;
 	      break;
@@ -235,7 +236,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 	  set_error ("Invalid handle");
 	  goto error;
 	}
-      scope = file->local_scope;
+      scope = vdl_sort_deps_breadth_first (file);
     }
   struct SymbolMatch match;
   if (!vdl_file_symbol_lookup_scope (symbol, scope, &match))
@@ -243,6 +244,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
       set_error ("Could not find requested symbol \"%s\"", symbol);
       goto error;
     }
+  vdl_file_list_free (scope);
   futex_unlock (&g_vdl.futex);
   return (void*)(match.file->load_base + match.symbol->st_value);
  error:
