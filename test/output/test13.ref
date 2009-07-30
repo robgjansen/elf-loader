@@ -4,6 +4,6 @@ called function_f in main
 oops. Could not find function_x: "Could not find requested symbol "function_x""
 error has been cleared
 called function_f in main
-called function_f
+called function_f in libf
 libtest13 destructor
 libf destructor

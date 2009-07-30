@@ -4,7 +4,7 @@ libf constructor
 dlopen libf.so completed
 libe constructor
 dlopen libe.so completed
-called function_e
+called function_e in libe
 dlclose libe.so completed
 libe destructor
 libf destructor

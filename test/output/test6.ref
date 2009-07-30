@@ -5,17 +5,17 @@ dlopen libf.so completed
 libh constructor
 libg constructor
 dlopen libg.so completed
-called function_f
+called function_f in libf
 dlclose libf.so completed
 dlopen libh.so completed
 special destructor in libh.so
-called function_g
+called function_g in libg
 dlclose libg.so completed
 libf destructor
 libg destructor
 libh destructor
 special destructor in libh.so
-called function_g
+called function_g in libg
 dlclose libh.so completed
 leave main
 libtest6 destructor

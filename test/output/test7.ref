@@ -8,4 +8,4 @@ libtest7 destructor
 libg destructor
 libh destructor
 special destructor in libh.so
-called function_g
+called function_g in libg

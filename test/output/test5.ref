@@ -5,7 +5,7 @@ dlopen libf.so completed
 libh constructor
 libg constructor
 dlopen libg.so completed
-called function_f
+called function_f in libf
 dlclose libf.so completed
 libf destructor
 libg destructor

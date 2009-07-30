@@ -2,7 +2,7 @@ libtest3 constructor
 enter main
 libf constructor
 dlopen libf.so completed
-called function_f
+called function_f in libf
 libf destructor
 dlclose libf.so completed
 leave main
