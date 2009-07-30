@@ -1,0 +1,29 @@
+libtest15 constructor
+enter main
+error looking up function_f in RTLD_DEFAULT
+dlopen main ok
+error looking up function_f in main
+libf constructor
+dlopen libf.so ok
+called function_f in libf
+error looking up function_f in RTLD_DEFAULT
+calling function_f in libf
+called function_f in libf
+libf destructor
+libf constructor
+libe constructor
+dlopen libef.so ok
+function_f in libef.so
+calling function_f in libf
+function_f in libef.so
+reopen libf.so
+function_f in libef.so
+libe destructor
+libf destructor
+libf constructor
+dlopen libf.so ok
+called function_f in libf
+called function_f in libf
+libf destructor
+leave main
+libtest15 destructor
