@@ -70,6 +70,7 @@ caller_to_file (unsigned long caller)
 
 void *vdl_dlopen_private (const char *filename, int flags)
 {
+  VDL_LOG_FUNCTION ("filename=%s, flags=0x%x", filename, flags);
   futex_lock (&g_vdl.futex);
 
   if (filename == 0)
@@ -193,6 +194,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 
 void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 {
+  VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, caller=0x%llx", handle, symbol, caller);
   futex_lock (&g_vdl.futex);
   struct VdlFileList *scope;
   struct VdlFile *caller_file = caller_to_file (caller);
@@ -254,6 +256,7 @@ void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 
 int vdl_dlclose_private (void *handle)
 {
+  VDL_LOG_FUNCTION ("handle=0x%llx", handle);
   futex_lock (&g_vdl.futex);
 
   struct VdlFile *file = (struct VdlFile*)handle;
@@ -284,6 +287,7 @@ int vdl_dlclose_private (void *handle)
 
 char *vdl_dlerror_private (void)
 {
+  VDL_LOG_FUNCTION ("", 0);
   struct ErrorList *error = find_error ();
   char *error_string = error->error;
   if (error_string != 0)
@@ -302,6 +306,8 @@ int vdl_dladdr_private (void *addr, Dl_info *info)
 }
 void *vdl_dlvsym_private (void *handle, char *symbol, char *version, unsigned long caller)
 {
+  VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
+		    handle, symbol, version, caller);
   set_error ("dlvsym unimplemented");
   return 0;
 }
