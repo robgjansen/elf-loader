@@ -361,10 +361,6 @@ file_map_do (struct VdlFileMap map,
   VDL_LOG_FUNCTION ("fd=0x%x, prot=0x%x, load_base=0x%lx", fd, prot, load_base);
   int int_result;
   unsigned long address;
-  // unmap the area
-  int_result = system_munmap ((void*)(load_base + map.mem_start_align),
-			      map.mem_size_align);
-  VDL_LOG_ASSERT (int_result == 0, "munmap can't possibly fail here");
   // Now, map again the area at the right location.
   address = (unsigned long) system_mmap ((void*)load_base + map.mem_start_align,
 					 map.mem_size_align,
@@ -500,18 +496,14 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   // calculate the offset between the start address we asked for and the one we got
   unsigned long load_base = mapping_start - info.ro_map.mem_start_align;
 
+  // unmap the area before mapping it again.
+  int int_result = system_munmap ((void*)mapping_start, mapping_size);
+  VDL_LOG_ASSERT (int_result == 0, "munmap can't possibly fail here");
+
   // remap the portions we want.
   file_map_do (info.ro_map, fd, PROT_READ | PROT_EXEC, load_base);
   file_map_do (info.rw_map, fd, PROT_READ | PROT_WRITE, load_base);
 
-  // unmap the hole between ro and rw area
-  unsigned long hole_start = info.ro_map.mem_start_align + info.ro_map.mem_size_align;
-  unsigned long hole_size = info.rw_map.mem_start_align - hole_start;
-  if (hole_size > 0)
-    {
-      int result = system_munmap ((void*)(load_base+hole_start), hole_size);
-      VDL_LOG_ASSERT (result == 0, "Hole could not be unmapped");
-    }
   struct stat st_buf;
   if (system_fstat (filename, &st_buf) == -1)
     {
