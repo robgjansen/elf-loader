@@ -299,12 +299,12 @@ char *vdl_dlerror_private (void)
   return error_string;
 }
 
-int vdl_dladdr_private (void *addr, Dl_info *info)
+int vdl_dladdr_private (const void *addr, Dl_info *info)
 {
   set_error ("dladdr unimplemented");
   return 0;
 }
-void *vdl_dlvsym_private (void *handle, char *symbol, char *version, unsigned long caller)
+void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version, unsigned long caller)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
 		    handle, symbol, version, caller);
@@ -332,11 +332,11 @@ EXPORT int vdl_dlclose_public (void *handle)
 {
   return vdl_dlclose_private (handle);
 }
-EXPORT int vdl_dladdr_public (void *addr, Dl_info *info)
+EXPORT int vdl_dladdr_public (const void *addr, Dl_info *info)
 {
   return vdl_dladdr_private (addr, info);
 }
-EXPORT void *vdl_dlvsym_public (void *handle, char *symbol, char *version, unsigned long caller)
+EXPORT void *vdl_dlvsym_public (void *handle, const char *symbol, const char *version, unsigned long caller)
 {
   return vdl_dlvsym_private (handle, symbol, version, caller);
 }

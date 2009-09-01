@@ -29,11 +29,11 @@ EXPORT int dlclose(void *handle)
 {
   return vdl_dlclose_public (handle);
 }
-EXPORT int vdl_dladdr (void *addr, Dl_info *info)
+EXPORT int dladdr (const void *addr, Dl_info *info)
 {
   return vdl_dladdr_public (addr, info);
 }
-EXPORT void *vdl_dlvsym (void *handle, char *symbol, char *version)
+EXPORT void *dlvsym (void *handle, const char *symbol, const char *version)
 {
   return vdl_dlvsym_public (handle, symbol, version, RETURN_ADDRESS);
 }
