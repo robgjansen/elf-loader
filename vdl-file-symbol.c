@@ -375,6 +375,7 @@ symbol_version_matches (const struct VdlFile *in,
 	  }
       }
       // and, then, try to lookup the verneed array
+      // XXX: this is something I really don't understand.
       {
 	ElfW(Verneed) *cur, *prev;
 	for (prev = 0, cur = in_dt_verneed; cur != prev;
