@@ -3,6 +3,8 @@
 #include "vdl-log.h"
 #include "vdl-sort.h"
 #include "vdl-file-list.h"
+#include "vdl-file-symbol.h"
+#include "vdl-utils.h"
 
 static ElfW(Vernaux) *
 sym_to_vernaux (struct VdlFile *file,
@@ -48,51 +50,90 @@ sym_to_vernaux (struct VdlFile *file,
 }
 
 static unsigned long
-process_rel (struct VdlFile *file, ElfW(Rel) *rel)
+do_process_reloc (struct VdlFile *file, 
+		  unsigned long reloc_type, unsigned long *reloc_addr,
+		  unsigned long reloc_addend, unsigned long reloc_sym)
 {
+  VDL_LOG_FUNCTION ("file=%s, type=0x%lx, addr=0x%lx, addend=0x%lx, sym=0x%lx", 
+		    file->filename, reloc_type, reloc_addr, reloc_addend, reloc_sym);
   const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
   ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
   if (dt_strtab == 0 || dt_symtab == 0)
     {
       return 0;
     }
-  ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rel->r_info)];
-  ElfW(Vernaux) *ver = sym_to_vernaux (file, ELFW_R_SYM (rel->r_info));
-  const char *symbol_name;
-  if (sym->st_name == 0)
+  ElfW(Sym) *sym = &dt_symtab[reloc_sym];
+  ElfW(Vernaux) *ver = sym_to_vernaux (file, reloc_sym);
+
+  if (!machine_reloc_is_relative (reloc_type) &&
+      sym->st_name != 0)
     {
-      symbol_name = 0;
+      const char *symbol_name = dt_strtab + sym->st_name;
+      int flags = 0;
+      if (machine_reloc_is_copy (reloc_type))
+	{
+	  // for R_*_COPY relocations, we must use the
+	  // LOOKUP_NO_EXEC flag to avoid looking up the symbol
+	  // in the main binary.
+	  flags |= LOOKUP_NO_EXEC;
+	}
+      struct SymbolMatch match;
+      if (!vdl_file_symbol_lookup (file, symbol_name, ver, flags, &match))
+	{
+	  if (ELFW_ST_BIND (sym->st_info) == STB_WEAK)
+	    {
+	      // The symbol we are trying to resolve is marked weak so,
+	      // if we can't find it, it's not an error.
+	    }
+	  else
+	    {
+	      // This is really a hard failure.
+	      VDL_LOG_SYMBOL_FAIL (symbol_name, file);
+	    }
+	  return 0;
+	}
+      VDL_LOG_SYMBOL_OK (symbol_name, file, match);
+      if (machine_reloc_is_copy (reloc_type))
+	{
+	  // we handle R_*_COPY relocs ourselves
+	  VDL_LOG_ASSERT (match.symbol->st_size == sym->st_size,
+			  "Symbols don't have the same size: likely a recipe for disaster.");
+	  vdl_utils_memcpy (reloc_addr, 
+			    (void*)(match.file->load_base + match.symbol->st_value),
+			    match.symbol->st_size);
+	}
+      else
+	{
+	  machine_reloc_with_match (reloc_addr, reloc_type, reloc_addend, &match);
+	}
     }
   else
     {
-      symbol_name = dt_strtab + sym->st_name;
+      machine_reloc_without_match (file, reloc_addr, reloc_type, reloc_addend, sym);
     }
-  unsigned long symbol = machine_reloc_rel (file, rel, sym, ver, symbol_name);
-  return symbol;
+  return *reloc_addr;
+}
+
+static unsigned long
+process_rel (struct VdlFile *file, ElfW(Rel) *rel)
+{
+  unsigned long reloc_type = ELFW_R_TYPE (rel->r_info);
+  unsigned long *reloc_addr = (unsigned long*) (file->load_base + rel->r_offset);
+  unsigned long reloc_addend = 0;
+  unsigned long reloc_sym = ELFW_R_SYM (rel->r_info);
+
+  return do_process_reloc (file, reloc_type, reloc_addr, reloc_addend, reloc_sym);
 }
 
 static unsigned long
 process_rela (struct VdlFile *file, ElfW(Rela) *rela)
 {
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
-  if (dt_strtab == 0 || dt_symtab == 0)
-    {
-      return 0;
-    }
-  ElfW(Sym) *sym = &dt_symtab[ELFW_R_SYM (rela->r_info)];
-  ElfW(Vernaux) *ver = sym_to_vernaux (file, ELFW_R_SYM (rela->r_info));
-  const char *symbol_name;
-  if (sym->st_name == 0)
-    {
-      symbol_name = 0;
-    }
-  else
-    {
-      symbol_name = dt_strtab + sym->st_name;
-    }
-  unsigned long symbol = machine_reloc_rela (file, rela, sym, ver, symbol_name);
-  return symbol;
+  unsigned long reloc_type = ELFW_R_TYPE (rela->r_info);
+  unsigned long *reloc_addr = (unsigned long*) (file->load_base + rela->r_offset);
+  unsigned long reloc_addend = rela->r_addend;
+  unsigned long reloc_sym = ELFW_R_SYM (rela->r_info);
+
+  return do_process_reloc (file, reloc_type, reloc_addr, reloc_addend, reloc_sym);
 }
 
 static void

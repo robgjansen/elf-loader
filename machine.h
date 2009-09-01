@@ -6,12 +6,19 @@
 #include <stdbool.h>
 #include "vdl.h"
 
-unsigned long machine_reloc_rel (struct VdlFile *file, const ElfW(Rel) *rel,
-				 const ElfW(Sym) *sym, const ElfW(Vernaux) *ver,
-				 const char *symbol_name);
-unsigned long machine_reloc_rela (struct VdlFile *file, const ElfW(Rela) *rela,
-				  const ElfW(Sym) *sym, const ElfW(Vernaux) *ver,
-				  const char *symbol_name);
+struct SymbolMatch;
+
+bool machine_reloc_is_relative (unsigned long reloc_type);
+bool machine_reloc_is_copy (unsigned long reloc_type);
+void machine_reloc_without_match (struct VdlFile *file,
+				  unsigned long *reloc_addr,
+				  unsigned long reloc_type,
+				  unsigned long reloc_addend,
+				  const ElfW(Sym) *sym);
+void machine_reloc_with_match (unsigned long *reloc_addr,
+			       unsigned long reloc_type,
+			       unsigned long reloc_addend,
+			       const struct SymbolMatch *match);
 bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size);
 void machine_lazy_reloc (struct VdlFile *file);
 uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);

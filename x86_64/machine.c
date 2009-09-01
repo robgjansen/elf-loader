@@ -10,152 +10,77 @@
 #include <sys/mman.h>
 #include <asm/prctl.h> // for ARCH_SET_FS
 
-static int do_lookup_and_log (struct VdlFile *file,
-			      const char *symbol_name,
-			      const ElfW(Vernaux) *ver,
-			      enum LookupFlag flags,
-			      struct SymbolMatch *match)
+bool machine_reloc_is_relative (unsigned long reloc_type)
 {
-  if (!vdl_file_symbol_lookup (file, symbol_name, ver, flags, match))
-    {
-      VDL_LOG_SYMBOL_FAIL (symbol_name, file);
-      // if the symbol resolution has failed, it could
-      // be that it's not a big deal.
-      return 0;
-    }
-  VDL_LOG_SYMBOL_OK (symbol_name, file, match);
-  return 1;
+  return reloc_type == R_X86_64_RELATIVE;
 }
-unsigned long
-machine_reloc_rel (struct VdlFile *file,
-		   const ElfW(Rel) *rel,
-		   const ElfW(Sym) *sym,
-		   const ElfW(Vernaux) *ver,
-		   const char *symbol_name)
+bool machine_reloc_is_copy (unsigned long reloc_type)
 {
-  VDL_LOG_ASSERT (0, "x86_64 does not use rel entries");
-  return 0;
+  return reloc_type == R_X86_64_COPY;
 }
-unsigned long
-machine_reloc_rela (struct VdlFile *file,
-		    const ElfW(Rela) *rela,
-		    const ElfW(Sym) *sym,
-		    const ElfW(Vernaux) *ver,
-		    const char *symbol_name)
+void machine_reloc_without_match (struct VdlFile *file,
+				  unsigned long *reloc_addr,
+				  unsigned long reloc_type,
+				  unsigned long reloc_addend,
+				  const ElfW(Sym) *sym)
 {
-  VDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
-		    file->filename, (symbol_name != 0)?symbol_name:"", 
-		    rela->r_offset,
-		    ELFW_R_TYPE (rela->r_info));
-  unsigned long type = ELFW_R_TYPE (rela->r_info);
-  unsigned long *reloc_addr = (unsigned long*) (file->load_base + rela->r_offset);
-
-  if (type == R_X86_64_GLOB_DAT ||
-      type == R_X86_64_JUMP_SLOT)
+  if (reloc_type == R_X86_64_RELATIVE)
     {
-      struct SymbolMatch match;
-      if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	{
-	  return 0;
-	}
-      *reloc_addr = match.file->load_base + match.symbol->st_value + rela->r_addend;
+      *reloc_addr = file->load_base + reloc_addend;
     }
-  else if (type == R_X86_64_RELATIVE)
+  else if (reloc_type == R_X86_64_TPOFF64)
     {
-      *reloc_addr = file->load_base + rela->r_addend;
+      *reloc_addr += file->tls_offset + sym->st_value + reloc_addend;
     }
-  else if (type == R_X86_64_64)
+  else if (reloc_type == R_X86_64_DTPMOD64)
     {
-      struct SymbolMatch match;
-      if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	{
-	  return 0;
-	}
-      *reloc_addr = match.file->load_base + match.symbol->st_value + rela->r_addend;
+      *reloc_addr = file->tls_index;
     }
-  else if (type == R_X86_64_COPY)
+  else if (reloc_type == R_X86_64_DTPOFF64)
     {
-      struct SymbolMatch match;
-      // for R_*_COPY relocations, we must use the
-      // LOOKUP_NO_EXEC flag to avoid looking up the symbol
-      // in the main binary.
-      if (!do_lookup_and_log (file, symbol_name, ver, LOOKUP_NO_EXEC, &match))
-	{
-	  return 0;
-	}
-      VDL_LOG_ASSERT (match.symbol->st_size == sym->st_size,
-		      "Symbols don't have the same size: likely a recipe for disaster.");
-      vdl_utils_memcpy (reloc_addr, 
-			(void*)(match.file->load_base + match.symbol->st_value),
-			match.symbol->st_size);
-    }
-  else if (type == R_X86_64_TPOFF64)
-    {
-      unsigned long v;
-      if (symbol_name != 0)
-	{
-	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	    {
-	      return 0;
-	    }
-	  VDL_LOG_ASSERT (match.file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-	  VDL_LOG_ASSERT (ELFW_ST_TYPE (match.symbol->st_info) == STT_TLS,
-		      "Target symbol is not a tls symbol ??");
-	  v = match.file->tls_offset + match.symbol->st_value;
-	}
-      else
-	{
-	  v = file->tls_offset + sym->st_value;
-	}
-      *reloc_addr += v + rela->r_addend;
-    }
-  else if (type == R_X86_64_DTPMOD64)
-    {
-      unsigned long v;
-      if (symbol_name != 0)
-	{
-	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	    {
-	      return 0;
-	    }
-	  VDL_LOG_ASSERT (match.file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-	  v = match.file->tls_index;
-	}
-      else
-	{
-	  v = file->tls_index;
-	}
-      *reloc_addr = v;
-    }
-  else if (type == R_X86_64_DTPOFF64)
-    {
-      unsigned long v;
-      if (symbol_name != 0)
-	{
-	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	    {
-	      return 0;
-	    }
-	  VDL_LOG_ASSERT (match.file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-	  v = match.symbol->st_value;
-	}
-      else
-	{
-	  v = sym->st_value;
-	}
-      *reloc_addr = v + rela->r_addend;
+      *reloc_addr = sym->st_value + reloc_addend;
     }
   else
     {
       VDL_LOG_ASSERT (0, "unhandled reloc type");
     }
-  return *reloc_addr;
+}
+void
+machine_reloc_with_match (unsigned long *reloc_addr,
+			  unsigned long reloc_type,
+			  unsigned long reloc_addend,
+			  const struct SymbolMatch *match)
+{
+  if (reloc_type == R_X86_64_GLOB_DAT ||
+      reloc_type == R_X86_64_JUMP_SLOT ||
+      reloc_type == R_X86_64_64)
+    {
+      *reloc_addr = match->file->load_base + match->symbol->st_value + reloc_addend;
+    }
+  else if (reloc_type == R_X86_64_TPOFF64)
+    {
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+      VDL_LOG_ASSERT (ELFW_ST_TYPE (match->symbol->st_info) == STT_TLS,
+		      "Target symbol is not a tls symbol ??");
+      *reloc_addr += match->file->tls_offset + match->symbol->st_value + reloc_addend;
+    }
+  else if (reloc_type == R_X86_64_DTPMOD64)
+    {
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+      *reloc_addr = match->file->tls_index;
+    }
+  else if (reloc_type == R_X86_64_DTPOFF64)
+    {
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+      *reloc_addr = match->symbol->st_value + reloc_addend;
+    }
+  else
+    {
+      VDL_LOG_ASSERT (0, "unhandled reloc type");
+    }
 }
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
 void machine_lazy_reloc (struct VdlFile *file)
@@ -178,11 +103,11 @@ void machine_lazy_reloc (struct VdlFile *file)
     {
       return;
     }
-  // if this platform does prelinking, the prelinker has stored
-  // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero
-  // no, there is no documentation about this other than the code
-  // of the compile-time linker(actually, bfd), dynamic loader and 
-  // the prelinker
+  // If this platform does prelinking, the prelinker has stored
+  // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero.
+  // No, there is no documentation about this other than the code
+  // of the compile-time linker (actually, bfd), dynamic loader and 
+  // prelinker.
   unsigned long *got = (unsigned long *) dt_pltgot;
   unsigned long plt = got[1];
   got[1] = (unsigned long)file;
