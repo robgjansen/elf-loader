@@ -1,7 +1,8 @@
 CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-Wl,--warn-unresolved-symbols -L.
+LINKER=$(CC)
 
-TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14
+TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16
 TARGETS=hello libn.so libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
@@ -37,13 +38,17 @@ hello: hello.o
 
 lib%.o: lib%.c
 	$(CC) $(CFLAGS) -fpic -c -o $@ $<
+lib%.o: lib%.cc
+	$(CXX) $(CXXFLAGS) -fpic -c -o $@ $<
 lib%.so:lib%.o
-	$(CC) $(LDFLAGS) -shared -o $@ $^
+	$(LINKER) $(LDFLAGS) -shared -o $@ $^
 
 test%.o: test%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+test%.o: test%.cc
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 test%: test%.o
-	$(CC) $(LDFLAGS) -ldl -o $@ $<
+	$(LINKER) $(LDFLAGS) -ldl -o $@ $<
 
 circular-dep:
 	$(CC) $(LDFLAGS) -shared -ldl -ln -o libo.so libo.o
@@ -66,6 +71,7 @@ test11:
 test12: LDFLAGS+=-lpthread
 test13: LDFLAGS+=-lf
 test14: LDFLAGS+=-ln
+test16: LINKER=$(CXX)
 run-test12: TEST_PRE_COMMAND=rm libl.so
 
 clean:
