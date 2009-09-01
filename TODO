@@ -75,3 +75,11 @@ real undefined symbols by the dynamic linker).
 
    - must find a better way to handle the resolv trampoline debug info
      for stack trace management from gdb
+
+   - handle STB_WEAK vs STB_GLOBAL: I don't know what a non-undef STB_WEAK symbol means.
+
+   - handle VER_FLG_WEAK. ? I think that this is supposed to identify a version a binary needs
+     but it's not a fatal error if this version cannot be found in any dependent binary.
+     i.e., we don't care about this.
+
+   - figure out why we need to iterate over the verneed array to find a symbol definition.
