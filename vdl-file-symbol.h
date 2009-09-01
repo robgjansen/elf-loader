@@ -5,6 +5,11 @@
 #include <elf.h>
 #include <link.h>
 
+struct SymbolVersionRequirement
+{
+  ElfW(Verneed) *verneed;
+  ElfW(Vernaux) *vernaux;
+};
 struct SymbolMatch
 {
   const struct VdlFile *file;
@@ -19,7 +24,7 @@ enum LookupFlag {
 };
 int vdl_file_symbol_lookup (struct VdlFile *file,
 			    const char *name, 
-			    const ElfW(Vernaux) *ver,
+			    const struct SymbolVersionRequirement *ver_req,
 			    enum LookupFlag flags,
 			    struct SymbolMatch *match);
 unsigned long vdl_file_symbol_lookup_local (const struct VdlFile *file, 

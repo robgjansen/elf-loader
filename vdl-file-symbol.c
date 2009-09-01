@@ -179,7 +179,7 @@ vdl_file_lookup_has_next (const struct FileLookupIterator *i)
     unsigned long current = i->u.gnu.current;
     uint32_t *cur_hash = i->u.gnu.cur_hash;
     unsigned long found = 0;
-    while (1)
+    while (cur_hash != 0)
       {
 	// The values stored in the hash table are
 	// an index in the symbol table.
@@ -195,7 +195,8 @@ vdl_file_lookup_has_next (const struct FileLookupIterator *i)
 	  }
 	if ((*cur_hash & 0x1) == 0x1)
 	  {
-	    break;
+	    cur_hash = 0;
+	    continue;
 	  }
 	cur_hash++;
 	current++;
@@ -237,9 +238,18 @@ vdl_file_lookup_next (struct FileLookupIterator *i)
   case GNU_HASH:
     VDL_LOG_ASSERT (vdl_file_lookup_has_next (i), "Next called while no data to read");
     unsigned long next = i->u.gnu.current;
-    // goto the next entry
-    i->u.gnu.current++;
-    i->u.gnu.cur_hash++;
+    if ((*(i->u.gnu.cur_hash) & 0x1) == 0x1)
+      {
+	// if we have reached the end of the hash array,
+	// we remember about it.
+	i->u.gnu.cur_hash = 0;
+      }
+    else
+      {
+	// otherwise, goto the next entry
+	i->u.gnu.current++;
+	i->u.gnu.cur_hash++;
+      }
     return next;
     break;
   case ELF_SYM:
@@ -250,83 +260,150 @@ vdl_file_lookup_next (struct FileLookupIterator *i)
   return 0;
 }
 
+enum VersionMatch
+{
+  VERSION_MATCH_PERFECT,
+  VERSION_MATCH_AMBIGUOUS,
+  VERSION_MATCH_BAD
+};
+
 // we have a matching symbol but we have a version
 // requirement so, we must check that the matching 
 // symbol's version also matches.	      
 static int
 symbol_version_matches (const struct VdlFile *in,
 			const struct VdlFile *from,
-			const ElfW(Vernaux) *ver_needed,
-			unsigned long index)
+			const struct SymbolVersionRequirement *from_ver_req,
+			unsigned long in_index)
 {
-  if (ver_needed == 0)
+  ElfW(Half) *in_dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (in, DT_VERSYM);
+  if (from_ver_req == 0 || from_ver_req->verneed == 0)
     {
-      // if we have no version requirement, the first matching symbol is ok.
-      return 1;
-    }
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (in, DT_STRTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (in, DT_VERSYM);
-  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (in, DT_VERDEF);
-  unsigned long dt_verdefnum = vdl_file_get_dynamic_v (in, DT_VERDEFNUM);
-  if (dt_versym == 0)
-    {
-      // if we have no version definition which could match the requested
-      // version, this is not a matching symbol.
-      return 0;
-    }
-  uint16_t ver_index = dt_versym[index];
-  if (ver_index == 0)
-    {
-      // this is a symbol with local scope
-      // it's ok if the reference is within the same file.
-      return in == from;
-    }
-  if (ver_index == 1)
-    {
-      // this is a symbol with global scope. 'base' version definition.
-      // XXX: I don't know what this means.
-      return 0;
-    }
-  if (dt_verdef == 0 || dt_verdefnum == 0)
-    {
-      // if there is no verdef array which could match the requested
-      // version, this is not a matching symbol.
-      return 0;
-    }
-  if (ver_index & 0x8000)
-    {
-      // if the high bit is set, this means that it is a 'hidden' symbol
-      // which means that it can't be referenced from outside of its binary.
-      if (in != from)
+      // we have no version requirement.
+      if (in_dt_versym == 0)
 	{
-	  // the matching symbol we found is hidden and is located
-	  // in a different binary. Not ok.
-	  return 0;
+	  // we have no version requirement and no version definition so,
+	  // these are the normal symbol matching rules without version information.
+	  // we match !
+	  return VERSION_MATCH_PERFECT;
+	}
+      if (in_dt_versym != 0)
+	{
+	  // we have no version requirement but we do have a version definition.
+	  // if this is a base definition, we are good.
+	  uint16_t ver_index = in_dt_versym[in_index];
+	  if (ver_index == 1)
+	    {
+	      return VERSION_MATCH_PERFECT;
+	    }
+	  // if this is not a base definition, maybe we will find the base
+	  // definition later. In the meantime, we report that we have
+	  // found an ambiguous match.
+	  return VERSION_MATCH_AMBIGUOUS;
 	}
     }
-  VDL_LOG_DEBUG ("index=%x/%x, %x:%x\n", ver_index, dt_verdefnum,
-		 dt_versym, dt_verdef);
-  ElfW(Verdef) *cur, *prev;
-  for (prev = 0, cur = dt_verdef; cur != prev;
-       prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
+  else if (from_ver_req != 0 && from_ver_req->verneed != 0)
     {
-      VDL_LOG_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
-      if (cur->vd_ndx == ver_index &&
-	  cur->vd_hash == ver_needed->vna_hash)
+      // ok, so, now, we have version requirements information.
+      ElfW(Verdef) *in_dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (in, DT_VERDEF);
+      ElfW(Verneed) *in_dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (in, DT_VERNEED);
+
+      if (in_dt_versym == 0)
 	{
-	  // the hash values of the version names are equal.
-	  ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
+	  // we have a version requirement but no version definition in this object
+	  // before accepting this match, we do a sanity check: we verify that
+	  // this object ('in') is not explicitely the one required by verneed
 	  const char *from_dt_strtab = (const char *)vdl_file_get_dynamic_p (from, DT_STRTAB);
-	  if (vdl_utils_strisequal (dt_strtab + verdaux->vda_name, 
-			      from_dt_strtab + ver_needed->vna_name))
+	  VDL_LOG_ASSERT (!vdl_utils_strisequal (from_dt_strtab+from_ver_req->verneed->vn_file,
+						 in->name), 
+			  "Required symbol does not exist in required object file");
+	  // anyway, we do match now
+	  return VERSION_MATCH_PERFECT;
+	}
+      uint16_t ver_index = in_dt_versym[in_index];
+      
+      VDL_LOG_ASSERT (in_dt_versym != 0, "Coding error !")
+
+      const char *from_dt_strtab = (const char *)vdl_file_get_dynamic_p (from, DT_STRTAB);
+      // we have version information in both the 'from' and the 'in'
+      // objects.
+      if (ver_index == 0)
+	{
+	  // this is a symbol with local scope
+	  // it's ok only if we reference it within the same file.
+	  if (in == from)
 	    {
-	      // the version names are equal.
-	      return 1;
+	      return VERSION_MATCH_PERFECT;
+	    }
+	  else
+	    {
+	      return VERSION_MATCH_BAD;
 	    }
 	}
+      if (ver_index & 0x8000)
+	{
+	  // if the high bit is set, this means that it is a 'hidden' symbol
+	  // which means that it can't be referenced from outside of its binary.
+	  if (in != from)
+	    {
+	      // the matching symbol we found is hidden and is located
+	      // in a different binary. Not ok.
+	      VDL_LOG_DEBUG ("hidden symbol\n", 0);
+	      return VERSION_MATCH_BAD;
+	    }
+	}
+      const char *in_dt_strtab = (const char *)vdl_file_get_dynamic_p (in, DT_STRTAB);
+      // try to lookup a matching version in the verdef array
+      {
+	ElfW(Verdef) *cur, *prev;
+	for (prev = 0, cur = in_dt_verdef; cur != prev;
+	     prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
+	  {
+	    VDL_LOG_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
+	    if (cur->vd_ndx == ver_index &&
+		cur->vd_hash == from_ver_req->vernaux->vna_hash)
+	      {
+		// the hash values of the version names are equal.
+		ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
+		if (vdl_utils_strisequal (in_dt_strtab + verdaux->vda_name, 
+					  from_dt_strtab + from_ver_req->vernaux->vna_name))
+		  {
+		    // the version names are equal.
+		    return VERSION_MATCH_PERFECT;
+		  }
+	      }
+	  }
+      }
+      // and, then, try to lookup the verneed array
+      {
+	ElfW(Verneed) *cur, *prev;
+	for (prev = 0, cur = in_dt_verneed; cur != prev;
+	     prev = cur, cur = (ElfW(Verneed)*)(((unsigned long)cur)+cur->vn_next))
+	  {
+	    VDL_LOG_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
+	    ElfW(Vernaux) *cur_aux, *prev_aux;
+	    for (cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur)+cur->vn_aux), prev_aux = 0;
+		 cur_aux != prev_aux; 
+		 prev_aux = cur_aux, 
+		   cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur_aux)+cur_aux->vna_next))
+	      {
+		if (cur_aux->vna_other == ver_index &&
+		    cur_aux->vna_hash == from_ver_req->vernaux->vna_hash)
+		  {
+		    // the hash values of the version names are equal.
+		    if (vdl_utils_strisequal (in_dt_strtab + cur_aux->vna_name, 
+					      from_dt_strtab + from_ver_req->vernaux->vna_name))
+		      {
+			// the version names are equal.
+			return VERSION_MATCH_PERFECT;
+		      }
+		  }
+	      }
+	  }
+      }
     }
   // the versions don't match.
-  return 0;
+  return VERSION_MATCH_BAD;
 }
 
 static int
@@ -334,12 +411,12 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 				 const char *name, 
 				 unsigned long elf_hash,
 				 uint32_t gnu_hash,
-				 const ElfW(Vernaux) *ver_needed,
+				 const struct SymbolVersionRequirement *ver_req,
 				 enum LookupFlag flags,
 				 struct VdlFileList *scope,
 				 struct SymbolMatch *match)
 {
-  VDL_LOG_FUNCTION ("name=%s, elg_hash=0x%lx, gnu_hash=0x%x, scope=%p", name, elf_hash, gnu_hash, scope);
+  VDL_LOG_FUNCTION ("name=%s, elf_hash=0x%lx, gnu_hash=0x%x, scope=%p", name, elf_hash, gnu_hash, scope);
 
   // then, iterate scope until we find the requested symbol.
   struct VdlFileList *cur;
@@ -352,11 +429,14 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 	  // in the main executable binary. see the definition of LOOKUP_NO_EXEC
 	  continue;
 	}
+      int n_ambiguous_matches = 0;
+      unsigned long last_ambiguous_match;
       struct FileLookupIterator i = vdl_file_lookup_begin (cur->item, name, elf_hash, gnu_hash);
       while (vdl_file_lookup_has_next (&i))
 	{
 	  unsigned long index = vdl_file_lookup_next (&i);
-	  if (symbol_version_matches (cur->item, file, ver_needed, index))
+	  enum VersionMatch version_match = symbol_version_matches (cur->item, file, ver_req, index);
+	  if (version_match == VERSION_MATCH_PERFECT)
 	    {
 	      // We have resolved the symbol
 	      if (cur->item != file && file != 0)
@@ -370,6 +450,27 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 	      match->symbol = &i.dt_symtab[index];
 	      return 1;
 	    }
+	  else if (version_match == VERSION_MATCH_AMBIGUOUS)
+	    {
+	      n_ambiguous_matches++;
+	      last_ambiguous_match = index;
+	    }
+	}
+      VDL_LOG_ASSERT (n_ambiguous_matches <= 1, 
+		      "We found more than 1 ambiguous match to resolve the requested symbol.");
+      if (n_ambiguous_matches == 1)
+	{
+	  // if there is only one ambiguous match, it's not really ambiguous: it's a match !
+	  if (cur->item != file && file != 0)
+	    {
+	      // The symbol has been resolved in another binary. Make note of this.
+	      file->gc_symbols_resolved_in = vdl_file_list_prepend_one (file->gc_symbols_resolved_in, 
+									cur->item);
+	      VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, cur->item->name, file->name);
+	    }
+	  match->file = cur->item;
+	  match->symbol = &i.dt_symtab[last_ambiguous_match];
+	  return 1;
 	}
     }
   return 0;
@@ -378,7 +479,7 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 int 
 vdl_file_symbol_lookup (struct VdlFile *file,
 			const char *name, 
-			const ElfW(Vernaux) *ver,
+			const struct SymbolVersionRequirement *ver_req,
 			enum LookupFlag flags,
 			struct SymbolMatch *match)
 {
@@ -408,11 +509,11 @@ vdl_file_symbol_lookup (struct VdlFile *file,
       second = 0;
       break;
     }
-  int ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver,
+  int ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver_req,
 					    flags, first, match);
   if (!ok)
     {
-      ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver,
+      ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver_req,
 					    flags, second, match);
     }
   return ok;

@@ -5,10 +5,12 @@
 #include "vdl-file-list.h"
 #include "vdl-file-symbol.h"
 #include "vdl-utils.h"
+#include <stdbool.h>
 
-static ElfW(Vernaux) *
-sym_to_vernaux (struct VdlFile *file,
-		unsigned long index)
+static bool
+sym_to_ver_req (struct VdlFile *file,
+		unsigned long index,
+		struct SymbolVersionRequirement *ver_req)
 {
   ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
   ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
@@ -41,12 +43,14 @@ sym_to_vernaux (struct VdlFile *file,
 	    {
 	      if (cur_aux->vna_other == ver_ndx)
 		{
-		  return cur_aux;
+		  ver_req->verneed = cur;
+		  ver_req->vernaux = cur_aux;
+		  return true;
 		}
 	    }
 	}
     }
-  return 0;
+  return false;
 }
 
 static unsigned long
@@ -54,8 +58,6 @@ do_process_reloc (struct VdlFile *file,
 		  unsigned long reloc_type, unsigned long *reloc_addr,
 		  unsigned long reloc_addend, unsigned long reloc_sym)
 {
-  VDL_LOG_FUNCTION ("file=%s, type=0x%lx, addr=0x%lx, addend=0x%lx, sym=0x%lx", 
-		    file->filename, reloc_type, reloc_addr, reloc_addend, reloc_sym);
   const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
   ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
   if (dt_strtab == 0 || dt_symtab == 0)
@@ -63,7 +65,10 @@ do_process_reloc (struct VdlFile *file,
       return 0;
     }
   ElfW(Sym) *sym = &dt_symtab[reloc_sym];
-  ElfW(Vernaux) *ver = sym_to_vernaux (file, reloc_sym);
+
+  VDL_LOG_FUNCTION ("file=%s, type=%s, addr=0x%lx, addend=0x%lx, sym=%s", 
+		    file->filename, machine_reloc_type_to_str (reloc_type), 
+		    reloc_addr, reloc_addend, reloc_sym == 0?"0":dt_strtab + sym->st_name);
 
   if (!machine_reloc_is_relative (reloc_type) &&
       sym->st_name != 0)
@@ -78,7 +83,12 @@ do_process_reloc (struct VdlFile *file,
 	  flags |= LOOKUP_NO_EXEC;
 	}
       struct SymbolMatch match;
-      if (!vdl_file_symbol_lookup (file, symbol_name, ver, flags, &match))
+      struct SymbolVersionRequirement ver_req;
+      ver_req.verneed = 0;
+      ver_req.vernaux = 0;
+      sym_to_ver_req (file, reloc_sym, &ver_req);
+
+      if (!vdl_file_symbol_lookup (file, symbol_name, &ver_req, flags, &match))
 	{
 	  if (ELFW_ST_BIND (sym->st_info) == STB_WEAK)
 	    {
