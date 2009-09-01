@@ -19,6 +19,7 @@ void machine_reloc_with_match (unsigned long *reloc_addr,
 			       unsigned long reloc_type,
 			       unsigned long reloc_addend,
 			       const struct SymbolMatch *match);
+const char *machine_reloc_type_to_str (unsigned long reloc_type);
 bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size);
 void machine_lazy_reloc (struct VdlFile *file);
 uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);

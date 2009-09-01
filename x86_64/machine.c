@@ -82,6 +82,44 @@ machine_reloc_with_match (unsigned long *reloc_addr,
       VDL_LOG_ASSERT (0, "unhandled reloc type");
     }
 }
+const char *machine_reloc_type_to_str (unsigned long reloc_type)
+{
+#define ITEM(x)					\
+  case R_##x:					\
+    return "R_" #x ;				\
+  break
+  switch (reloc_type) {
+    ITEM(X86_64_NONE);
+    ITEM(X86_64_64);
+    ITEM(X86_64_PC32);
+    ITEM(X86_64_GOT32);
+    ITEM(X86_64_PLT32);
+    ITEM(X86_64_COPY);
+    ITEM(X86_64_GLOB_DAT);
+    ITEM(X86_64_JUMP_SLOT);
+    ITEM(X86_64_RELATIVE);
+    ITEM(X86_64_GOTPCREL);
+    ITEM(X86_64_32);
+    ITEM(X86_64_32S);
+    ITEM(X86_64_16);
+    ITEM(X86_64_PC16);
+    ITEM(X86_64_8);
+    ITEM(X86_64_PC8);
+    ITEM(X86_64_DTPMOD64);
+    ITEM(X86_64_DTPOFF64);
+    ITEM(X86_64_TPOFF64);
+    ITEM(X86_64_TLSGD);
+    ITEM(X86_64_TLSLD);
+    ITEM(X86_64_DTPOFF32);
+    ITEM(X86_64_GOTTPOFF);
+    ITEM(X86_64_TPOFF32);
+    ITEM(X86_64_PC64);
+    ITEM(X86_64_GOTOFF64);
+    ITEM(X86_64_GOTPC32);
+  default:
+    return "XXX";
+  }
+}
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
 void machine_lazy_reloc (struct VdlFile *file)
 {
