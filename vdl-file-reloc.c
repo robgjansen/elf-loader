@@ -10,7 +10,8 @@
 static bool
 sym_to_ver_req (struct VdlFile *file,
 		unsigned long index,
-		struct SymbolVersionRequirement *ver_req)
+		ElfW(Verneed) **pverneed,
+		ElfW(Vernaux) **pvernaux)
 {
   ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
   ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
@@ -43,8 +44,8 @@ sym_to_ver_req (struct VdlFile *file,
 	    {
 	      if (cur_aux->vna_other == ver_ndx)
 		{
-		  ver_req->verneed = cur;
-		  ver_req->vernaux = cur_aux;
+		  *pverneed = cur;
+		  *pvernaux = cur_aux;
 		  return true;
 		}
 	    }
@@ -83,12 +84,17 @@ do_process_reloc (struct VdlFile *file,
 	  flags |= LOOKUP_NO_EXEC;
 	}
       struct SymbolMatch match;
-      struct SymbolVersionRequirement ver_req;
-      ver_req.verneed = 0;
-      ver_req.vernaux = 0;
-      sym_to_ver_req (file, reloc_sym, &ver_req);
+      const char *ver_name = 0;
+      const char *ver_filename = 0;
+      ElfW(Verneed) *verneed;
+      ElfW(Vernaux) *vernaux;
+      if (sym_to_ver_req (file, reloc_sym, &verneed, &vernaux))
+	{
+	  ver_name = dt_strtab + vernaux->vna_name;
+	  ver_filename = dt_strtab + verneed->vn_file;
+	}
 
-      if (!vdl_file_symbol_lookup (file, symbol_name, &ver_req, flags, &match))
+      if (!vdl_file_symbol_lookup (file, symbol_name, ver_name, ver_filename, flags, &match))
 	{
 	  if (ELFW_ST_BIND (sym->st_info) == STB_WEAK)
 	    {
@@ -97,7 +103,7 @@ do_process_reloc (struct VdlFile *file,
 	    }
 	  else
 	    {
-	      // This is really a hard failure.
+	      // This is really a hard failure.	      
 	      VDL_LOG_SYMBOL_FAIL (symbol_name, file);
 	    }
 	  return 0;

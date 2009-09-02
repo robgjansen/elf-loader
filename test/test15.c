@@ -168,6 +168,12 @@ int main (int argc, char *argv[])
   dlclose (handle);
   error = dlerror (); // clear error
 
+  fn = dlvsym (RTLD_DEFAULT, "vdl_dl_iterate_phdr_public", "VDL_DL");
+  if (fn != 0)
+    {
+      printf ("dlvsym works\n");
+    }
+
   printf ("leave main\n");
   return 0;
 }

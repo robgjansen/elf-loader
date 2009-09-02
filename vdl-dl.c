@@ -195,63 +195,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
 void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, caller=0x%llx", handle, symbol, caller);
-  futex_lock (&g_vdl.futex);
-  struct VdlFileList *scope;
-  struct VdlFile *caller_file = caller_to_file (caller);
-  struct VdlFile *file = (struct VdlFile*)handle;
-  if (caller_file == 0)
-    {
-      set_error ("Can't find caller");
-      goto error;
-    }
-  if (handle == RTLD_DEFAULT)
-    {
-      scope = vdl_file_list_copy (caller_file->context->global_scope);
-    }
-  else if (handle == RTLD_NEXT)
-    {
-      scope = caller_file->context->global_scope;
-      // skip all objects before the caller object
-      bool found = false;
-      struct VdlFileList *cur;
-      for (cur = scope; cur != 0; cur = cur->next)
-	{
-	  if (cur->item == caller_file)
-	    {
-	      // go to the next object
-	      scope = vdl_file_list_copy (cur->next);
-	      scope = cur->next;
-	      found = true;
-	      break;
-	    }
-	}
-      if (!found)
-	{
-	  set_error ("Can't find caller in current local scope");
-	  goto error;
-	}
-    }
-  else
-    {
-      if (file == 0)
-	{
-	  set_error ("Invalid handle");
-	  goto error;
-	}
-      scope = vdl_sort_deps_breadth_first (file);
-    }
-  struct SymbolMatch match;
-  if (!vdl_file_symbol_lookup_scope (symbol, scope, &match))
-    {
-      set_error ("Could not find requested symbol \"%s\"", symbol);
-      goto error;
-    }
-  vdl_file_list_free (scope);
-  futex_unlock (&g_vdl.futex);
-  return (void*)(match.file->load_base + match.symbol->st_value);
- error:
-  futex_unlock (&g_vdl.futex);
-  return 0;
+  return vdl_dlvsym_private (handle, symbol, 0, caller);
 }
 
 int vdl_dlclose_private (void *handle)
@@ -308,9 +252,114 @@ void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version,
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
 		    handle, symbol, version, caller);
-  set_error ("dlvsym unimplemented");
+  futex_lock (&g_vdl.futex);
+  struct VdlFileList *scope;
+  struct VdlFile *caller_file = caller_to_file (caller);
+  struct VdlFile *file = (struct VdlFile*)handle;
+  struct VdlContext *context;
+  if (caller_file == 0)
+    {
+      set_error ("Can't find caller");
+      goto error;
+    }
+  if (handle == RTLD_DEFAULT)
+    {
+      scope = vdl_file_list_copy (caller_file->context->global_scope);
+      context = caller_file->context;
+    }
+  else if (handle == RTLD_NEXT)
+    {
+      scope = caller_file->context->global_scope;
+      context = caller_file->context;
+      // skip all objects before the caller object
+      bool found = false;
+      struct VdlFileList *cur;
+      for (cur = scope; cur != 0; cur = cur->next)
+	{
+	  if (cur->item == caller_file)
+	    {
+	      // go to the next object
+	      scope = vdl_file_list_copy (cur->next);
+	      scope = cur->next;
+	      found = true;
+	      break;
+	    }
+	}
+      if (!found)
+	{
+	  set_error ("Can't find caller in current local scope");
+	  goto error;
+	}
+    }
+  else
+    {
+      if (file == 0)
+	{
+	  set_error ("Invalid handle");
+	  goto error;
+	}
+      scope = vdl_sort_deps_breadth_first (file);
+      context = file->context;
+    }
+  struct SymbolMatch match;
+  
+  if (!vdl_file_symbol_lookup_scope (context, symbol, version, 0, scope, &match))
+    {
+      set_error ("Could not find requested symbol \"%s\"", symbol);
+      goto error;
+    }
+  vdl_file_list_free (scope);
+  futex_unlock (&g_vdl.futex);
+  return (void*)(match.file->load_base + match.symbol->st_value);
+ error:
+  futex_unlock (&g_vdl.futex);
   return 0;
 }
+int vdl_dl_iterate_phdr_private (int (*callback) (struct dl_phdr_info *info,
+						  size_t size, void *data),
+				 void *data,
+				 unsigned long caller)
+{
+  int ret = 0;
+  futex_lock (&g_vdl.futex);
+  struct VdlFile *file = caller_to_file (caller);
+
+  // report all objects within the global scope/context of the caller
+  struct VdlFileList *cur;
+  for (cur = file->context->global_scope; 
+       cur != 0; cur = cur->next)
+    {
+      struct dl_phdr_info info;
+      ElfW(Ehdr) *header = (ElfW(Ehdr) *)cur->item->ro_map.mem_start_align;
+      ElfW(Phdr) *phdr = (ElfW(Phdr) *) (cur->item->ro_map.mem_start_align + header->e_phoff);
+      info.dlpi_addr = cur->item->load_base;
+      info.dlpi_name = cur->item->name;
+      info.dlpi_phdr = phdr;
+      info.dlpi_phnum = header->e_phnum;
+      info.dlpi_adds = g_vdl.n_added;
+      info.dlpi_subs = g_vdl.n_removed;
+      if (cur->item->has_tls)
+	{
+	  info.dlpi_tls_modid = cur->item->tls_index;
+	  info.dlpi_tls_data = (void*)vdl_tls_get_addr_fast (cur->item->tls_index, 0);
+	}
+      else
+	{
+	  info.dlpi_tls_modid = 0;
+	  info.dlpi_tls_data = 0;
+	}
+      futex_unlock (&g_vdl.futex);
+      ret = callback (&info, sizeof (struct dl_phdr_info), data);
+      futex_lock (&g_vdl.futex);
+      if (ret != 0)
+	{
+	  break;
+	}
+    }
+  futex_unlock (&g_vdl.futex);
+  return ret;
+}
+
 
 
 EXPORT void *vdl_dlopen_public (const char *filename, int flag)
@@ -339,4 +388,10 @@ EXPORT int vdl_dladdr_public (const void *addr, Dl_info *info)
 EXPORT void *vdl_dlvsym_public (void *handle, const char *symbol, const char *version, unsigned long caller)
 {
   return vdl_dlvsym_private (handle, symbol, version, caller);
+}
+EXPORT int vdl_dl_iterate_phdr_public (int (*callback) (struct dl_phdr_info *info,
+							size_t size, void *data),
+				       void *data)
+{
+  return vdl_dl_iterate_phdr_private (callback, data, RETURN_ADDRESS);
 }

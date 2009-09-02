@@ -4,7 +4,6 @@
 #include "vdl-file-list.h"
 #include <stdint.h>
 
-
 static uint32_t
 vdl_gnu_hash (const char *s)
 {
@@ -273,11 +272,13 @@ enum VersionMatch
 static int
 symbol_version_matches (const struct VdlFile *in,
 			const struct VdlFile *from,
-			const struct SymbolVersionRequirement *from_ver_req,
+			const char *from_ver_name,
+			const char *from_ver_filename,
+			unsigned long from_ver_hash,
 			unsigned long in_index)
 {
   ElfW(Half) *in_dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (in, DT_VERSYM);
-  if (from_ver_req == 0 || from_ver_req->verneed == 0)
+  if (from_ver_name == 0 || from_ver_filename == 0)
     {
       // we have no version requirement.
       if (in_dt_versym == 0)
@@ -302,7 +303,7 @@ symbol_version_matches (const struct VdlFile *in,
 	  return VERSION_MATCH_AMBIGUOUS;
 	}
     }
-  else if (from_ver_req != 0 && from_ver_req->verneed != 0)
+  else
     {
       // ok, so, now, we have version requirements information.
       ElfW(Verdef) *in_dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (in, DT_VERDEF);
@@ -313,10 +314,11 @@ symbol_version_matches (const struct VdlFile *in,
 	  // we have a version requirement but no version definition in this object
 	  // before accepting this match, we do a sanity check: we verify that
 	  // this object ('in') is not explicitely the one required by verneed
-	  const char *from_dt_strtab = (const char *)vdl_file_get_dynamic_p (from, DT_STRTAB);
-	  VDL_LOG_ASSERT (!vdl_utils_strisequal (from_dt_strtab+from_ver_req->verneed->vn_file,
-						 in->name), 
-			  "Required symbol does not exist in required object file");
+	  if (from_ver_filename != 0)
+	    {
+	      VDL_LOG_ASSERT (!vdl_utils_strisequal (from_ver_filename, in->name),
+			      "Required symbol does not exist in required object file");
+	    }
 	  // anyway, we do match now
 	  return VERSION_MATCH_PERFECT;
 	}
@@ -324,7 +326,6 @@ symbol_version_matches (const struct VdlFile *in,
       
       VDL_LOG_ASSERT (in_dt_versym != 0, "Coding error !")
 
-      const char *from_dt_strtab = (const char *)vdl_file_get_dynamic_p (from, DT_STRTAB);
       // we have version information in both the 'from' and the 'in'
       // objects.
       if (ver_index == 0)
@@ -361,12 +362,12 @@ symbol_version_matches (const struct VdlFile *in,
 	  {
 	    VDL_LOG_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
 	    if (cur->vd_ndx == ver_index &&
-		cur->vd_hash == from_ver_req->vernaux->vna_hash)
+		cur->vd_hash == from_ver_hash)
 	      {
 		// the hash values of the version names are equal.
 		ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
 		if (vdl_utils_strisequal (in_dt_strtab + verdaux->vda_name, 
-					  from_dt_strtab + from_ver_req->vernaux->vna_name))
+					  from_ver_name))
 		  {
 		    // the version names are equal.
 		    return VERSION_MATCH_PERFECT;
@@ -389,11 +390,11 @@ symbol_version_matches (const struct VdlFile *in,
 		   cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur_aux)+cur_aux->vna_next))
 	      {
 		if (cur_aux->vna_other == ver_index &&
-		    cur_aux->vna_hash == from_ver_req->vernaux->vna_hash)
+		    cur_aux->vna_hash == from_ver_hash)
 		  {
 		    // the hash values of the version names are equal.
 		    if (vdl_utils_strisequal (in_dt_strtab + cur_aux->vna_name, 
-					      from_dt_strtab + from_ver_req->vernaux->vna_name))
+					      from_ver_name))
 		      {
 			// the version names are equal.
 			return VERSION_MATCH_PERFECT;
@@ -410,9 +411,11 @@ symbol_version_matches (const struct VdlFile *in,
 static int
 vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 				 const char *name, 
+				 const char *ver_name,
+				 const char *ver_filename,
 				 unsigned long elf_hash,
 				 uint32_t gnu_hash,
-				 const struct SymbolVersionRequirement *ver_req,
+				 unsigned long ver_hash,
 				 enum LookupFlag flags,
 				 struct VdlFileList *scope,
 				 struct SymbolMatch *match)
@@ -436,7 +439,9 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
       while (vdl_file_lookup_has_next (&i))
 	{
 	  unsigned long index = vdl_file_lookup_next (&i);
-	  enum VersionMatch version_match = symbol_version_matches (cur->item, file, ver_req, index);
+	  enum VersionMatch version_match = symbol_version_matches (cur->item, file, 
+								    ver_name, ver_filename, ver_hash,
+								    index);
 	  if (version_match == VERSION_MATCH_PERFECT)
 	    {
 	      // We have resolved the symbol
@@ -480,14 +485,21 @@ vdl_file_do_symbol_lookup_scope (struct VdlFile *file,
 int 
 vdl_file_symbol_lookup (struct VdlFile *file,
 			const char *name, 
-			const struct SymbolVersionRequirement *ver_req,
+			const char *ver_name,
+			const char *ver_filename,
 			enum LookupFlag flags,
 			struct SymbolMatch *match)
 {
+  vdl_context_symbol_remap (file->context, &name, &ver_name, &ver_filename);
   // calculate the hash here to avoid calculating 
   // it twice in both calls to symbol_lookup
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
+  unsigned long ver_hash = 0;
+  if (ver_name != 0)
+    {
+      ver_hash = vdl_elf_hash (ver_name);
+    }
 
   struct VdlFileList *first = 0;
   struct VdlFileList *second = 0;
@@ -510,11 +522,13 @@ vdl_file_symbol_lookup (struct VdlFile *file,
       second = 0;
       break;
     }
-  int ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver_req,
+  int ok = vdl_file_do_symbol_lookup_scope (file, name, ver_name, ver_filename, 
+					    elf_hash, gnu_hash, ver_hash,
 					    flags, first, match);
   if (!ok)
     {
-      ok = vdl_file_do_symbol_lookup_scope (file, name, elf_hash, gnu_hash, ver_req,
+      ok = vdl_file_do_symbol_lookup_scope (file, name, ver_name, ver_filename,
+					    elf_hash, gnu_hash, ver_hash,
 					    flags, second, match);
     }
   return ok;
@@ -523,6 +537,7 @@ unsigned long
 vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name,
 			      unsigned long *size)
 {
+  vdl_context_symbol_remap (file->context, &name, 0, 0);
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
   struct FileLookupIterator i = vdl_file_lookup_begin (file, name, elf_hash, gnu_hash);
@@ -537,13 +552,23 @@ vdl_file_symbol_lookup_local (const struct VdlFile *file, const char *name,
 
 
 int
-vdl_file_symbol_lookup_scope (const char *name, 
+vdl_file_symbol_lookup_scope (const struct VdlContext *context,
+			      const char *name, 
+			      const char *ver_name,
+			      const char *ver_filename,
 			      struct VdlFileList *scope,
 			      struct SymbolMatch *match)
 {
+  vdl_context_symbol_remap (context, &name, &ver_name, &ver_filename);
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
-  int ok = vdl_file_do_symbol_lookup_scope (0, name, elf_hash, gnu_hash, 0,
+  unsigned long ver_hash = 0;
+  if (ver_name != 0)
+    {
+      ver_hash = vdl_elf_hash (ver_name);
+    }
+  int ok = vdl_file_do_symbol_lookup_scope (0, name, ver_name, ver_filename,
+					    elf_hash, gnu_hash, ver_hash,
 					    0, scope, match);
   return ok;
 }

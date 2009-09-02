@@ -34,5 +34,6 @@ dlopen libf.so ok
 called function_f in libf
 called function_f in libf
 libf destructor
+dlvsym works
 leave main
 libtest15 destructor

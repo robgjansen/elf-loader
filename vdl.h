@@ -177,15 +177,38 @@ enum VdlState {
   VDL_DELETE = 2
 };
 
+struct VdlSymbol
+{
+};
+
+struct VdlContextSymbolRemapEntry
+{
+  char *src_name;
+  char *src_ver_name;
+  char *src_ver_filename;
+  char *dst_name;
+  char *dst_ver_name;
+  char *dst_ver_filename;
+};
+struct VdlContextLibRemapEntry
+{
+  char *src;
+  char *dst;
+};
+
 struct VdlContext
 {
   struct VdlContext *prev;
   struct VdlContext *next;
   struct VdlFileList *global_scope;
-  // return the symbol to lookup instead of the input symbol
-  const char *(*remap_symbol) (const char *name);
-  // return the library to lookup instead of the input library
-  const char *(*remap_lib) (const char *name);
+  // describe which symbols should be remapped to which 
+  // other symbols during symbol resolution
+  struct VdlContextSymbolRemapEntry *symbol_remaps;
+  int n_symbol_remaps;
+  // describe which libraries should be remapped to which 
+  // other libraries during loading
+  struct VdlContextLibRemapEntry *lib_remaps;
+  int n_lib_remaps;
   // These variables are used by all .init functions
   // _some_ libc .init functions make use of these
   // 3 arguments so, even though no one else uses them, 
@@ -229,6 +252,9 @@ struct Vdl
   // holds an entry for each thread which calls one a function
   // which potentially sets the dlerror state.
   struct ErrorList *error;
+  // both member variables are used exclusively by vdl_dl_iterate_phdr_private
+  unsigned long n_added;
+  unsigned long n_removed;
 };
 
 
@@ -236,6 +262,19 @@ extern struct Vdl g_vdl;
 
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp);
 void vdl_context_delete (struct VdlContext *context);
+void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, const char *dst);
+void vdl_context_add_symbol_remap (struct VdlContext *context, 
+				   const char *src_name, 
+				   const char *src_ver_name, 
+				   const char *src_ver_filename, 
+				   const char *dst_name,
+				   const char *dst_ver_name,
+				   const char *dst_ver_filename);
+const char *vdl_context_lib_remap (const struct VdlContext *context, const char *name);
+void vdl_context_symbol_remap (const struct VdlContext *context, 
+			       const char **name,
+			       const char **ver_name,
+			       const char **ver_filename);
 struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const struct VdlFileInfo *info,
 				 const char *filename, 

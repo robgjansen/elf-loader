@@ -6,4 +6,5 @@ global:
 	vdl_dlerror_public;
 	vdl_dladdr_public;
 	vdl_dlvsym_public;
+	vdl_dl_iterate_phdr_public;
 };

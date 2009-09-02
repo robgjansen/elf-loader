@@ -84,10 +84,18 @@ int vdl_utils_strlen (const char *str)
 }
 void vdl_utils_strfree (char *str)
 {
+  if (str == 0)
+    {
+      return;
+    }
   vdl_utils_free (str, vdl_utils_strlen (str)+1);
 }
 char *vdl_utils_strdup (const char *str)
 {
+  if (str == 0)
+    {
+      return 0;
+    }
   //VDL_LOG_FUNCTION ("str=%s", str);
   int len = vdl_utils_strlen (str);
   char *retval = vdl_utils_malloc (len+1);

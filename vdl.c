@@ -33,6 +33,122 @@ get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
   return mapping_size;
 }
 
+
+void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, const char *dst)
+{
+  int old_n_entries = context->n_lib_remaps;
+  struct VdlContextLibRemapEntry *old_entries = context->lib_remaps;
+  struct VdlContextLibRemapEntry *new_entries =  (struct VdlContextLibRemapEntry *)
+    vdl_utils_malloc (sizeof (struct VdlContextLibRemapEntry)*(old_n_entries + 1));
+  if (old_entries != 0)
+    {
+      vdl_utils_memcpy (new_entries, old_entries, sizeof (struct VdlContextLibRemapEntry)*(old_n_entries));
+      vdl_utils_free (old_entries, sizeof (struct VdlContextLibRemapEntry)*old_n_entries);
+    }
+  context->lib_remaps = new_entries;
+  new_entries[old_n_entries].src = vdl_utils_strdup (src);
+  new_entries[old_n_entries].dst = vdl_utils_strdup (dst);
+  context->n_lib_remaps++;
+}
+
+void vdl_context_add_symbol_remap (struct VdlContext *context, 
+				   const char *src_name, 
+				   const char *src_ver_name, 
+				   const char *src_ver_filename, 
+				   const char *dst_name,
+				   const char *dst_ver_name,
+				   const char *dst_ver_filename)
+{
+  int old_n_entries = context->n_symbol_remaps;
+  struct VdlContextSymbolRemapEntry *old_entries = context->symbol_remaps;
+  struct VdlContextSymbolRemapEntry *new_entries =  (struct VdlContextSymbolRemapEntry *)
+    vdl_utils_malloc (sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries + 1));
+  if (old_entries != 0)
+    {
+      vdl_utils_memcpy (new_entries, old_entries, 
+			sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries));
+      vdl_utils_free (old_entries, sizeof (struct VdlContextSymbolRemapEntry)*old_n_entries);
+    }
+  context->symbol_remaps = new_entries;
+  new_entries[old_n_entries].src_name = vdl_utils_strdup (src_name);
+  new_entries[old_n_entries].src_ver_name = vdl_utils_strdup (src_ver_name);
+  new_entries[old_n_entries].src_ver_filename = vdl_utils_strdup (src_ver_filename);
+  new_entries[old_n_entries].dst_name = vdl_utils_strdup (dst_name);
+  new_entries[old_n_entries].dst_ver_name = vdl_utils_strdup (dst_ver_name);
+  new_entries[old_n_entries].dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
+  context->n_symbol_remaps++;
+}
+const char *
+vdl_context_lib_remap (const struct VdlContext *context, const char *name)
+{
+  VDL_LOG_FUNCTION ("name=%s", name);
+  struct VdlContextLibRemapEntry *entries = context->lib_remaps;
+  int nentries = context->n_lib_remaps;
+  int i; 
+  for (i = 0; i < nentries; i++)
+    {
+      if (vdl_utils_strisequal (entries[i].src, name))
+	{
+	  return entries[i].dst;
+	}
+    }
+  return name;
+}
+void
+vdl_context_symbol_remap (const struct VdlContext *context, 
+			  const char **name, const char **ver_name, const char **ver_filename)
+{
+  VDL_LOG_FUNCTION ("name=%s, ver_name=%s, ver_filename=%s", *name, 
+		    (ver_name != 0)?*ver_name:"", 
+		    (ver_filename != 0)?*ver_filename:"");
+  struct VdlContextSymbolRemapEntry *entries = context->symbol_remaps;
+  int nentries = context->n_symbol_remaps;
+  int i; 
+  for (i = 0; i < nentries; i++)
+    {
+      if (!vdl_utils_strisequal (entries[i].src_name, *name))
+	{
+	  continue;
+	}
+      else if (entries[i].src_ver_name == 0)
+	{
+	  goto match;
+	}
+      else if (*ver_name == 0)
+	{
+	  continue;
+	}
+      else if (!vdl_utils_strisequal (entries[i].src_ver_name, *ver_name))
+	{
+	  continue;
+	}
+      else if (entries[i].src_ver_filename == 0)
+	{
+	  goto match;
+	}
+      else if (*ver_filename == 0)
+	{
+	  continue;
+	}
+      else if (vdl_utils_strisequal (entries[i].src_ver_filename, *ver_filename))
+	{
+	  goto match;
+	}
+    }
+  return;
+ match:
+  *name = entries[i].dst_name;
+  if (ver_name != 0)
+    {
+      *ver_name = entries[i].dst_ver_name;
+    }
+  if (ver_filename != 0)
+    {
+      *ver_filename = entries[i].dst_ver_filename;
+    }
+  return;
+}
+
 struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
 {
   VDL_LOG_FUNCTION ("argc=%d", argc);
@@ -46,6 +162,10 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
     }
   context->next = g_vdl.contexts;
   context->prev = 0;
+  context->n_lib_remaps = 0;
+  context->lib_remaps = 0;
+  context->n_symbol_remaps = 0;
+  context->symbol_remaps = 0;
   g_vdl.contexts = context;
   // store argc safely
   context->argc = argc;
@@ -80,6 +200,17 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
       context->envp[i] = vdl_utils_strdup (envp[i]);
       i++;
     }
+
+  // these are hardcoded name conversions to ensure that
+  // we can replace the libc loader.
+  vdl_context_add_lib_remap (context, "/lib/ld-linux.so.2", "ldso");
+  vdl_context_add_lib_remap (context, "/lib64/ld-linux-x86-64.so.2", "ldso");
+  vdl_context_add_lib_remap (context, "ld-linux-x86-64.so.2", "ldso");
+  vdl_context_add_lib_remap (context, "libdl.so.2", "libvdl.so");
+  vdl_context_add_symbol_remap (context, 
+				"dl_iterate_phdr", 0, 0,
+				"vdl_dl_iterate_phdr_public", "VDL_DL", "ldso");
+
   return context;
 }
 void 
@@ -114,6 +245,29 @@ vdl_context_delete (struct VdlContext *context)
       vdl_utils_strfree (*cur);
     }
   vdl_utils_free (context->envp, sizeof(char *)*i);
+
+  // delete lib remap entries
+  for (i = 0; i < context->n_lib_remaps; i++)
+    {
+      vdl_utils_strfree (context->lib_remaps[i].src);
+      vdl_utils_strfree (context->lib_remaps[i].dst);
+    }
+  vdl_utils_free (context->lib_remaps, context->n_lib_remaps*sizeof(struct VdlContextLibRemapEntry));
+
+  // delete symbol remap entries
+  for (i = 0; i < context->n_symbol_remaps; i++)
+    {
+      struct VdlContextSymbolRemapEntry *entry = &context->symbol_remaps[i];
+      vdl_utils_strfree (entry->src_name);
+      vdl_utils_strfree (entry->src_ver_name);
+      vdl_utils_strfree (entry->src_ver_filename);
+      vdl_utils_strfree (entry->dst_name);
+      vdl_utils_strfree (entry->dst_ver_name);
+      vdl_utils_strfree (entry->dst_ver_filename);
+    }
+  vdl_utils_free (context->symbol_remaps, context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
+
+  // finally, delete context itself
   vdl_utils_delete (context);
 }
 static void
@@ -133,6 +287,7 @@ file_append (struct VdlFile *item)
   cur->next = item;
   item->prev = cur;
   item->next = 0;
+  g_vdl.n_added++;
 }
 static struct VdlFileMap
 file_map_add_load_base (struct VdlFileMap map, unsigned long load_base)
@@ -207,6 +362,7 @@ file_delete (struct VdlFile *file)
   file->filename = 0;
   file->context = 0;
   vdl_utils_delete (file);
+  g_vdl.n_removed++;
 }
 
 void vdl_files_delete (struct VdlFileList *files)
@@ -536,32 +692,6 @@ error:
   return 0;
 }
 
-static const char *
-convert_name (const char *name)
-{
-  VDL_LOG_FUNCTION ("name=%s", name);
-  // these are hardcoded name conversions to ensure that
-  // we can replace the libc loader.
-  const struct HardcodedName {
-    const char *original;
-    const char *converted;
-  } hardcoded_names [] = 
-      {{"/lib/ld-linux.so.2", "ldso"},
-       {"ld-linux.so.2", "ldso"},
-       {"/lib64/ld-linux-x86-64.so.2", "ldso"},
-       {"ld-linux-x86-64.so.2", "ldso"},
-       {"libdl.so.2", "libvdl.so"}
-      };
-  int i; 
-  for (i = 0; i < (sizeof (hardcoded_names)/sizeof (struct HardcodedName)); i++)
-    {
-      if (vdl_utils_strisequal (hardcoded_names[i].original, name))
-	{
-	  return hardcoded_names[i].converted;
-	}
-    }
-  return name;
-}
 
 static struct VdlFile *
 find_by_name (struct VdlContext *context,
@@ -601,7 +731,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   struct VdlFileList **loaded)
 {
   // Try to see if we don't have a hardcoded name conversion
-  const char *name = convert_name (requested_filename);
+  const char *name = vdl_context_lib_remap (context, requested_filename);
   // if the file is already mapped within this context,
   // get it and add it to deps
   struct VdlFile *file = find_by_name (context, name);
