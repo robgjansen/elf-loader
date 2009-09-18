@@ -61,7 +61,7 @@ ldso:
 # we have two generated files and need to build them.
 ldso.version: readversiondef vdl-dl.version
 	./readversiondef $(LDSO_FILE) | cat vdl-dl.version - > $@
-config.h:
+vdl-config.h:
 	./extract-system-config.py --debug=$(LDSO_DEBUG_FILE) >$@
 # build the program used to generate ldso.version
 readversiondef.o: readversiondef.c

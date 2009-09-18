@@ -9,7 +9,7 @@
 #include "vdl-file-list.h"
 #include "vdl-tls.h"
 #include "vdl-sort.h"
-#include "config.h"
+#include "vdl-config.h"
 #include "macros.h"
 #include <elf.h>
 #include <dlfcn.h>

@@ -1,6 +1,6 @@
 #include "vdl.h"
 #include "vdl-tls.h"
-#include "config.h"
+#include "vdl-config.h"
 #include "vdl-log.h"
 #include "vdl-utils.h"
 #include "vdl-sort.h"
