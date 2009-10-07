@@ -29,8 +29,16 @@ vdl_file_remove (struct VdlFile *item)
       next->prev = prev;
     }
 
-  // then, remove them from the local scope map
+  // then, remove them from our local scope map
   item->local_scope = vdl_file_list_free_one (item->local_scope, item);
+
+  // then, remove them from the local scope maps of all
+  // those who have potentially a reference to us
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      cur->local_scope = vdl_file_list_free_one (cur->local_scope, item);
+    }  
 
   // finally, remove them from the global scope map
   item->context->global_scope = vdl_file_list_free_one (item->context->global_scope, item);
