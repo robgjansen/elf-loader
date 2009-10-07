@@ -99,8 +99,8 @@ vdl_context_symbol_remap (const struct VdlContext *context,
 			  const char **name, const char **ver_name, const char **ver_filename)
 {
   VDL_LOG_FUNCTION ("name=%s, ver_name=%s, ver_filename=%s", *name, 
-		    (ver_name != 0)?*ver_name:"", 
-		    (ver_filename != 0)?*ver_filename:"");
+		    (ver_name != 0 && *ver_name != 0)?*ver_name:"", 
+		    (ver_filename != 0 && *ver_filename != 0)?*ver_filename:"");
   struct VdlContextSymbolRemapEntry *entries = context->symbol_remaps;
   int nentries = context->n_symbol_remaps;
   int i; 
