@@ -123,7 +123,6 @@ void *vdl_dlopen_private (const char *filename, int flags)
   struct VdlFileList *cur;
   for (cur = loaded; cur != 0; cur = cur->next)
     {
-      // XXX: below, replace mapped_file by cur->item. everything fails.
       cur->item->local_scope = vdl_file_list_copy (scope);
       if (flags & RTLD_DEEPBIND)
 	{
