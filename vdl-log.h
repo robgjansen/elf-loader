@@ -23,12 +23,7 @@ void vdl_log_printf (enum VdlLog log, const char *str, ...);
 		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define VDL_LOG_SYMBOL_FAIL(symbol,file)				\
   vdl_log_printf (VDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
-		  symbol, file->filename);				\
-  {									\
-    char *p = 0;							\
-    *p = 0;								\
-  }									\
-  system_exit (-1)
+		  symbol, file->filename)
 
 #define VDL_LOG_SYMBOL_OK(symbol_name,from,match)			\
   vdl_log_printf (VDL_LOG_SYM_OK, "Resolved symbol=%s, from file=\"%s\", in file=\"%s\":0x%x\n", \

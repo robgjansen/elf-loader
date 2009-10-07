@@ -103,7 +103,8 @@ do_process_reloc (struct VdlFile *file,
 	    }
 	  else
 	    {
-	      // This is really a hard failure.	      
+	      // This is really a hard failure. We do not assert
+	      // to emulate the glibc behavior
 	      VDL_LOG_SYMBOL_FAIL (symbol_name, file);
 	    }
 	  return 0;
