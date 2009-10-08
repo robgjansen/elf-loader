@@ -420,12 +420,18 @@ update_dtv (void)
   // then, initialize the new area in the new dtv
   for (module = dtv_size+1; module <= new_dtv_size; module++)
     {
-      struct VdlFile *file = find_file_by_module (module);
-      VDL_LOG_ASSERT (file != 0, "new entries should have a file");
-      VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should never"
-		      "be initialized here");
       new_dtv[module].value = 0;
       new_dtv[module].gen = 0;
+      struct VdlFile *file = find_file_by_module (module);
+      if (file == 0)
+	{
+	  // the module has been loaded and then unloaded before
+	  // we updated our dtv so, well,
+	  // nothing to do here, just skip this empty entry
+	  continue;
+	}
+      VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should never"
+		      "be initialized here");
     }
   // finally, clear the old dtv
   vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
