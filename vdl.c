@@ -78,6 +78,26 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
   new_entries[old_n_entries].dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
   context->n_symbol_remaps++;
 }
+void vdl_context_add_event_callback (struct VdlContext *context,
+				     void (*cb) (void *handle, enum VdlEvent event, void *context),
+				     void *cb_context)
+{
+  int old_n_entries = context->n_event_callbacks;
+  struct VdlContextCallbackEntry *old_entries = context->event_callbacks;
+  struct VdlContextCallbackEntry *new_entries =  (struct VdlContextCallbackEntry *)
+    vdl_utils_malloc (sizeof (struct VdlContextCallbackEntry)*(old_n_entries + 1));
+  if (old_entries != 0)
+    {
+      vdl_utils_memcpy (new_entries, old_entries, 
+			sizeof (struct VdlContextCallbackEntry)*(old_n_entries));
+      vdl_utils_free (old_entries, sizeof (struct VdlContextCallbackEntry)*old_n_entries);
+    }
+  context->event_callbacks = new_entries;
+  new_entries[old_n_entries].fn = cb;
+  new_entries[old_n_entries].context = context;
+  context->n_event_callbacks++;
+}
+
 const char *
 vdl_context_lib_remap (const struct VdlContext *context, const char *name)
 {
@@ -166,6 +186,8 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
   context->lib_remaps = 0;
   context->n_symbol_remaps = 0;
   context->symbol_remaps = 0;
+  context->n_event_callbacks = 0;
+  context->event_callbacks = 0;
   g_vdl.contexts = context;
   // store argc safely
   context->argc = argc;
@@ -266,6 +288,9 @@ vdl_context_delete (struct VdlContext *context)
       vdl_utils_strfree (entry->dst_ver_filename);
     }
   vdl_utils_free (context->symbol_remaps, context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
+
+  // delete event callback entries
+    vdl_utils_free (context->event_callbacks, context->n_event_callbacks*sizeof(struct VdlContextCallbackEntry));
 
   // finally, delete context itself
   vdl_utils_delete (context);

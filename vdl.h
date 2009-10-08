@@ -177,10 +177,6 @@ enum VdlState {
   VDL_DELETE = 2
 };
 
-struct VdlSymbol
-{
-};
-
 struct VdlContextSymbolRemapEntry
 {
   char *src_name;
@@ -196,6 +192,17 @@ struct VdlContextLibRemapEntry
   char *dst;
 };
 
+enum VdlEvent {
+  VDL_EVENT_MAPPED,
+  VDL_EVENT_CONSTRUCTED,
+  VDL_EVENT_DESTROYED
+};
+struct VdlContextCallbackEntry
+{
+  void (*fn) (void *handle, enum VdlEvent event, void *context);
+  void *context;
+};
+
 struct VdlContext
 {
   struct VdlContext *prev;
@@ -209,6 +216,9 @@ struct VdlContext
   // other libraries during loading
   struct VdlContextLibRemapEntry *lib_remaps;
   int n_lib_remaps;
+  // report events within this context
+  struct VdlContextCallbackEntry *event_callbacks;
+  int n_event_callbacks;
   // These variables are used by all .init functions
   // _some_ libc .init functions make use of these
   // 3 arguments so, even though no one else uses them, 
@@ -270,6 +280,9 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
 				   const char *dst_name,
 				   const char *dst_ver_name,
 				   const char *dst_ver_filename);
+void vdl_context_add_callback (struct VdlContext *context,
+			       void (*cb) (void *handle, enum VdlEvent event, void *context),
+			       void *cb_context);
 const char *vdl_context_lib_remap (const struct VdlContext *context, const char *name);
 void vdl_context_symbol_remap (const struct VdlContext *context, 
 			       const char **name,
