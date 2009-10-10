@@ -34,7 +34,7 @@ avprintf-cb.c \
 dprintf.c vdl-utils.c vdl-log.c \
 vdl.c system.c alloc.c \
 vdl-file-reloc.c \
-vdl-file-list.c vdl-gc.c vdl-file-symbol.c \
+vdl-file-list.c vdl-gc.c vdl-lookup.c \
 futex.c vdl-tls.c \
 $(ARCH)/machine.c $(ARCH)/resolv.S \
 vdl-init-fini.c vdl-sort.c 

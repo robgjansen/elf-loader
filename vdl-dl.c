@@ -8,7 +8,7 @@
 #include "vdl-dl.h"
 #include "vdl-gc.h"
 #include "vdl-file-reloc.h"
-#include "vdl-file-symbol.h"
+#include "vdl-lookup.h"
 #include "vdl-tls.h"
 #include "machine.h"
 #include "macros.h"
@@ -300,16 +300,16 @@ void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version,
       scope = vdl_sort_deps_breadth_first (file);
       context = file->context;
     }
-  struct SymbolMatch match;
+  struct VdlLookupResult result;
   
-  if (!vdl_file_symbol_lookup_scope (context, symbol, version, 0, scope, &match))
+  if (!vdl_lookup_with_scope (context, symbol, version, 0, scope, &result))
     {
       set_error ("Could not find requested symbol \"%s\"", symbol);
       goto error;
     }
   vdl_file_list_free (scope);
   futex_unlock (&g_vdl.futex);
-  return (void*)(match.file->load_base + match.symbol->st_value);
+  return (void*)(result.file->load_base + result.symbol->st_value);
  error:
   futex_unlock (&g_vdl.futex);
   return 0;

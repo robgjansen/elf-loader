@@ -3,7 +3,7 @@
 #include "vdl-log.h"
 #include "vdl-sort.h"
 #include "vdl-file-list.h"
-#include "vdl-file-symbol.h"
+#include "vdl-lookup.h"
 #include "vdl-utils.h"
 #include <stdbool.h>
 
@@ -81,9 +81,9 @@ do_process_reloc (struct VdlFile *file,
 	  // for R_*_COPY relocations, we must use the
 	  // LOOKUP_NO_EXEC flag to avoid looking up the symbol
 	  // in the main binary.
-	  flags |= LOOKUP_NO_EXEC;
+	  flags |= VDL_LOOKUP_NO_EXEC;
 	}
-      struct SymbolMatch match;
+      struct VdlLookupResult result;
       const char *ver_name = 0;
       const char *ver_filename = 0;
       ElfW(Verneed) *verneed;
@@ -94,7 +94,7 @@ do_process_reloc (struct VdlFile *file,
 	  ver_filename = dt_strtab + verneed->vn_file;
 	}
 
-      if (!vdl_file_symbol_lookup (file, symbol_name, ver_name, ver_filename, flags, &match))
+      if (!vdl_lookup (file, symbol_name, ver_name, ver_filename, flags, &result))
 	{
 	  if (ELFW_ST_BIND (sym->st_info) == STB_WEAK)
 	    {
@@ -109,19 +109,19 @@ do_process_reloc (struct VdlFile *file,
 	    }
 	  return 0;
 	}
-      VDL_LOG_SYMBOL_OK (symbol_name, file, match);
+      VDL_LOG_SYMBOL_OK (symbol_name, file, result);
       if (machine_reloc_is_copy (reloc_type))
 	{
 	  // we handle R_*_COPY relocs ourselves
-	  VDL_LOG_ASSERT (match.symbol->st_size == sym->st_size,
+	  VDL_LOG_ASSERT (result.symbol->st_size == sym->st_size,
 			  "Symbols don't have the same size: likely a recipe for disaster.");
 	  vdl_utils_memcpy (reloc_addr, 
-			    (void*)(match.file->load_base + match.symbol->st_value),
-			    match.symbol->st_size);
+			    (void*)(result.file->load_base + result.symbol->st_value),
+			    result.symbol->st_size);
 	}
       else
 	{
-	  machine_reloc_with_match (reloc_addr, reloc_type, reloc_addend, &match);
+	  machine_reloc_with_match (reloc_addr, reloc_type, reloc_addend, &result);
 	}
     }
   else

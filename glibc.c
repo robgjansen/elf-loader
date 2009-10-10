@@ -5,7 +5,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-dl.h"
-#include "vdl-file-symbol.h"
+#include "vdl-lookup.h"
 #include "vdl-file-list.h"
 #include "vdl-tls.h"
 #include "vdl-sort.h"
@@ -238,22 +238,22 @@ do_glibc_patch (struct VdlFile *file)
   file->patched = 1;
 
   unsigned long size;
-  unsigned long addr = vdl_file_symbol_lookup_local (file, "_dl_addr", &size);
+  unsigned long addr = vdl_lookup_local (file, "_dl_addr", &size);
   if (addr != 0)
     {
       machine_insert_trampoline (addr, (unsigned long) &vdl_dladdr_private, size);
     }
-  addr = vdl_file_symbol_lookup_local (file, "__libc_dlopen_mode", &size);
+  addr = vdl_lookup_local (file, "__libc_dlopen_mode", &size);
   if (addr != 0)
     {
       machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen_private, size);
     }
-  addr = vdl_file_symbol_lookup_local (file, "__libc_dlclose", &size);
+  addr = vdl_lookup_local (file, "__libc_dlclose", &size);
   if (addr != 0)
     {
       machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose_private, size);
     }
-  addr = vdl_file_symbol_lookup_local (file, "__libc_dlsym", &size);
+  addr = vdl_lookup_local (file, "__libc_dlsym", &size);
   if (addr != 0)
     {
       machine_insert_trampoline (addr, (unsigned long) &dlsym_hack, size);

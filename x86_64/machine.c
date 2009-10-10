@@ -3,7 +3,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-file-reloc.h"
-#include "vdl-file-symbol.h"
+#include "vdl-lookup.h"
 #include "syscall.h"
 #include <sys/mman.h>
 #include <sys/mman.h>
@@ -48,7 +48,7 @@ void
 machine_reloc_with_match (unsigned long *reloc_addr,
 			  unsigned long reloc_type,
 			  unsigned long reloc_addend,
-			  const struct SymbolMatch *match)
+			  const struct VdlLookupResult *match)
 {
   if (reloc_type == R_X86_64_GLOB_DAT ||
       reloc_type == R_X86_64_JUMP_SLOT ||
