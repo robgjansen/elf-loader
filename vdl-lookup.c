@@ -408,7 +408,7 @@ symbol_version_matches (const struct VdlFile *in,
   return VERSION_MATCH_BAD;
 }
 
-static int
+static struct VdlLookupResult
 vdl_lookup_with_scope_internal (struct VdlFile *file,
 				const char *name, 
 				const char *ver_name,
@@ -417,8 +417,7 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 				uint32_t gnu_hash,
 				unsigned long ver_hash,
 				enum VdlLookupFlag flags,
-				struct VdlFileList *scope,
-				struct VdlLookupResult *result)
+				struct VdlFileList *scope)
 {
   VDL_LOG_FUNCTION ("name=%s, elf_hash=0x%lx, gnu_hash=0x%x, scope=%p", name, elf_hash, gnu_hash, scope);
 
@@ -452,10 +451,11 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 									    cur->item);
 		  VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, cur->item->name, file->name);
 		}
-	      result->file = cur->item;
-	      result->symbol = &i.dt_symtab[index];
-	      result->found = true;
-	      return 1;
+	      struct VdlLookupResult result;
+	      result.file = cur->item;
+	      result.symbol = &i.dt_symtab[index];
+	      result.found = true;
+	      return result;
 	    }
 	  else if (version_match == VERSION_MATCH_AMBIGUOUS)
 	    {
@@ -475,23 +475,24 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 									cur->item);
 	      VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, cur->item->name, file->name);
 	    }
-	  result->file = cur->item;
-	  result->symbol = &i.dt_symtab[last_ambiguous_match];
-	  result->found = true;
-	  return 1;
+	  struct VdlLookupResult result;
+	  result.file = cur->item;
+	  result.symbol = &i.dt_symtab[last_ambiguous_match];
+	  result.found = true;
+	  return result;
 	}
     }
-  result->found = false;
-  return 0;
+  struct VdlLookupResult result;
+  result.found = false;
+  return result;
 }
 
-int 
+struct VdlLookupResult
 vdl_lookup (struct VdlFile *file,
 	    const char *name, 
 	    const char *ver_name,
 	    const char *ver_filename,
-	    enum VdlLookupFlag flags,
-	    struct VdlLookupResult *result)
+	    enum VdlLookupFlag flags)
 {
   vdl_context_symbol_remap (file->context, &name, &ver_name, &ver_filename);
   // calculate the hash here to avoid calculating 
@@ -525,44 +526,49 @@ vdl_lookup (struct VdlFile *file,
       second = 0;
       break;
     }
-  int ok = vdl_lookup_with_scope_internal (file, name, ver_name, ver_filename, 
-				     elf_hash, gnu_hash, ver_hash,
-				     flags, first, result);
-  if (!ok)
-    {
-      ok = vdl_lookup_with_scope_internal (file, name, ver_name, ver_filename,
+  struct VdlLookupResult result;
+  result = vdl_lookup_with_scope_internal (file, name, ver_name, ver_filename, 
 					   elf_hash, gnu_hash, ver_hash,
-					   flags, second, result);
+					   flags, first);
+  if (!result.found)
+    {
+      result = vdl_lookup_with_scope_internal (file, name, ver_name, ver_filename,
+					       elf_hash, gnu_hash, ver_hash,
+					       flags, second);
     }
-  return ok;
+  return result;
 }
-unsigned long 
-vdl_lookup_local (const struct VdlFile *file, const char *name,
-		  unsigned long *size)
+struct VdlLookupResult
+vdl_lookup_local (const struct VdlFile *file, const char *name)
 {
   vdl_context_symbol_remap (file->context, &name, 0, 0);
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
   struct VdlFileLookupIterator i = vdl_lookup_file_begin (file, name, elf_hash, gnu_hash);
-  while (vdl_lookup_file_has_next (&i))
+  struct VdlLookupResult result;
+  result.file = file;
+  if (vdl_lookup_file_has_next (&i))
     {
       unsigned long index = vdl_lookup_file_next (&i);
-      *size = i.dt_symtab[index].st_size;
-      return file->load_base + i.dt_symtab[index].st_value;
+      result.symbol = &i.dt_symtab[index];
+      result.found = true;
     }
-  return 0;
+  else
+    {
+      result.found = false;
+    }
+  return result;
 }
 
 
-int
-vdl_lookup_with_scope (const struct VdlContext *context,
+struct VdlLookupResult
+vdl_lookup_with_scope (const struct VdlContext *from_context,
 		       const char *name, 
 		       const char *ver_name,
 		       const char *ver_filename,
-		       struct VdlFileList *scope,
-		       struct VdlLookupResult *result)
+		       struct VdlFileList *scope)
 {
-  vdl_context_symbol_remap (context, &name, &ver_name, &ver_filename);
+  vdl_context_symbol_remap (from_context, &name, &ver_name, &ver_filename);
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
   unsigned long ver_hash = 0;
@@ -570,8 +576,9 @@ vdl_lookup_with_scope (const struct VdlContext *context,
     {
       ver_hash = vdl_elf_hash (ver_name);
     }
-  int ok = vdl_lookup_with_scope_internal (0, name, ver_name, ver_filename,
+  struct VdlLookupResult result;
+  result = vdl_lookup_with_scope_internal (0, name, ver_name, ver_filename,
 					   elf_hash, gnu_hash, ver_hash,
-					   0, scope, result);
-  return ok;
+					   0, scope);
+  return result;
 }

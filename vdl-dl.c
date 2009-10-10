@@ -302,7 +302,8 @@ void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version,
     }
   struct VdlLookupResult result;
   
-  if (!vdl_lookup_with_scope (context, symbol, version, 0, scope, &result))
+  result = vdl_lookup_with_scope (context, symbol, version, 0, scope);
+  if (!result.found)
     {
       set_error ("Could not find requested symbol \"%s\"", symbol);
       goto error;

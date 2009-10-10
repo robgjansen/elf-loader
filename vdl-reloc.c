@@ -83,7 +83,6 @@ do_process_reloc (struct VdlFile *file,
 	  // in the main binary.
 	  flags |= VDL_LOOKUP_NO_EXEC;
 	}
-      struct VdlLookupResult result;
       const char *ver_name = 0;
       const char *ver_filename = 0;
       ElfW(Verneed) *verneed;
@@ -94,7 +93,9 @@ do_process_reloc (struct VdlFile *file,
 	  ver_filename = dt_strtab + verneed->vn_file;
 	}
 
-      if (!vdl_lookup (file, symbol_name, ver_name, ver_filename, flags, &result))
+      struct VdlLookupResult result;
+      result = vdl_lookup (file, symbol_name, ver_name, ver_filename, flags);
+      if (!result.found)
 	{
 	  if (ELFW_ST_BIND (sym->st_info) == STB_WEAK)
 	    {

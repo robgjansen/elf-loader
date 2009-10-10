@@ -19,20 +19,17 @@ enum VdlLookupFlag {
   // with a R_*_COPY relocation.
   VDL_LOOKUP_NO_EXEC = 1
 };
-int vdl_lookup (struct VdlFile *file,
-		const char *name, 
-		const char *ver_name,
-		const char *ver_filename,
-		enum VdlLookupFlag flags,
-		struct VdlLookupResult *result);
-unsigned long vdl_lookup_local (const struct VdlFile *file, 
-				const char *name,
-				unsigned long *symbol_size);
-int vdl_lookup_with_scope (const struct VdlContext *context,
-			   const char *name, 
-			   const char *ver_name,
-			   const char *ver_filename,
-			   struct VdlFileList *scope,
-			   struct VdlLookupResult *result);
+struct VdlLookupResult vdl_lookup (struct VdlFile *from_file,
+				   const char *name, 
+				   const char *ver_name,
+				   const char *ver_filename,
+				   enum VdlLookupFlag flags);
+struct VdlLookupResult vdl_lookup_local (const struct VdlFile *file, 
+					 const char *name);
+struct VdlLookupResult vdl_lookup_with_scope (const struct VdlContext *from_context,
+					      const char *name, 
+					      const char *ver_name,
+					      const char *ver_filename,
+					      struct VdlFileList *scope);
 
 #endif /* VDL_LOOKUP_H */
