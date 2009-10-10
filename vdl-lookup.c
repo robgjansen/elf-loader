@@ -454,6 +454,7 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 		}
 	      result->file = cur->item;
 	      result->symbol = &i.dt_symtab[index];
+	      result->found = true;
 	      return 1;
 	    }
 	  else if (version_match == VERSION_MATCH_AMBIGUOUS)
@@ -476,9 +477,11 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	    }
 	  result->file = cur->item;
 	  result->symbol = &i.dt_symtab[last_ambiguous_match];
+	  result->found = true;
 	  return 1;
 	}
     }
+  result->found = false;
   return 0;
 }
 

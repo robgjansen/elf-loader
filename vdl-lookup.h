@@ -4,9 +4,11 @@
 #include "vdl.h"
 #include <elf.h>
 #include <link.h>
+#include <stdbool.h>
 
 struct VdlLookupResult
 {
+  bool found;
   const struct VdlFile *file;
   const ElfW(Sym) *symbol;
 };
