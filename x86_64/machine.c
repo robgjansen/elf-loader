@@ -2,7 +2,7 @@
 #include "vdl.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
-#include "vdl-file-reloc.h"
+#include "vdl-reloc.h"
 #include "vdl-lookup.h"
 #include "syscall.h"
 #include <sys/mman.h>

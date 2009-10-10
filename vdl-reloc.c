@@ -1,4 +1,4 @@
-#include "vdl-file-reloc.h"
+#include "vdl-reloc.h"
 #include "machine.h"
 #include "vdl-log.h"
 #include "vdl-sort.h"

@@ -7,7 +7,7 @@
 #include "glibc.h"
 #include "vdl-dl.h"
 #include "vdl-gc.h"
-#include "vdl-file-reloc.h"
+#include "vdl-reloc.h"
 #include "vdl-lookup.h"
 #include "vdl-tls.h"
 #include "machine.h"

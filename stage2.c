@@ -3,7 +3,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-file-list.h"
-#include "vdl-file-reloc.h"
+#include "vdl-reloc.h"
 #include "glibc.h"
 #include "gdb.h"
 #include "machine.h"

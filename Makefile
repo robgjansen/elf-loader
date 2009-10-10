@@ -33,7 +33,7 @@ LDSO_COMMON_SOURCE=\
 avprintf-cb.c \
 dprintf.c vdl-utils.c vdl-log.c \
 vdl.c system.c alloc.c \
-vdl-file-reloc.c \
+vdl-reloc.c \
 vdl-file-list.c vdl-gc.c vdl-lookup.c \
 futex.c vdl-tls.c \
 $(ARCH)/machine.c $(ARCH)/resolv.S \
