@@ -186,8 +186,8 @@ reloc_jmprel (struct VdlFile *file)
     }
 }
 unsigned long 
-vdl_file_reloc_one_jmprel (struct VdlFile *file, 
-			   unsigned long offset)
+vdl_reloc_one_jmprel (struct VdlFile *file, 
+		      unsigned long offset)
 {
   futex_lock (&g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
@@ -276,7 +276,7 @@ do_reloc (struct VdlFile *file, int now)
     }
 }
 
-void vdl_file_reloc (struct VdlFileList *files, int now)
+void vdl_reloc (struct VdlFileList *files, int now)
 {
   struct VdlFileList *sorted = vdl_sort_increasing_depth (files);
   sorted = vdl_file_list_reverse (sorted);
@@ -285,4 +285,5 @@ void vdl_file_reloc (struct VdlFileList *files, int now)
     {
       do_reloc (cur->item, now);
     }
+  vdl_file_list_free (sorted);
 }

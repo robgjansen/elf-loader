@@ -26,7 +26,7 @@ struct VdlFileList *vdl_file_list_copy (struct VdlFileList *list)
 }
 
 struct VdlFileList *vdl_file_list_append_one (struct VdlFileList *list, 
-						 struct VdlFile *item)
+					      struct VdlFile *item)
 {
   if (list == 0)
     {

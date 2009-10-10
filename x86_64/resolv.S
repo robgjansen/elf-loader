@@ -23,7 +23,7 @@ machine_resolve_trampoline:
 	mov 0x48(%rsp), %rdi
 	# setup 2nd arg: unsigned long offset
 	mov 0x50(%rsp), %rsi
-	call vdl_file_reloc_one_jmprel
+	call vdl_reloc_one_jmprel
 	# was lookup successful ? (position z flag)
 	test %rax,%rax
 	# save return value in case we have to jump there
