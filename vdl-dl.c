@@ -68,19 +68,19 @@ caller_to_file (unsigned long caller)
   return 0;
 }
 
-void *vdl_dlopen_private (const char *filename, int flags)
+void *vdl_dlopen_with_context (struct VdlContext *context, const char *filename, int flags)
 {
   VDL_LOG_FUNCTION ("filename=%s, flags=0x%x", filename, flags);
   futex_lock (&g_vdl.futex);
 
   if (filename == 0)
     {
-      struct VdlFile *cur;
-      for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+      struct VdlFileList *cur;
+      for (cur = context->global_scope; cur != 0; cur = cur->next)
 	{
-	  if (cur->is_executable)
+	  if (cur->item->is_executable)
 	    {
-	      cur->count++;
+	      cur->item->count++;
 	      futex_unlock (&g_vdl.futex);
 	      return cur;
 	    }
@@ -91,7 +91,7 @@ void *vdl_dlopen_private (const char *filename, int flags)
   // map it in memory using the normal context, that is, the
   // first context in the context list.
   struct VdlFileList *loaded = 0;
-  struct VdlFile *mapped_file = vdl_file_map_single_maybe (g_vdl.contexts,
+  struct VdlFile *mapped_file = vdl_file_map_single_maybe (context,
 							   filename,
 							   0, 0,
 							   &loaded);
@@ -114,9 +114,9 @@ void *vdl_dlopen_private (const char *filename, int flags)
       // Note that it's not a big deal if the file has already been
       // added to the global scope in the past. We call unicize so
       // any duplicate entries appended here will be removed immediately.
-      g_vdl.contexts->global_scope = vdl_file_list_append (g_vdl.contexts->global_scope, 
-							   vdl_file_list_copy (scope));
-      vdl_file_list_unicize (g_vdl.contexts->global_scope);
+      context->global_scope = vdl_file_list_append (context->global_scope, 
+						    vdl_file_list_copy (scope));
+      vdl_file_list_unicize (context->global_scope);
     }
 
   // setup the local scope of each newly-loaded file.
@@ -189,6 +189,10 @@ void *vdl_dlopen_private (const char *filename, int flags)
     futex_unlock (&g_vdl.futex);
   }
   return 0;
+}
+void *vdl_dlopen_private (const char *filename, int flags)
+{
+  return vdl_dlopen_with_context (g_vdl.contexts, filename, flags);
 }
 
 void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
