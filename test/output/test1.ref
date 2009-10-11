@@ -6,6 +6,7 @@ libd constructor
 libb constructor
 liba constructor
 dlopen completed
+dladdr ok file=./test1-ldso, symbol=(null)
 liba destructor
 libb destructor
 libd destructor
