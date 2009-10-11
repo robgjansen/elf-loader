@@ -215,7 +215,7 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
   }
   return 0;
 }
-void *vdl_dlopen_private (const char *filename, int flags)
+void *vdl_dlopen (const char *filename, int flags)
 {
   futex_lock (&g_vdl.futex);
   void *handle = dlopen_with_context (g_vdl.contexts, filename, flags);
@@ -223,13 +223,13 @@ void *vdl_dlopen_private (const char *filename, int flags)
   return handle;
 }
 
-void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
+void *vdl_dlsym (void *handle, const char *symbol, unsigned long caller)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, caller=0x%llx", handle, symbol, caller);
-  return vdl_dlvsym_private (handle, symbol, 0, caller);
+  return vdl_dlvsym (handle, symbol, 0, caller);
 }
 
-int vdl_dlclose_private (void *handle)
+int vdl_dlclose (void *handle)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx", handle);
   futex_lock (&g_vdl.futex);
@@ -265,7 +265,7 @@ int vdl_dlclose_private (void *handle)
   return 0;
 }
 
-char *vdl_dlerror_private (void)
+char *vdl_dlerror (void)
 {
   VDL_LOG_FUNCTION ("", 0);
   futex_lock (&g_vdl.futex);
@@ -281,14 +281,14 @@ char *vdl_dlerror_private (void)
   return error_string;
 }
 
-int vdl_dladdr_private (const void *addr, Dl_info *info)
+int vdl_dladdr (const void *addr, Dl_info *info)
 {
   futex_lock (&g_vdl.futex);
   set_error ("dladdr unimplemented");
   futex_unlock (&g_vdl.futex);
   return 0;
 }
-void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version, unsigned long caller)
+void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigned long caller)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
 		    handle, symbol, version, caller);
@@ -355,7 +355,7 @@ void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version,
   futex_unlock (&g_vdl.futex);
   return 0;
 }
-int vdl_dl_iterate_phdr_private (int (*callback) (struct dl_phdr_info *info,
+int vdl_dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info,
 						  size_t size, void *data),
 				 void *data,
 				 unsigned long caller)
@@ -399,7 +399,7 @@ int vdl_dl_iterate_phdr_private (int (*callback) (struct dl_phdr_info *info,
   futex_unlock (&g_vdl.futex);
   return ret;
 }
-void *vdl_dlmopen_private (Lmid_t lmid, const char *filename, int flag)
+void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context;
@@ -425,7 +425,7 @@ void *vdl_dlmopen_private (Lmid_t lmid, const char *filename, int flag)
   futex_unlock (&g_vdl.futex);
   return handle;
 }
-int vdl_dlinfo_private (void *handle, int request, void *p)
+int vdl_dlinfo (void *handle, int request, void *p)
 {
   futex_lock (&g_vdl.futex);
   struct VdlFile *file = search_file (handle);
@@ -479,49 +479,7 @@ int vdl_dlinfo_private (void *handle, int request, void *p)
   futex_unlock (&g_vdl.futex);
   return -1;
 }
-
-EXPORT void *vdl_dlopen_public (const char *filename, int flag)
-{
-  return vdl_dlopen_private (filename, flag);
-}
-
-EXPORT char *vdl_dlerror_public (void)
-{
-  return vdl_dlerror_private ();
-}
-
-EXPORT void *vdl_dlsym_public (void *handle, const char *symbol, unsigned long caller)
-{
-  return vdl_dlsym_private (handle, symbol, caller);
-}
-
-EXPORT int vdl_dlclose_public (void *handle)
-{
-  return vdl_dlclose_private (handle);
-}
-EXPORT int vdl_dladdr_public (const void *addr, Dl_info *info)
-{
-  return vdl_dladdr_private (addr, info);
-}
-EXPORT void *vdl_dlvsym_public (void *handle, const char *symbol, const char *version, unsigned long caller)
-{
-  return vdl_dlvsym_private (handle, symbol, version, caller);
-}
-EXPORT int vdl_dl_iterate_phdr_public (int (*callback) (struct dl_phdr_info *info,
-							size_t size, void *data),
-				       void *data)
-{
-  return vdl_dl_iterate_phdr_private (callback, data, RETURN_ADDRESS);
-}
-EXPORT int vdl_dlinfo_public (void *handle, int request, void *p)
-{
-  return vdl_dlinfo_private (handle, request, p);
-}
-EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag)
-{
-  return vdl_dlmopen_private (lmid, filename, flag);
-}
-EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **envp)
+Lmid_t vdl_dl_lmid_new (int argc, const char **argv, const char **envp)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context = vdl_context_new (argc, argv, envp);
@@ -529,9 +487,9 @@ EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **
   futex_unlock (&g_vdl.futex);
   return lmid;
 }
-EXPORT int vdl_dl_add_callback_public (Lmid_t lmid, 
-				       void (*cb) (void *handle, int event, void *context),
-				       void *cb_context)
+int vdl_dl_add_callback (Lmid_t lmid, 
+				 void (*cb) (void *handle, int event, void *context),
+				 void *cb_context)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
@@ -548,7 +506,8 @@ EXPORT int vdl_dl_add_callback_public (Lmid_t lmid,
   futex_unlock (&g_vdl.futex);
   return -1;
 }
-EXPORT int vdl_dl_add_lib_remap_public (Lmid_t lmid, const char *src, const char *dst)
+int
+vdl_dl_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
@@ -563,13 +522,13 @@ EXPORT int vdl_dl_add_lib_remap_public (Lmid_t lmid, const char *src, const char
   futex_unlock (&g_vdl.futex);
   return -1;
 }
-EXPORT int vdl_dl_add_symbol_remap_public (Lmid_t lmid,
-					    const char *src_name, 
-					    const char *src_ver_name, 
-					    const char *src_ver_filename, 
-					    const char *dst_name,
-					    const char *dst_ver_name,
-					    const char *dst_ver_filename)
+int vdl_dl_add_symbol_remap (Lmid_t lmid,
+				     const char *src_name, 
+				     const char *src_ver_name, 
+				     const char *src_ver_filename, 
+				     const char *dst_name,
+				     const char *dst_ver_name,
+				     const char *dst_ver_filename)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;

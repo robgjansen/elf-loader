@@ -262,7 +262,7 @@ struct Vdl
   // holds an entry for each thread which calls one a function
   // which potentially sets the dlerror state.
   struct ErrorList *error;
-  // both member variables are used exclusively by vdl_dl_iterate_phdr_private
+  // both member variables are used exclusively by vdl_dl_iterate_phdr
   unsigned long n_added;
   unsigned long n_removed;
 };

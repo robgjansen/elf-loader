@@ -1,5 +1,5 @@
 #include "macros.h"
-#include "vdl-dl.h"
+#include "vdl-dl-public.h"
 
 /* We provide these wrappers to be able to export a libvdl.so
  * with the _exact_ version definitions matching the system's

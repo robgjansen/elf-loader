@@ -222,7 +222,7 @@ void glibc_initialize (void)
 static void *
 dlsym_hack (void *handle, const char *symbol)
 {
-  return vdl_dlsym_private (handle, symbol, RETURN_ADDRESS);
+  return vdl_dlsym (handle, symbol, RETURN_ADDRESS);
 }
 
 void 
@@ -242,21 +242,21 @@ do_glibc_patch (struct VdlFile *file)
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dladdr_private,
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dladdr,
 				 result.symbol->st_value);
     }
   result = vdl_lookup_local (file, "__libc_dlopen_mode");
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen_private, 
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen, 
 				 result.symbol->st_size);
     }
   result = vdl_lookup_local (file, "__libc_dlclose");
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose_private,
+      machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose,
 				 result.symbol->st_size);
     }
   result = vdl_lookup_local (file, "__libc_dlsym");
