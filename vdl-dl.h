@@ -16,12 +16,13 @@ EXPORT void *vdl_dlvsym_public (void *handle, const char *symbol, const char *ve
 EXPORT int vdl_dl_iterate_phdr_public (int (*callback) (struct dl_phdr_info *info,
 							size_t size, void *data),
 				       void *data);
+EXPORT int vdl_dlinfo_public (void *handle, int request, void *p);
 EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag);
 // create a new linkmap
 EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **envp);
 EXPORT int vdl_dl_add_callback_public (Lmid_t lmid, 
-					void (*cb) (void *handle, int event, void *context),
-					void *cb_context);
+				       void (*cb) (void *handle, int event, void *context),
+				       void *cb_context);
 EXPORT int vdl_dl_add_lib_remap_public (Lmid_t lmid, const char *src, const char *dst);
 EXPORT int vdl_dl_add_symbol_remap_public (Lmid_t lmid,
 					   const char *src_name, 

@@ -15,7 +15,7 @@
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
 
-struct ErrorList *find_error (void)
+static struct ErrorList *find_error (void)
 {
   unsigned long thread_pointer = machine_thread_pointer_get ();
   struct ErrorList *cur;
@@ -34,7 +34,7 @@ struct ErrorList *find_error (void)
   return item;
 }
 
-void set_error (const char *str, ...)
+static void set_error (const char *str, ...)
 {
   va_list list;
   va_start (list, str);
@@ -48,7 +48,7 @@ void set_error (const char *str, ...)
   error->error = error_string;
 }
 
-struct VdlFile *
+static struct VdlFile *
 caller_to_file (unsigned long caller)
 {
   struct VdlFile *cur;
@@ -68,10 +68,39 @@ caller_to_file (unsigned long caller)
   return 0;
 }
 
-void *vdl_dlopen_with_context (struct VdlContext *context, const char *filename, int flags)
+static struct VdlContext *search_context (struct VdlContext *context)
+{
+  struct VdlContext *cur;
+  for (cur = g_vdl.contexts; cur != 0; cur = cur->next)
+    {
+      if (context == cur)
+	{
+	  return context;
+	}
+    }
+  set_error ("Can't find requested lmid 0x%x", context);
+  return 0;
+}
+
+static struct VdlFile *search_file (void *handle)
+{
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      if (cur == handle)
+	{
+	  return cur;
+	}
+    }
+  set_error ("Can't find requested file 0x%x", handle);
+  return 0;
+}
+
+
+// assumes caller has lock
+static void *dlopen_with_context (struct VdlContext *context, const char *filename, int flags)
 {
   VDL_LOG_FUNCTION ("filename=%s, flags=0x%x", filename, flags);
-  futex_lock (&g_vdl.futex);
 
   if (filename == 0)
     {
@@ -81,7 +110,6 @@ void *vdl_dlopen_with_context (struct VdlContext *context, const char *filename,
 	  if (cur->item->is_executable)
 	    {
 	      cur->item->count++;
-	      futex_unlock (&g_vdl.futex);
 	      return cur;
 	    }
 	}
@@ -169,7 +197,6 @@ void *vdl_dlopen_with_context (struct VdlContext *context, const char *filename,
   vdl_file_list_free (call_init);
   vdl_file_list_free (loaded);
 
-  futex_unlock (&g_vdl.futex);
   return mapped_file;
 
  error:
@@ -185,14 +212,15 @@ void *vdl_dlopen_with_context (struct VdlContext *context, const char *filename,
     vdl_file_list_free (unload);
 
     gdb_notify ();
-
-    futex_unlock (&g_vdl.futex);
   }
   return 0;
 }
 void *vdl_dlopen_private (const char *filename, int flags)
 {
-  return vdl_dlopen_with_context (g_vdl.contexts, filename, flags);
+  futex_lock (&g_vdl.futex);
+  void *handle = dlopen_with_context (g_vdl.contexts, filename, flags);
+  futex_unlock (&g_vdl.futex);
+  return handle;
 }
 
 void *vdl_dlsym_private (void *handle, const char *symbol, unsigned long caller)
@@ -206,7 +234,12 @@ int vdl_dlclose_private (void *handle)
   VDL_LOG_FUNCTION ("handle=0x%llx", handle);
   futex_lock (&g_vdl.futex);
 
-  struct VdlFile *file = (struct VdlFile*)handle;
+  struct VdlFile *file = search_file (handle);
+  if (file == 0)
+    {
+      futex_unlock (&g_vdl.futex);
+      return -1;
+    }
   file->count--;
 
   // first, we gather the list of all objects to unload/delete
@@ -235,6 +268,7 @@ int vdl_dlclose_private (void *handle)
 char *vdl_dlerror_private (void)
 {
   VDL_LOG_FUNCTION ("", 0);
+  futex_lock (&g_vdl.futex);
   struct ErrorList *error = find_error ();
   char *error_string = error->error;
   if (error_string != 0)
@@ -243,12 +277,15 @@ char *vdl_dlerror_private (void)
     }
   // clear the error we are about to report to the user
   error->error = 0;
+  futex_unlock (&g_vdl.futex);
   return error_string;
 }
 
 int vdl_dladdr_private (const void *addr, Dl_info *info)
 {
+  futex_lock (&g_vdl.futex);
   set_error ("dladdr unimplemented");
+  futex_unlock (&g_vdl.futex);
   return 0;
 }
 void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version, unsigned long caller)
@@ -258,7 +295,6 @@ void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version,
   futex_lock (&g_vdl.futex);
   struct VdlFileList *scope;
   struct VdlFile *caller_file = caller_to_file (caller);
-  struct VdlFile *file = (struct VdlFile*)handle;
   struct VdlContext *context;
   if (caller_file == 0)
     {
@@ -296,9 +332,9 @@ void *vdl_dlvsym_private (void *handle, const char *symbol, const char *version,
     }
   else
     {
+      struct VdlFile *file = search_file (handle);
       if (file == 0)
 	{
-	  set_error ("Invalid handle");
 	  goto error;
 	}
       scope = vdl_sort_deps_breadth_first (file);
@@ -363,26 +399,9 @@ int vdl_dl_iterate_phdr_private (int (*callback) (struct dl_phdr_info *info,
   futex_unlock (&g_vdl.futex);
   return ret;
 }
-static struct VdlContext *search_context (struct VdlContext *context)
-{
-  bool found = false;
-  struct VdlContext *cur;
-  for (cur = g_vdl.contexts; cur != 0; cur = cur->next)
-    {
-      if (context == cur)
-	{
-	  found = true;
-	}
-    }
-  if (!found)
-    {
-      set_error ("Can't find requested lmid");
-      return 0;
-    }
-  return context;
-}
 void *vdl_dlmopen_private (Lmid_t lmid, const char *filename, int flag)
 {
+  futex_lock (&g_vdl.futex);
   struct VdlContext *context;
   if (lmid == LM_ID_BASE)
     {
@@ -390,9 +409,9 @@ void *vdl_dlmopen_private (Lmid_t lmid, const char *filename, int flag)
     }
   else if (lmid == LM_ID_NEWLM)
     {
-      context = vdl_context_new(g_vdl.contexts->argc,
-				(const char **)g_vdl.contexts->argv,
-				(const char **)g_vdl.contexts->envp);
+      context = vdl_context_new (g_vdl.contexts->argc,
+				 (const char **)g_vdl.contexts->argv,
+				 (const char **)g_vdl.contexts->envp);
     }
   else
     {
@@ -402,10 +421,64 @@ void *vdl_dlmopen_private (Lmid_t lmid, const char *filename, int flag)
 	  return 0;
 	}
     }
-  void *handle = vdl_dlopen_with_context (context, filename, flag);
+  void *handle = dlopen_with_context (context, filename, flag);
+  futex_unlock (&g_vdl.futex);
   return handle;
 }
-
+int vdl_dlinfo_private (void *handle, int request, void *p)
+{
+  futex_lock (&g_vdl.futex);
+  struct VdlFile *file = search_file (handle);
+  if (file == 0)
+    {
+      goto error;
+    }
+  if (request == RTLD_DI_LMID)
+    {
+      Lmid_t *plmid = (Lmid_t*)p;
+      *plmid = (Lmid_t)file->context;
+    }
+  else if (request == RTLD_DI_LINKMAP)
+    {
+      struct link_map **pmap = (struct link_map **)p;
+      *pmap = (struct link_map*) file;
+    }
+  else if (request == RTLD_DI_TLS_MODID)
+    {
+      size_t *pmodid = (size_t *)p;
+      if (file->has_tls)
+	{
+	  *pmodid = file->tls_index;
+	}
+      else
+	{
+	  *pmodid = 0;
+	}
+    }
+  else if (request == RTLD_DI_TLS_DATA)
+    {
+      void **ptls = (void**)p;
+      if (file->has_tls)
+	{
+	  *ptls = (void*)vdl_tls_get_addr_fast (file->tls_index, 0);
+	}
+      else
+	{
+	  *ptls = 0;
+	}
+    }
+  else
+    {
+      set_error ("dlinfo: unsupported request=%u", request);
+      goto error;
+    }
+  
+  futex_unlock (&g_vdl.futex);
+  return 0;
+ error:
+  futex_unlock (&g_vdl.futex);
+  return -1;
+}
 
 EXPORT void *vdl_dlopen_public (const char *filename, int flag)
 {
@@ -440,39 +513,55 @@ EXPORT int vdl_dl_iterate_phdr_public (int (*callback) (struct dl_phdr_info *inf
 {
   return vdl_dl_iterate_phdr_private (callback, data, RETURN_ADDRESS);
 }
+EXPORT int vdl_dlinfo_public (void *handle, int request, void *p)
+{
+  return vdl_dlinfo_private (handle, request, p);
+}
 EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag)
 {
   return vdl_dlmopen_private (lmid, filename, flag);
 }
 EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **envp)
 {
+  futex_lock (&g_vdl.futex);
   struct VdlContext *context = vdl_context_new (argc, argv, envp);
   Lmid_t lmid = (Lmid_t) context;
+  futex_unlock (&g_vdl.futex);
   return lmid;
 }
 EXPORT int vdl_dl_add_callback_public (Lmid_t lmid, 
 				       void (*cb) (void *handle, int event, void *context),
 				       void *cb_context)
 {
+  futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
   if (search_context (context) == 0)
     {
-      return -1;
+      goto error;
     }
   vdl_context_add_callback (context, 
 			    (void (*) (void *, enum VdlEvent, void *))cb, 
 			    cb_context);
+  futex_unlock (&g_vdl.futex);
   return 0;
+ error:
+  futex_unlock (&g_vdl.futex);
+  return -1;
 }
 EXPORT int vdl_dl_add_lib_remap_public (Lmid_t lmid, const char *src, const char *dst)
 {
+  futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
   if (search_context (context) == 0)
     {
-      return -1;
+      goto error;
     }
   vdl_context_add_lib_remap (context, src, dst);
+  futex_unlock (&g_vdl.futex);
   return 0;
+ error:
+  futex_unlock (&g_vdl.futex);
+  return -1;
 }
 EXPORT int vdl_dl_add_symbol_remap_public (Lmid_t lmid,
 					    const char *src_name, 
@@ -482,13 +571,18 @@ EXPORT int vdl_dl_add_symbol_remap_public (Lmid_t lmid,
 					    const char *dst_ver_name,
 					    const char *dst_ver_filename)
 {
+  futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
   if (search_context (context) == 0)
     {
-      return -1;
+      goto error;
     }
   vdl_context_add_symbol_remap (context,
 				src_name, src_ver_name, src_ver_filename,
 				dst_name, dst_ver_name, dst_ver_filename);
+  futex_unlock (&g_vdl.futex);
   return 0;
+ error:
+  futex_unlock (&g_vdl.futex);
+  return -1;
 }

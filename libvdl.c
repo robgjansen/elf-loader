@@ -37,6 +37,10 @@ EXPORT void *dlvsym (void *handle, const char *symbol, const char *version)
 {
   return vdl_dlvsym_public (handle, symbol, version, RETURN_ADDRESS);
 }
+EXPORT int dlinfo (void *handle, int request, void *p)
+{
+  return vdl_dlinfo_public (handle, request, p);
+}
 EXPORT void *dlmopen (Lmid_t lmid, const char *filename, int flag)
 {
   return vdl_dlmopen_public(lmid, filename, flag);
