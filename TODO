@@ -69,10 +69,6 @@ real undefined symbols by the dynamic linker).
 
    - should test scopes
 
-   - need to change meaning of local_scope and add a loader field in VdlFile
-     Do we need to set the loader and local_scope fields in the initial
-     modules loaded ?
-
    - must find a better way to handle the resolv trampoline debug info
      for stack trace management from gdb
 
@@ -83,3 +79,5 @@ real undefined symbols by the dynamic linker).
      i.e., we don't care about this.
 
    - figure out why we need to iterate over the verneed array to find a symbol definition.
+
+   - must implement dlmopen, design API for ns-3

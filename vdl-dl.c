@@ -363,7 +363,48 @@ int vdl_dl_iterate_phdr_private (int (*callback) (struct dl_phdr_info *info,
   futex_unlock (&g_vdl.futex);
   return ret;
 }
-
+static struct VdlContext *search_context (struct VdlContext *context)
+{
+  bool found = false;
+  struct VdlContext *cur;
+  for (cur = g_vdl.contexts; cur != 0; cur = cur->next)
+    {
+      if (context == cur)
+	{
+	  found = true;
+	}
+    }
+  if (!found)
+    {
+      set_error ("Can't find requested lmid");
+      return 0;
+    }
+  return context;
+}
+void *vdl_dlmopen_private (Lmid_t lmid, const char *filename, int flag)
+{
+  struct VdlContext *context;
+  if (lmid == LM_ID_BASE)
+    {
+      context = g_vdl.contexts;
+    }
+  else if (lmid == LM_ID_NEWLM)
+    {
+      context = vdl_context_new(g_vdl.contexts->argc,
+				(const char **)g_vdl.contexts->argv,
+				(const char **)g_vdl.contexts->envp);
+    }
+  else
+    {
+      context = (struct VdlContext *) lmid;
+      if (search_context (context) == 0)
+	{
+	  return 0;
+	}
+    }
+  void *handle = vdl_dlopen_with_context (context, filename, flag);
+  return handle;
+}
 
 
 EXPORT void *vdl_dlopen_public (const char *filename, int flag)
@@ -398,4 +439,56 @@ EXPORT int vdl_dl_iterate_phdr_public (int (*callback) (struct dl_phdr_info *inf
 				       void *data)
 {
   return vdl_dl_iterate_phdr_private (callback, data, RETURN_ADDRESS);
+}
+EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag)
+{
+  return vdl_dlmopen_private (lmid, filename, flag);
+}
+EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **envp)
+{
+  struct VdlContext *context = vdl_context_new (argc, argv, envp);
+  Lmid_t lmid = (Lmid_t) context;
+  return lmid;
+}
+EXPORT int vdl_dl_add_callback_public (Lmid_t lmid, 
+				       void (*cb) (void *handle, int event, void *context),
+				       void *cb_context)
+{
+  struct VdlContext *context = (struct VdlContext *)lmid;
+  if (search_context (context) == 0)
+    {
+      return -1;
+    }
+  vdl_context_add_callback (context, 
+			    (void (*) (void *, enum VdlEvent, void *))cb, 
+			    cb_context);
+  return 0;
+}
+EXPORT int vdl_dl_add_lib_remap_public (Lmid_t lmid, const char *src, const char *dst)
+{
+  struct VdlContext *context = (struct VdlContext *)lmid;
+  if (search_context (context) == 0)
+    {
+      return -1;
+    }
+  vdl_context_add_lib_remap (context, src, dst);
+  return 0;
+}
+EXPORT int vdl_dl_add_symbol_remap_public (Lmid_t lmid,
+					    const char *src_name, 
+					    const char *src_ver_name, 
+					    const char *src_ver_filename, 
+					    const char *dst_name,
+					    const char *dst_ver_name,
+					    const char *dst_ver_filename)
+{
+  struct VdlContext *context = (struct VdlContext *)lmid;
+  if (search_context (context) == 0)
+    {
+      return -1;
+    }
+  vdl_context_add_symbol_remap (context,
+				src_name, src_ver_name, src_ver_filename,
+				dst_name, dst_ver_name, dst_ver_filename);
+  return 0;
 }

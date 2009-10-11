@@ -7,4 +7,9 @@ global:
 	vdl_dladdr_public;
 	vdl_dlvsym_public;
 	vdl_dl_iterate_phdr_public;
+	vdl_dlmopen_public;
+	vdl_dl_lmid_new_public;
+	vdl_dl_add_lib_remap_public;
+	vdl_dl_add_symbol_remap_public;
+	vdl_dl_add_callback_public;
 };

@@ -37,4 +37,34 @@ EXPORT void *dlvsym (void *handle, const char *symbol, const char *version)
 {
   return vdl_dlvsym_public (handle, symbol, version, RETURN_ADDRESS);
 }
+EXPORT void *dlmopen (Lmid_t lmid, const char *filename, int flag)
+{
+  return vdl_dlmopen_public(lmid, filename, flag);
+}
+EXPORT Lmid_t dl_lmid_new (int argc, const char **argv, const char **envp)
+{
+  return vdl_dl_lmid_new_public (argc, argv, envp);
+}
+EXPORT int dl_add_callback (Lmid_t lmid, 
+			    void (*cb) (void *handle, int event, void *context),
+			    void *cb_context)
+{
+  return vdl_dl_add_callback_public (lmid, cb, cb_context);
+}
+EXPORT int dl_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
+{
+  return vdl_dl_add_lib_remap_public (lmid, src, dst);
+}
+EXPORT int dl_add_symbol_remap (Lmid_t lmid,
+				const char *src_name, 
+				const char *src_ver_name, 
+				const char *src_ver_filename, 
+				const char *dst_name,
+				const char *dst_ver_name,
+				const char *dst_ver_filename)
+{
+  return vdl_dl_add_symbol_remap_public (lmid, 
+					 src_name, src_ver_name, src_ver_filename,
+					 dst_name, dst_ver_name, dst_ver_filename);
+}
 
