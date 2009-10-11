@@ -49,7 +49,7 @@ static void set_error (const char *str, ...)
 }
 
 static struct VdlFile *
-caller_to_file (unsigned long caller)
+addr_to_file (unsigned long caller)
 {
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
@@ -94,6 +94,44 @@ static struct VdlFile *search_file (void *handle)
     }
   set_error ("Can't find requested file 0x%x", handle);
   return 0;
+}
+
+static ElfW(Sym) *update_match (unsigned long addr,
+				struct VdlFile *file,
+				ElfW(Sym) *candidate, ElfW(Sym) *match)
+{
+  if (ELFW_ST_BIND (candidate->st_info) != STB_WEAK &&
+      ELFW_ST_BIND (candidate->st_info) != STB_GLOBAL)
+    {
+      // not an acceptable match
+      return match;
+    }
+  if (ELFW_ST_TYPE (candidate->st_info) == STT_TLS)
+    {
+      // tls symbols do not have an address
+      return match;
+    }
+  if (candidate->st_shndx == SHN_UNDEF
+      || candidate->st_value == 0)
+    {
+      // again, symbol does not have an address
+      return match;
+    }
+  unsigned long start = file->load_base + candidate->st_value;
+  unsigned long end = start + candidate->st_size;
+  if (addr < start || addr >= end)
+    {
+      // address does not match
+      return match;
+    }
+  // this symbol includes the target address
+  // is it better than the current match ?
+  if (match != 0 || (match->st_size < candidate->st_size))
+    {
+      // not better.
+      return match;
+    }
+  return candidate;
 }
 
 
@@ -281,12 +319,117 @@ char *vdl_dlerror (void)
   return error_string;
 }
 
-int vdl_dladdr (const void *addr, Dl_info *info)
+int vdl_dladdr1 (const void *addr, Dl_info *info, 
+		 void **extra_info, int flags)
 {
   futex_lock (&g_vdl.futex);
-  set_error ("dladdr unimplemented");
+  struct VdlFile *file = addr_to_file ((unsigned long)addr);
+  if (file == 0)
+    {
+      set_error ("No object contains 0x%lx", addr);
+      goto error;
+    }
+  if (info == 0)
+    {
+      set_error ("Invalid input data: null info pointer");
+      goto error;
+    }
+  // ok, we have a containing object file
+  if (vdl_utils_strisequal (file->filename, "") &&
+      file->is_executable)
+    {
+      // This is the main executable
+      info->dli_fname = file->name;
+    }
+  else
+    {
+      info->dli_fname = file->filename;
+    }
+  info->dli_fbase = (void*)file->load_base;
+  if (flags == RTLD_DL_LINKMAP)
+    {
+      struct link_map **plink_map = (struct link_map **)extra_info;
+      *plink_map = (struct link_map *)file;
+    }
+
+
+  // now, we try to find the closest symbol
+  // For this, we simply iterate over the symbol table of the file.
+  ElfW(Sym) *match = 0;
+  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
+  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
+  ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_HASH);
+  uint32_t *dt_gnu_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_GNU_HASH);
+  if (dt_symtab != 0 && dt_strtab != 0)
+    {
+      if (dt_hash != 0)
+	{
+	  // this is a standard elf hash table
+	  // the number of symbol table entries is equal to the number of hash table
+	  // chain entries which is indicated by nchain
+	  ElfW(Word) nchain = dt_hash[1];
+	  ElfW(Word) i;
+	  for (i = 0; i < nchain; i++)
+	    {
+	      ElfW(Sym) *cur = &dt_symtab[i];
+	      match = update_match ((unsigned long)addr, file, cur, match);
+	    }
+	}
+      if (dt_gnu_hash != 0)
+	{
+	  // this is a gnu hash table.
+	  uint32_t nbuckets = dt_gnu_hash[0];
+	  uint32_t symndx = dt_gnu_hash[1];
+	  uint32_t maskwords = dt_gnu_hash[2];
+	  ElfW(Addr) *bloom = (ElfW(Addr)*)(dt_gnu_hash + 4);
+	  uint32_t *buckets = (uint32_t *)(((unsigned long)bloom) + maskwords * sizeof (ElfW(Addr)));
+	  uint32_t *chains = &buckets[nbuckets];
+
+	  // first, iterate over all buckets in the hash table
+	  uint32_t i;
+	  for (i = 0; i < nbuckets; i++)
+	    {
+	      if (buckets[i] == 0)
+		{
+		  continue;
+		}
+	      // now, iterate over the chain of this bucket
+	      uint32_t j = buckets[i];
+	      do {
+		match = update_match ((unsigned long)addr, file, &dt_symtab[j], match);
+		j++;
+	      } while ((chains[j-symndx] & 0x1) != 0x1);
+	    }
+	}
+    }
+
+  // ok, now we finally set the fields of the info structure 
+  // from the result of the symbol lookup.
+  if (match == 0)
+    {
+      info->dli_sname = 0;
+      info->dli_saddr = 0;
+    }
+  else
+    {
+      info->dli_sname = dt_strtab + match->st_name;
+      info->dli_saddr = (void*)(file->load_base + match->st_value);
+    }
+  if (flags == RTLD_DL_SYMENT)
+    {
+      const ElfW(Sym) **sym = (const ElfW(Sym) **)extra_info;
+      *sym = match;
+    }
+  else 
+  futex_unlock (&g_vdl.futex);
+  return 1;
+ error:
   futex_unlock (&g_vdl.futex);
   return 0;
+}
+int vdl_dladdr (const void *addr, Dl_info *info)
+{
+  return vdl_dladdr1 (addr, info, 0, 0);
 }
 void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigned long caller)
 {
@@ -294,7 +437,7 @@ void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigne
 		    handle, symbol, version, caller);
   futex_lock (&g_vdl.futex);
   struct VdlFileList *scope;
-  struct VdlFile *caller_file = caller_to_file (caller);
+  struct VdlFile *caller_file = addr_to_file (caller);
   struct VdlContext *context;
   if (caller_file == 0)
     {
@@ -362,7 +505,7 @@ int vdl_dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info,
 {
   int ret = 0;
   futex_lock (&g_vdl.futex);
-  struct VdlFile *file = caller_to_file (caller);
+  struct VdlFile *file = addr_to_file (caller);
 
   // report all objects within the global scope/context of the caller
   struct VdlFileList *cur;
