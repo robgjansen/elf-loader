@@ -169,7 +169,7 @@ vdl_context_symbol_remap (const struct VdlContext *context,
   return;
 }
 
-struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp)
+struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
 {
   VDL_LOG_FUNCTION ("argc=%d", argc);
 
@@ -189,39 +189,10 @@ struct VdlContext *vdl_context_new (int argc, const char **argv, const char **en
   context->n_event_callbacks = 0;
   context->event_callbacks = 0;
   g_vdl.contexts = context;
-  // store argc safely
+  // keep a reference to argc, argv and envp.
   context->argc = argc;
-  // create a private copy of argv
-  context->argv = vdl_utils_malloc (sizeof (char*)*(argc+1));
-  int i;
-  for (i = 0; i < argc; i++)
-    {
-      context->argv[i] = vdl_utils_strdup (argv[i]);
-    }
-  context->argv[argc] = 0;
-  // calculate size of envp
-  i = 0;
-  while (1)
-    {
-      if (envp[i] == 0)
-	{
-	  break;
-	}
-      i++;
-    }
-  // create a private copy of envp
-  context->envp = vdl_utils_malloc (sizeof (char *)*i);
-  context->envp[i] = 0;
-  i = 0;
-  while (1)
-    {
-      if (envp[i] == 0)
-	{
-	  break;
-	}
-      context->envp[i] = vdl_utils_strdup (envp[i]);
-      i++;
-    }
+  context->argv = argv;
+  context->envp = envp;
 
   // these are hardcoded name conversions to ensure that
   // we can replace the libc loader.
@@ -253,22 +224,12 @@ vdl_context_delete (struct VdlContext *context)
     }
   context->prev = 0;
   context->next = 0;
-  // delete argv
-  int i;
-  for (i = 0; i < context->argc; i++)
-    {
-      vdl_utils_strfree (context->argv[i]);
-    }
-  vdl_utils_free (context->argv, sizeof (char *)*(context->argc+1));
-  // delete envp
-  char **cur;
-  for (cur = context->envp, i = 0; *cur != 0; cur++, i++)
-    {
-      vdl_utils_strfree (*cur);
-    }
-  vdl_utils_free (context->envp, sizeof(char *)*i);
+  context->argc = 0;
+  context->argv = 0;
+  context->envp = 0;
 
   // delete lib remap entries
+  int i;
   for (i = 0; i < context->n_lib_remaps; i++)
     {
       vdl_utils_strfree (context->lib_remaps[i].src);

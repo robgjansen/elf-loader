@@ -29,9 +29,9 @@ prepare_stage2 (unsigned long entry_point_struct)
   // 4 bytes on i386 and 8 bytes on x86_64).
   stage2_input.program_argc = READ_LONG (tmp); // skip argc
   DPRINTF("argc=0x%x\n", stage2_input.program_argc);
-  stage2_input.program_argv = (const char **)tmp;
+  stage2_input.program_argv = (char **)tmp;
   tmp += sizeof(char *)*(stage2_input.program_argc+1); // skip argv
-  stage2_input.program_envp = (const char **)tmp;
+  stage2_input.program_envp = (char **)tmp;
   while (READ_POINTER (tmp) != 0) {} // skip envp
   auxvt = (ElfW(auxv_t) *)tmp; // save aux vector start
   stage2_input.sysinfo = 0;

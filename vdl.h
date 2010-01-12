@@ -223,8 +223,6 @@ struct VdlContext
   // _some_ libc .init functions make use of these
   // 3 arguments so, even though no one else uses them, 
   // we have to pass them around.
-  // The arrays below are private copies exclusively used
-  // by the loader.
   int argc;
   char **argv;
   char **envp;  
@@ -270,7 +268,7 @@ struct Vdl
 
 extern struct Vdl g_vdl;
 
-struct VdlContext *vdl_context_new (int argc, const char **argv, const char **envp);
+struct VdlContext *vdl_context_new (int argc, char **argv, char **envp);
 void vdl_context_delete (struct VdlContext *context);
 void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, const char *dst);
 void vdl_context_add_symbol_remap (struct VdlContext *context, 

@@ -204,7 +204,7 @@ stage2_initialize (struct Stage2Input input)
 
   g_vdl.search_dirs = get_system_search_dirs ();
 
-  setup_env_vars (input.program_envp);
+  setup_env_vars ((const char**)input.program_envp);
 
   struct VdlFile *main_file;
   struct VdlContext *context;
@@ -272,7 +272,7 @@ stage2_initialize (struct Stage2Input input)
 				 pt_interp,
 				 context);
 
-  struct VdlFileList *ld_preload = do_ld_preload (context, input.program_envp, &loaded);
+  struct VdlFileList *ld_preload = do_ld_preload (context, (const char **)input.program_envp, &loaded);
 
   VDL_LOG_ASSERT (vdl_file_map_deps (main_file, &loaded), 
 		  "Unable to map dependencies of main file");

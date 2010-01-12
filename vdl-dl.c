@@ -553,8 +553,8 @@ void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag)
   else if (lmid == LM_ID_NEWLM)
     {
       context = vdl_context_new (g_vdl.contexts->argc,
-				 (const char **)g_vdl.contexts->argv,
-				 (const char **)g_vdl.contexts->envp);
+				 g_vdl.contexts->argv,
+				 g_vdl.contexts->envp);
     }
   else
     {
@@ -622,7 +622,7 @@ int vdl_dlinfo (void *handle, int request, void *p)
   futex_unlock (&g_vdl.futex);
   return -1;
 }
-Lmid_t vdl_dl_lmid_new (int argc, const char **argv, const char **envp)
+Lmid_t vdl_dl_lmid_new (int argc, char **argv, char **envp)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context = vdl_context_new (argc, argv, envp);

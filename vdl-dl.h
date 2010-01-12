@@ -19,18 +19,18 @@ void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigne
 int vdl_dlinfo (void *handle, int request, void *p);
 void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag);
 // create a new linkmap
-Lmid_t vdl_dl_lmid_new (int argc, const char **argv, const char **envp);
+Lmid_t vdl_dl_lmid_new (int argc, char **argv, char **envp);
 int vdl_dl_add_callback (Lmid_t lmid, 
-				       void (*cb) (void *handle, int event, void *context),
-				       void *cb_context);
+			 void (*cb) (void *handle, int event, void *context),
+			 void *cb_context);
 int vdl_dl_add_lib_remap (Lmid_t lmid, const char *src, const char *dst);
 int vdl_dl_add_symbol_remap (Lmid_t lmid,
-					   const char *src_name, 
-					   const char *src_ver_name, 
-					   const char *src_ver_filename, 
-					   const char *dst_name,
-					   const char *dst_ver_name,
-					   const char *dst_ver_filename);
+			     const char *src_name, 
+			     const char *src_ver_name, 
+			     const char *src_ver_filename, 
+			     const char *dst_name,
+			     const char *dst_ver_name,
+			     const char *dst_ver_filename);
 
 // This function is special: it is not called from ldso: it is
 // used by vdl itself as the target of a redirection from every call to 

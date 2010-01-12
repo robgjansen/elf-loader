@@ -11,8 +11,8 @@ struct Stage2Input
   unsigned long program_phnum;
   unsigned long sysinfo;
   int program_argc;
-  const char **program_argv;
-  const char **program_envp;
+  char **program_argv;
+  char **program_envp;
 };
 
 struct Stage2Output

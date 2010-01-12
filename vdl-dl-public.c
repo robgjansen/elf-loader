@@ -36,7 +36,7 @@ EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag)
 {
   return vdl_dlmopen (lmid, filename, flag);
 }
-EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **envp)
+EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, char **argv, char **envp)
 {
   return vdl_dl_lmid_new (argc, argv, envp);
 }

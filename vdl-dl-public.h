@@ -16,7 +16,7 @@ EXPORT void *vdl_dlvsym_public (void *handle, const char *symbol, const char *ve
 EXPORT int vdl_dlinfo_public (void *handle, int request, void *p);
 EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag);
 // create a new linkmap
-EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, const char **argv, const char **envp);
+EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, char **argv, char **envp);
 EXPORT int vdl_dl_add_callback_public (Lmid_t lmid, 
 				       void (*cb) (void *handle, int event, void *context),
 				       void *cb_context);
