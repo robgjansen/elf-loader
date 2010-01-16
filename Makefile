@@ -70,12 +70,12 @@ readversiondef.o: readversiondef.c
 readversiondef: readversiondef.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-libvdl.version: readversiondef
-	./readversiondef $(LIBDL_FILE) > $@
+libdl.version: readversiondef libvdl.version
+	./readversiondef $(LIBDL_FILE) | cat libvdl.version - > $@
 libvdl.o: libvdl.c
 	$(CC) $(CFLAGS) -fvisibility=hidden -fpic -o $@ -c $< 
-libvdl.so: libvdl.o ldso libvdl.version
-	$(CC) $(LDFLAGS) ldso -nostdlib -shared -Wl,--version-script=libvdl.version -o $@ $<
+libvdl.so: libvdl.o ldso libdl.version
+	$(CC) $(LDFLAGS) ldso -nostdlib -shared -Wl,--version-script=libdl.version -o $@ $<
 
 elfedit: elfedit.o
 internal-tests: LDFLAGS+=-lpthread

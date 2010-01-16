@@ -1,0 +1,7 @@
+LIBVDL {
+global:
+	dl_lmid_new_public;
+	dl_add_lib_remap_public;
+	dl_add_symbol_remap_public;
+	dl_add_callback_public;
+};
