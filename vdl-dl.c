@@ -631,8 +631,8 @@ Lmid_t vdl_dl_lmid_new (int argc, char **argv, char **envp)
   return lmid;
 }
 int vdl_dl_add_callback (Lmid_t lmid, 
-				 void (*cb) (void *handle, int event, void *context),
-				 void *cb_context)
+			 void (*cb) (void *handle, int event, void *context),
+			 void *cb_context)
 {
   futex_lock (&g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;

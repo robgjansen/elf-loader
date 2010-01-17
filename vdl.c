@@ -78,9 +78,9 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
   new_entries[old_n_entries].dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
   context->n_symbol_remaps++;
 }
-void vdl_context_add_event_callback (struct VdlContext *context,
-				     void (*cb) (void *handle, enum VdlEvent event, void *context),
-				     void *cb_context)
+void vdl_context_add_callback (struct VdlContext *context,
+			       void (*cb) (void *handle, enum VdlEvent event, void *context),
+			       void *cb_context)
 {
   int old_n_entries = context->n_event_callbacks;
   struct VdlContextCallbackEntry *old_entries = context->event_callbacks;
