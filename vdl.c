@@ -94,9 +94,21 @@ void vdl_context_add_callback (struct VdlContext *context,
     }
   context->event_callbacks = new_entries;
   new_entries[old_n_entries].fn = cb;
-  new_entries[old_n_entries].context = context;
+  new_entries[old_n_entries].context = cb_context;
   context->n_event_callbacks++;
 }
+void vdl_context_notify (struct VdlContext *context,
+			 struct VdlFile *file,
+			 enum VdlEvent event)
+{
+  int i;
+  for (i = 0; i < context->n_event_callbacks; i++)
+    {
+      struct VdlContextCallbackEntry *entry = &context->event_callbacks[i];
+      entry->fn (file, event, entry->context);
+    }
+}
+
 
 const char *
 vdl_context_lib_remap (const struct VdlContext *context, const char *name)
@@ -661,6 +673,9 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   
   vdl_utils_free (phdr, header.e_phnum * header.e_phentsize);
   system_close (fd);
+
+  vdl_context_notify (context, file, VDL_EVENT_MAPPED);
+
   return file;
 error:
   if (fd >= 0)

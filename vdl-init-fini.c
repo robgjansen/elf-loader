@@ -46,6 +46,8 @@ call_fini (struct VdlFile *file)
       fini_function fini = (fini_function) dt_fini;
       fini ();
     }
+
+  vdl_context_notify (file->context, file, VDL_EVENT_DESTROYED);
 }
 
 
@@ -100,6 +102,8 @@ call_init (struct VdlFile *file)
 	  (*(init[i])) (file->context->argc, file->context->argv, file->context->envp);
 	}
     }
+
+  vdl_context_notify (file->context, file, VDL_EVENT_CONSTRUCTED);
 }
 
 

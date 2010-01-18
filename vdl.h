@@ -281,6 +281,9 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
 void vdl_context_add_callback (struct VdlContext *context,
 			       void (*cb) (void *handle, enum VdlEvent event, void *context),
 			       void *cb_context);
+void vdl_context_notify (struct VdlContext *context,
+			 struct VdlFile *file,
+			 enum VdlEvent event);
 const char *vdl_context_lib_remap (const struct VdlContext *context, const char *name);
 void vdl_context_symbol_remap (const struct VdlContext *context, 
 			       const char **name,
