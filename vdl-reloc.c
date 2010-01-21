@@ -10,14 +10,17 @@
 static bool
 sym_to_ver_req (struct VdlFile *file,
 		unsigned long index,
-		ElfW(Verneed) **pverneed,
-		ElfW(Vernaux) **pvernaux)
+		const char **ver_name,
+		const char **ver_filename)
 {
+  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
   ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
   ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
   unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
+  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (file, DT_VERDEF);
+  unsigned long dt_verdefnum = vdl_file_get_dynamic_v (file, DT_VERDEFNUM);
 
-  if (dt_versym != 0 && dt_verneed != 0 && dt_verneednum != 0)
+  if (dt_strtab != 0 && dt_versym != 0)
     {
       // the same offset used to look in the symbol table (dt_symtab)
       // is an offset in the version table (dt_versym).
@@ -30,22 +33,48 @@ sym_to_ver_req (struct VdlFile *file,
 	{
 	  return false;
 	}
-      // search the version needed whose vd_ndx is equal to ver_ndx.
-      ElfW(Verneed) *cur, *prev;
-      for (cur = dt_verneed, prev = 0; 
-	   cur != prev; 
-	   prev = cur, cur = (ElfW(Verneed) *)(((unsigned long)cur)+cur->vn_next))
+      // search the version needed whose vna_other is equal to ver_ndx.
+      if (dt_verneed != 0 && dt_verneednum != 0)
 	{
-	  VDL_LOG_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
-	  ElfW(Vernaux) *cur_aux, *prev_aux;
-	  for (cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur)+cur->vn_aux), prev_aux = 0;
-	       cur_aux != prev_aux; 
-	       prev_aux = cur_aux, cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur_aux)+cur_aux->vna_next))
+	  ElfW(Verneed) *cur, *prev;
+	  for (cur = dt_verneed, prev = 0; 
+	       cur != prev; 
+	       prev = cur, cur = (ElfW(Verneed) *)(((unsigned long)cur)+cur->vn_next))
 	    {
-	      if (cur_aux->vna_other == ver_ndx)
+	      VDL_LOG_ASSERT (cur->vn_version == 1, "version number invalid for Verneed");
+	      ElfW(Vernaux) *cur_aux, *prev_aux;
+	      for (cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur)+cur->vn_aux), prev_aux = 0;
+		   cur_aux != prev_aux; 
+		   prev_aux = cur_aux, cur_aux = (ElfW(Vernaux)*)(((unsigned long)cur_aux)+cur_aux->vna_next))
 		{
-		  *pverneed = cur;
-		  *pvernaux = cur_aux;
+		  if (cur_aux->vna_other == ver_ndx)
+		    {
+		      *ver_name = dt_strtab + cur_aux->vna_name;
+		      *ver_filename = dt_strtab + cur->vn_file;
+		      return true;
+		    }
+		}
+	    }
+	}
+      // ok, there is no match for the requested version in the verneed array so,
+      // we look in the verdef array.
+      // search the version whose vd_ndx is equal to ver_ndx
+      if (dt_verdef != 0 && dt_verdefnum != 0)
+	{
+	  ElfW(Verdef) *cur, *prev;
+	  for (prev = 0, cur = dt_verdef; cur != prev;
+	       prev = cur, cur = (ElfW(Verdef)*)(((unsigned long)cur)+cur->vd_next))
+	    {
+	      VDL_LOG_ASSERT (cur->vd_version == 1, "version number invalid for Verdef");
+	      if (cur->vd_ndx == ver_ndx)
+		{
+		  ElfW(Verdaux) *verdaux = (ElfW(Verdaux)*)(((unsigned long)cur)+cur->vd_aux);
+		  *ver_name = dt_strtab + verdaux->vda_name;
+		  // the filename comes from the base definition (i.e., the first entry)
+		  // in the verdef array.
+		  ElfW(Verdef) *base = &dt_verdef[0];
+		  ElfW(Verdaux) *base_verdaux = (ElfW(Verdaux)*)(((unsigned long)base)+base[0].vd_aux);
+		  *ver_filename = dt_strtab + base_verdaux->vda_name;
 		  return true;
 		}
 	    }
@@ -85,13 +114,7 @@ do_process_reloc (struct VdlFile *file,
 	}
       const char *ver_name = 0;
       const char *ver_filename = 0;
-      ElfW(Verneed) *verneed;
-      ElfW(Vernaux) *vernaux;
-      if (sym_to_ver_req (file, reloc_sym, &verneed, &vernaux))
-	{
-	  ver_name = dt_strtab + vernaux->vna_name;
-	  ver_filename = dt_strtab + verneed->vn_file;
-	}
+      sym_to_ver_req (file, reloc_sym, &ver_name, &ver_filename);
 
       struct VdlLookupResult result;
       result = vdl_lookup (file, symbol_name, ver_name, ver_filename, flags);
