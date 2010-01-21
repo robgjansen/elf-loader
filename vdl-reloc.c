@@ -28,7 +28,7 @@ sym_to_ver_req (struct VdlFile *file,
       ElfW(Half) ver_ndx = dt_versym[index];
       if (ver_ndx & 0x8000)
 	{
-	  return 0;
+	  return false;
 	}
       // search the version needed whose vd_ndx is equal to ver_ndx.
       ElfW(Verneed) *cur, *prev;
