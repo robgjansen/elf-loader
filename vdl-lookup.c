@@ -464,7 +464,8 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	    }
 	}
       VDL_LOG_ASSERT (n_ambiguous_matches <= 1, 
-		      "We found more than 1 ambiguous match to resolve the requested symbol.");
+		      "We found more than 1 ambiguous match to resolve the requested symbol=%s", 
+		      name);
       if (n_ambiguous_matches == 1)
 	{
 	  // if there is only one ambiguous match, it's not really ambiguous: it's a match !
