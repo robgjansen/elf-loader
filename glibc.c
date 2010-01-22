@@ -225,6 +225,16 @@ dlsym_hack (void *handle, const char *symbol)
   return vdl_dlsym (handle, symbol, RETURN_ADDRESS);
 }
 
+// Typically called by malloc to lookup ptmalloc_init.
+// In this case, symbolp is 0.
+int
+_dl_addr_hack (const void *address, Dl_info *info,
+	       void **mapp, const ElfW(Sym) **symbolp)
+{
+  return vdl_dladdr1 (address, info, mapp, RTLD_DL_LINKMAP);
+}
+
+
 void 
 do_glibc_patch (struct VdlFile *file)
 {
@@ -242,7 +252,7 @@ do_glibc_patch (struct VdlFile *file)
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dladdr,
+      machine_insert_trampoline (addr, (unsigned long) &_dl_addr_hack,
 				 result.symbol->st_value);
     }
   result = vdl_lookup_local (file, "__libc_dlopen_mode");

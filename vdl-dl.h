@@ -15,6 +15,8 @@ char *vdl_dlerror (void);
 void *vdl_dlsym (void *handle, const char *symbol, unsigned long caller);
 int vdl_dlclose (void *handle);
 int vdl_dladdr (const void *addr, Dl_info *info);
+int vdl_dladdr1 (const void *addr, Dl_info *info, 
+		 void **extra_info, int flags);
 void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigned long caller);
 int vdl_dlinfo (void *handle, int request, void *p);
 void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag);

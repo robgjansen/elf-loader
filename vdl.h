@@ -90,7 +90,27 @@ struct VdlFile
   struct VdlFile *next;
   struct VdlFile *prev;
 
-  // The following fields are not part of the ABI
+  // The following fields are theoretically not part of the ABI but
+  // some pieces of the libc code do use some of them so we have to be careful
+
+  // this field is here just for padding to allow l_ns to be located at the
+  // right offset.
+  uint8_t l_real[sizeof(void*)];
+
+  // This field (named l_ns in the libc elf loader)
+  // is used by the libc to determine whether malloc
+  // is called from within the main namespace (value is zero)
+  // or another namespace (value is not zero). If malloc is called
+  // from the main namespace, it uses brk to allocate address space
+  // from the OS. If it is called from another namespace, it uses
+  // mmap to allocate address space to make sure that the malloc
+  // from the main namespace is not confused.
+  // theoretically, this field is an index to the right namespace
+  // but since it is used only to determine whether this object
+  // is located in the main namespace or not, we just set it to
+  // zero or one to indicate that condition.
+  long int is_main_namespace;
+
   // This count indicates how many users hold a reference
   // to this file either because the file has been dlopened
   // (the dlopen increases the ref count), or because this
