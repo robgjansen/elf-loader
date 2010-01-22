@@ -21,7 +21,7 @@ test%-ldso: test%
 	@../elfedit $@ ../ldso
 run-valgrind-test%: test%-ldso FORCE
 	@-LD_LIBRARY_PATH=.:../ ./run-valgrind.py ./$<; \
-		if test $$? -eq 0; then echo "PASS $@"; else echo "FAIL $@"; fi
+		if test $$? -eq 0; then echo "PASS $@"; else echo "FAIL $@ -- LD_LIBRARY_PATH=.:../ ./run-valgrind.py ./$<"; fi
 run-test%: test%-ldso FORCE
 	@-$(TEST_PRE_COMMAND)
 	@-LD_LIBRARY_PATH=.:../ ./$< > $(OUTPUT_DIR)/test$* 2>/dev/null || true;
