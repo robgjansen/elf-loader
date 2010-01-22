@@ -15,9 +15,13 @@ $(OUTPUT_DIR)/test%.ref: test%
 diff: $(addprefix diff-,$(TESTS))
 update: $(addprefix update-,$(TESTS))
 run: $(TARGETS) $(addprefix run-,$(TESTS))
+run-valgrind: $(TARGETS) $(addprefix run-valgrind-,$(TESTS))
 test%-ldso: test%
 	@cp $^ $@
 	@../elfedit $@ ../ldso
+run-valgrind-test%: test%-ldso FORCE
+	@-LD_LIBRARY_PATH=.:../ ./run-valgrind.py ./$<; \
+		if test $$? -eq 0; then echo "PASS $@"; else echo "FAIL $@"; fi
 run-test%: test%-ldso FORCE
 	@-$(TEST_PRE_COMMAND)
 	@-LD_LIBRARY_PATH=.:../ ./$< > $(OUTPUT_DIR)/test$* 2>/dev/null || true;

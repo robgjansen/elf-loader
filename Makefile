@@ -25,6 +25,11 @@ all: ldso libvdl.so elfedit internal-tests display-relocs
 test: FORCE
 	$(MAKE) -C test
 	$(MAKE) -C test run
+
+test-valgrind: FORCE
+	$(MAKE) -C test
+	$(MAKE) -C test run-valgrind
+
 FORCE:
 
 LDSO_ARCH_SRC=\
