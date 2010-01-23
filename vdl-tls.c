@@ -284,6 +284,12 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
 	  continue;
 	}
       struct VdlFile *file = find_file_by_module (module);
+      if (file == 0)
+	{
+	  // the module has been unloaded since its corresponding
+	  // entry in the dtv was set. nothing to do, really.
+	  continue;
+	}
       if (!file->tls_is_static)
 	{
 	  // this was not a static entry
