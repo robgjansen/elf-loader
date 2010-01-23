@@ -82,7 +82,7 @@ interpreter_new (unsigned long load_base,
 }
 
 struct VdlFileList *
-do_ld_preload (struct VdlContext *context, const char **envp, struct VdlFileList **loaded)
+do_ld_preload (struct VdlContext *context, const char **envp)
 {
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the dependencies of the main 
@@ -90,27 +90,36 @@ do_ld_preload (struct VdlContext *context, const char **envp, struct VdlFileList
   // the main binary is correct, that is, that symbols are 
   // resolved first within the LD_PRELOAD binary, before every
   // other library, but after the main binary itself.
+  struct VdlFileList *retval = 0;
   const char *ld_preload = vdl_utils_getenv (envp, "LD_PRELOAD");
   if (ld_preload != 0)
     {
-      // search the requested program
-      char *ld_preload_filename = vdl_search_filename (ld_preload, 0, 0);
-      if (ld_preload_filename == 0)
+      struct VdlStringList *list = vdl_utils_strsplit (ld_preload, ':');
+      struct VdlStringList *cur;
+      for (cur = list; cur != 0; cur = cur->next)
 	{
-	  VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", ld_preload);
-	  goto error;
+	  char *filename = cur->str;
+	  // search the requested program
+	  char *ld_preload_filename = vdl_search_filename (filename, 0, 0);
+	  if (ld_preload_filename == 0)
+	    {
+	      VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", filename);
+	      goto error;
+	    }
+	  // map it in memory.
+	  struct VdlFile *ld_preload_file = vdl_file_map_single (context, ld_preload_filename, 
+								 ld_preload);
+	  if (ld_preload_file == 0)
+	    {
+	      VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	      goto error;
+	    }
+	  ld_preload_file->count++;
+	  retval = vdl_file_list_append_one (retval, ld_preload_file);
 	}
-      // map it in memory.
-      struct VdlFile *ld_preload_file = vdl_file_map_single (context, ld_preload_filename, 
-							     ld_preload);
-      if (ld_preload_file == 0)
-	{
-	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
-	  goto error;
-	}
-      ld_preload_file->count++;
-      return vdl_file_list_append_one (0, ld_preload_file);
     }
+  
+  return retval;
  error:
   return 0;
 }
@@ -272,7 +281,8 @@ stage2_initialize (struct Stage2Input input)
 				 pt_interp,
 				 context);
 
-  struct VdlFileList *ld_preload = do_ld_preload (context, (const char **)input.program_envp, &loaded);
+  struct VdlFileList *ld_preload = do_ld_preload (context, (const char **)input.program_envp);
+  loaded = vdl_file_list_append (loaded, vdl_file_list_copy (ld_preload));
 
   VDL_LOG_ASSERT (vdl_file_map_deps (main_file, &loaded), 
 		  "Unable to map dependencies of main file");
