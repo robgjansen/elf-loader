@@ -436,7 +436,7 @@ void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigne
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
 		    handle, symbol, version, caller);
   futex_lock (&g_vdl.futex);
-  struct VdlFileList *scope;
+  struct VdlFileList *scope = 0;
   struct VdlFile *caller_file = addr_to_file (caller);
   struct VdlContext *context;
   if (caller_file == 0)
@@ -451,18 +451,16 @@ void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigne
     }
   else if (handle == RTLD_NEXT)
     {
-      scope = caller_file->context->global_scope;
       context = caller_file->context;
       // skip all objects before the caller object
       bool found = false;
       struct VdlFileList *cur;
-      for (cur = scope; cur != 0; cur = cur->next)
+      for (cur = caller_file->context->global_scope; cur != 0; cur = cur->next)
 	{
 	  if (cur->item == caller_file)
 	    {
 	      // go to the next object
 	      scope = vdl_file_list_copy (cur->next);
-	      scope = cur->next;
 	      found = true;
 	      break;
 	    }
@@ -495,6 +493,10 @@ void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigne
   futex_unlock (&g_vdl.futex);
   return (void*)(result.file->load_base + result.symbol->st_value);
  error:
+  if (scope != 0)
+    {
+      vdl_file_list_free (scope);
+    }
   futex_unlock (&g_vdl.futex);
   return 0;
 }
