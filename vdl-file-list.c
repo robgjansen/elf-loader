@@ -189,7 +189,7 @@ void vdl_file_list_print (struct VdlFileList *list)
   for (cur = list; cur != 0; cur = cur->next)
     {
       vdl_log_printf (VDL_LOG_PRINT, 
-		      "%s ", cur->item->filename);
+		      "\"%s\" ", cur->item->filename);
     }
   vdl_log_printf (VDL_LOG_PRINT, "\n");
 }
