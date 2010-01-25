@@ -80,4 +80,4 @@ real undefined symbols by the dynamic linker).
 
    - figure out why we need to iterate over the verneed array to find a symbol definition.
 
-   - must implement dlmopen, design API for ns-3
+   - must test dlmopen
