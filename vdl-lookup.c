@@ -269,6 +269,10 @@ enum VdlVersionMatch
 // we have a matching symbol but we have a version
 // requirement so, we must check that the matching 
 // symbol's version also matches.	      
+// interestingly, we ignore from_ver_filename in
+// this function. It's not that it would be horrendously
+// hard to handle it but it would make our life harder
+// for the symbol replacement policy we use.
 static enum VdlVersionMatch
 symbol_version_matches (const struct VdlFile *in,
 			const struct VdlFile *from,
@@ -377,6 +381,7 @@ symbol_version_matches (const struct VdlFile *in,
       }
       // and, then, try to lookup the verneed array
       // XXX: this is something I really don't understand.
+      // XXX: yes, this is really buggy I think. Why are we doing it ?
       {
 	ElfW(Verneed) *cur, *prev;
 	for (prev = 0, cur = in_dt_verneed; cur != prev;
