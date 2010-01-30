@@ -140,6 +140,7 @@ void machine_lazy_reloc (struct VdlFile *file)
     {
       return;
     }
+  VDL_LOG_ASSERT (dt_pltrel == DT_RELA, "x86-64 uses rela entries");)
   // If this platform does prelinking, the prelinker has stored
   // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero.
   // No, there is no documentation about this other than the code
