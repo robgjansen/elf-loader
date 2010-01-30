@@ -9,7 +9,12 @@ LDFLAGS=$(OPT)
 #we need libgcc for 64bit arithmetic functions
 LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
-ARCH=$(shell uname -p)
+ARCH=$(shell uname -m)
+ifeq ($(ARCH),i586)
+ARCH=i386
+else ifeq ($(ARCH),i686)
+ARCH=i386
+endif
 ifeq ($(ARCH),i386)
 LDSO_FILE=/lib/ld-linux.so.2
 LIBDL_FILE=/lib/libdl.so.2
@@ -20,7 +25,7 @@ LIBDL_FILE=/lib64/libdl.so.2
 LDSO_DEBUG_FILE=/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug
 endif
 
-all: ldso libvdl.so elfedit internal-tests display-relocs
+all: ldso libvdl.so elfedit internal-tests
 
 test: FORCE
 	$(MAKE) -C test

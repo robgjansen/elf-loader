@@ -2,152 +2,142 @@
 #include "vdl.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
-#include "vdl-file-reloc.h"
-#include "vdl-file-symbol.h"
-#include "config.h"
+#include "vdl-reloc.h"
+#include "vdl-lookup.h"
+#include "vdl-config.h"
 #include "syscall.h"
 #include <sys/mman.h>
 #include <asm/ldt.h>
 
-static int do_lookup_and_log (struct VdlFile *file,
-			      const char *symbol_name,
-			      const ElfW(Vernaux) *ver,
-			      enum LookupFlag flags,
-			      struct SymbolMatch *match)
+bool machine_reloc_is_relative (unsigned long reloc_type)
 {
-  if (!vdl_file_symbol_lookup (file, symbol_name, ver, flags, match))
-    {
-      VDL_LOG_SYMBOL_FAIL (symbol_name, file);
-      // if the symbol resolution has failed, it could
-      // be that it's not a big deal.
-      return 0;
-    }
-  VDL_LOG_SYMBOL_OK (symbol_name, file, match);
-  return 1;
+  return reloc_type == R_386_RELATIVE;
 }
-unsigned long
-machine_reloc_rel (struct VdlFile *file,
-		   const ElfW(Rel) *rel,
-		   const ElfW(Sym) *sym,
-		   const ElfW(Vernaux) *ver,
-		   const char *symbol_name)
+bool machine_reloc_is_copy (unsigned long reloc_type)
 {
-  VDL_LOG_FUNCTION ("file=%s, symbol_name=%s, off=0x%x, type=0x%x", 
-		    file->filename, (symbol_name != 0)?symbol_name:"", 
-		    rel->r_offset,
-		    ELFW_R_TYPE (rel->r_info));
-  unsigned long type = ELFW_R_TYPE (rel->r_info);
-  unsigned long *reloc_addr = (unsigned long*) (rel->r_offset + file->load_base);
-
-  if (type == R_386_JMP_SLOT || 
-      type == R_386_GLOB_DAT ||
-      type == R_386_32)
-    {
-      struct SymbolMatch match;
-      if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	{
-	  return 0;
-	}
-      *reloc_addr = match.file->load_base + match.symbol->st_value;
-    }
-  else if (type == R_386_RELATIVE)
+  return reloc_type == R_386_COPY;
+}
+void machine_reloc_without_match (struct VdlFile *file,
+				  unsigned long *reloc_addr,
+				  unsigned long reloc_type,
+				  unsigned long reloc_addend,
+				  const ElfW(Sym) *sym)
+{
+  VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends");
+  if (reloc_type == R_386_RELATIVE)
     {
       *reloc_addr += file->load_base;
     }
-  else if (type == R_386_COPY)
+  else if (reloc_type == R_386_TLS_TPOFF)
     {
-      struct SymbolMatch match;
-      // for R_*_COPY relocations, we must use the
-      // LOOKUP_NO_EXEC flag to avoid looking up the symbol
-      // in the main binary.
-      if (!do_lookup_and_log (file, symbol_name, ver, LOOKUP_NO_EXEC, &match))
-	{
-	  return 0;
-	}
-      VDL_LOG_ASSERT (match.symbol->st_size == sym->st_size,
-		  "Symbols don't have the same size: likely a recipe for disaster.");
-      vdl_utils_memcpy (reloc_addr, 
-			(void*)(match.file->load_base + match.symbol->st_value),
-			match.symbol->st_size);
+      *reloc_addr += file->tls_offset + sym->st_value;
     }
-  else if (type == R_386_TLS_TPOFF)
+  else if (reloc_type == R_386_TLS_DTPMOD32)
     {
-      unsigned long v;
-      if (symbol_name != 0)
-	{
-	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	    {
-	      return 0;
-	    }
-	  VDL_LOG_ASSERT (match.file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-	  VDL_LOG_ASSERT (ELFW_ST_TYPE (match.symbol->st_info) == STT_TLS,
-		      "Target symbol is not a tls symbol ??");
-	  v = match.file->tls_offset + match.symbol->st_value;
-	}
-      else
-	{
-	  v = file->tls_offset + sym->st_value;
-	}
-      *reloc_addr += v;
+      *reloc_addr = file->tls_index;
     }
-  else if (type == R_386_TLS_DTPMOD32)
+  else if (reloc_type == R_386_TLS_DTPOFF32)
     {
-      unsigned long v;
-      if (symbol_name != 0)
-	{
-	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	    {
-	      return 0;
-	    }
-	  VDL_LOG_ASSERT (match.file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-	  v = match.file->tls_index;
-	}
-      else
-	{
-	  v = file->tls_index;
-	}
-      *reloc_addr = v;
-    }
-  else if (type == R_386_TLS_DTPOFF32)
-    {
-      unsigned long v;
-      if (symbol_name != 0)
-	{
-	  struct SymbolMatch match;
-	  if (!do_lookup_and_log (file, symbol_name, ver, 0, &match))
-	    {
-	      return 0;
-	    }
-	  VDL_LOG_ASSERT (match.file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-	  v = match.symbol->st_value;
-	}
-      else
-	{
-	  v = sym->st_value;
-	}
-      *reloc_addr = v;
+      *reloc_addr = sym->st_value;
     }
   else
     {
-      VDL_LOG_RELOC (rel);
-      return 0;
+      VDL_LOG_ASSERT (0, "unhandled reloc type: %s", 
+		      machine_reloc_type_to_str (reloc_type));
     }
-  return *reloc_addr;
 }
-unsigned long
-machine_reloc_rela (struct VdlFile *file,
-		    const ElfW(Rela) *rela,
-		    const ElfW(Sym) *sym,
-		    const ElfW(Vernaux) *ver,
-		    const char *symbol_name)
+
+void
+machine_reloc_with_match (unsigned long *reloc_addr,
+			  unsigned long reloc_type,
+			  unsigned long reloc_addend,
+			  const struct VdlLookupResult *match)
 {
-  VDL_LOG_ASSERT (0, "i386 does not use rela entries");
-  return 0;
+  VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends");
+
+  if (reloc_type == R_386_GLOB_DAT ||
+      reloc_type == R_386_JMP_SLOT ||
+      reloc_type == R_386_32)
+    {
+      *reloc_addr = match->file->load_base + match->symbol->st_value;
+    }
+  else if (reloc_type == R_386_TLS_TPOFF)
+    {
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does "
+		      "not have a TLS block ??");
+      VDL_LOG_ASSERT (ELFW_ST_TYPE (match->symbol->st_info) == STT_TLS,
+		      "Target symbol is not a tls symbol ??");
+      *reloc_addr += match->file->tls_offset + match->symbol->st_value;
+    }
+  else if (reloc_type == R_386_TLS_DTPMOD32)
+    {
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does "
+		      "not have a TLS block ??");
+      *reloc_addr = match->file->tls_index;
+    }
+  else if (reloc_type == R_386_TLS_DTPOFF32)
+    {
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does "
+		      "not have a TLS block ??");
+      *reloc_addr = match->symbol->st_value;
+    }
+  else
+    {
+      VDL_LOG_ASSERT (0, "unhandled reloc type: %s", 
+		      machine_reloc_type_to_str (reloc_type));
+    }
+}
+
+const char *machine_reloc_type_to_str (unsigned long reloc_type)
+{
+#define ITEM(x)					\
+  case R_##x:					\
+    return "R_" #x ;				\
+  break
+  switch (reloc_type) {
+    ITEM(386_NONE);
+    ITEM(386_32);
+    ITEM(386_PC32);
+    ITEM(386_GOT32);
+    ITEM(386_PLT32);
+    ITEM(386_COPY);
+    ITEM(386_GLOB_DAT);
+    ITEM(386_JMP_SLOT);
+    ITEM(386_RELATIVE);
+    ITEM(386_GOTOFF);
+    ITEM(386_GOTPC);
+    ITEM(386_32PLT);
+    ITEM(386_TLS_TPOFF);
+    ITEM(386_TLS_IE);
+    ITEM(386_TLS_GOTIE);
+    ITEM(386_TLS_LE);
+    ITEM(386_TLS_GD);
+    ITEM(386_TLS_LDM);
+    ITEM(386_16);
+    ITEM(386_PC16);
+    ITEM(386_8);
+    ITEM(386_PC8);
+    ITEM(386_TLS_GD_32);
+    ITEM(386_TLS_GD_PUSH);
+    ITEM(386_TLS_GD_CALL);
+    ITEM(386_TLS_GD_POP);
+    ITEM(386_TLS_LDM_32);
+    ITEM(386_TLS_LDM_PUSH);
+    ITEM(386_TLS_LDM_CALL);
+    ITEM(386_TLS_LDM_POP);
+    ITEM(386_TLS_LDO_32);
+    ITEM(386_TLS_IE_32);
+    ITEM(386_TLS_LE_32);
+    ITEM(386_TLS_DTPMOD32);
+    ITEM(386_TLS_DTPOFF32);
+    ITEM(386_TLS_TPOFF32);
+    ITEM(386_NUM);
+  default:
+    return "XXX";
+  }
 }
 
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
@@ -198,10 +188,12 @@ void machine_lazy_reloc (struct VdlFile *file)
     }
 }
 
-bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size)
+bool machine_insert_trampoline (unsigned long from, unsigned long to, 
+				unsigned long from_size)
 {
-  VDL_LOG_FUNCTION ("from=0x%lx, to=0x%lx, from_size=0x%lx", from, to, from_size);
-  if (size < 5)
+  VDL_LOG_FUNCTION ("from=0x%lx, to=0x%lx, from_size=0x%lx", 
+		    from, to, from_size);
+  if (from_size < 5)
     {
       return false;
     }
@@ -252,6 +244,7 @@ void machine_thread_pointer_set (unsigned long tp)
   int gs = (desc.entry_number << 3) | 3;
   asm ("movw %w0, %%gs" :: "q" (gs));
 }
+
 unsigned long machine_thread_pointer_get (void)
 {
   unsigned long value;
@@ -282,8 +275,10 @@ uint32_t machine_atomic_dec (uint32_t *ptr)
 const char *
 machine_get_system_search_dirs (void)
 {
-  // XXX: first is for my ubuntu box.
-  static const char *dirs = "/lib/tls/i686/cmov:"
+  
+  static const char *dirs = 
+    // XXX: first is for my ubuntu box.
+    "/lib/tls/i686/cmov:"
     "/lib/tls:" 
     "/lib/i686:"
     "/lib:" 
@@ -291,6 +286,11 @@ machine_get_system_search_dirs (void)
     "/usr/lib:"
     "/usr/lib32";
   return dirs;
+}
+
+const char *machine_get_lib (void)
+{
+  return "lib";
 }
 
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)

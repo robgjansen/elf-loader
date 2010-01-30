@@ -108,7 +108,7 @@ __tls_get_addr (struct tls_index *ti)
 // note the extra leading underscore used here to identify this optimized
 // version of _get_addr
 EXPORT void *
-___tls_get_addr (struct tls_index *ti) __attribute__ ((__regparm__ (1)))
+__attribute__ ((__regparm__ (1))) ___tls_get_addr (struct tls_index *ti)
 {
   void *retval = (void*) vdl_tls_get_addr_fast (ti->ti_module, ti->ti_offset);
   if (retval == 0)
@@ -117,6 +117,7 @@ ___tls_get_addr (struct tls_index *ti) __attribute__ ((__regparm__ (1)))
       retval = (void*) vdl_tls_get_addr_slow (ti->ti_module, ti->ti_offset);
       futex_unlock (&g_vdl.futex);
     }
+  return retval;
 }
 # else
 #  define internal_function

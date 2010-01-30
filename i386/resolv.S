@@ -15,7 +15,7 @@ machine_resolve_trampoline:
 	pushl 16(%esp)
 	# push GOT[1] on stack
 	pushl 16(%esp)
-	call vdl_file_reloc_one_plt
+	call vdl_reloc_one_jmprel
 	# was lookup successful ? (position z flag)
 	test %eax,%eax
 	# save return value in case we have to jump there
