@@ -154,7 +154,7 @@ void machine_lazy_reloc (struct VdlFile *file)
   unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
 
   if (dt_pltgot == 0 || 
-      (dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
+      dt_pltrel != DT_REL || 
       dt_pltrelsz == 0 || 
       dt_jmprel == 0)
     {
@@ -168,10 +168,10 @@ void machine_lazy_reloc (struct VdlFile *file)
   got[2] = (unsigned long) machine_resolve_trampoline;
 
   int i;
-  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rela)); i++)
+  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rel)); i++)
     {
-      ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
-      unsigned long reloc_addr = rela->r_offset + file->load_base;
+      ElfW(Rel) *rel = &(((ElfW(Rel)*)dt_jmprel)[i]);
+      unsigned long reloc_addr = rel->r_offset + file->load_base;
       unsigned long *preloc_addr = (unsigned long*) reloc_addr;
       if (plt == 0)
 	{
@@ -180,10 +180,11 @@ void machine_lazy_reloc (struct VdlFile *file)
 	}
       else
 	{
-	  // we are prelinked so, we have to redo the work done by the compile-time
-	  // linker: we calculate the address of the instruction right after the
-	  // jump of PLT[i]
-	  *preloc_addr = file->load_base + plt +  (reloc_addr - (dt_pltgot + 3*4)) * 4;
+	  // we are prelinked so, we have to redo the work done by the 
+	  // compile-time linker: we calculate the address of the 
+	  // instruction right after the jump of PLT[i]
+	  *preloc_addr = file->load_base + plt +  
+	    (reloc_addr - (dt_pltgot + 3*4)) * 4;
 	}
     }
 }
