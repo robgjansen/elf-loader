@@ -15,12 +15,12 @@ enum VdlLog {
 void vdl_log_printf (enum VdlLog log, const char *str, ...);
 #define VDL_LOG_FUNCTION(str,...)					\
   vdl_log_printf (VDL_LOG_FUNC, "%s:%d, %s (" str ")\n",		\
-		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
+		  __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #define VDL_LOG_DEBUG(str,...) \
-  vdl_log_printf (VDL_LOG_DBG, str, __VA_ARGS__)
+  vdl_log_printf (VDL_LOG_DBG, str, ##__VA_ARGS__)
 #define VDL_LOG_ERROR(str,...) \
   vdl_log_printf (VDL_LOG_ERR, "%s:%d:%s: " str,		\
-		  __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
+		  __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #define VDL_LOG_SYMBOL_FAIL(symbol,file)				\
   vdl_log_printf (VDL_LOG_SYM_FAIL, "Could not resolve symbol=%s, file=%s\n", \
 		  symbol, file->filename)
