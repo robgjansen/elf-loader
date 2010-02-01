@@ -25,7 +25,7 @@
 #endif
 
 static const char *
-type_to_str (unsigned long type)
+x86_64_type_to_str (unsigned long type)
 {
 #define ITEM(x)					\
   case R_##x:					\
@@ -62,6 +62,74 @@ type_to_str (unsigned long type)
   default:
     return "XXX";
   }
+#undef ITEM
+}
+
+static const char *
+i386_type_to_str (unsigned long reloc_type)
+{
+#define ITEM(x)					\
+  case R_##x:					\
+    return "R_" #x ;				\
+  break
+  switch (reloc_type) {
+    ITEM(386_NONE);
+    ITEM(386_32);
+    ITEM(386_PC32);
+    ITEM(386_GOT32);
+    ITEM(386_PLT32);
+    ITEM(386_COPY);
+    ITEM(386_GLOB_DAT);
+    ITEM(386_JMP_SLOT);
+    ITEM(386_RELATIVE);
+    ITEM(386_GOTOFF);
+    ITEM(386_GOTPC);
+    ITEM(386_32PLT);
+    ITEM(386_TLS_TPOFF);
+    ITEM(386_TLS_IE);
+    ITEM(386_TLS_GOTIE);
+    ITEM(386_TLS_LE);
+    ITEM(386_TLS_GD);
+    ITEM(386_TLS_LDM);
+    ITEM(386_16);
+    ITEM(386_PC16);
+    ITEM(386_8);
+    ITEM(386_PC8);
+    ITEM(386_TLS_GD_32);
+    ITEM(386_TLS_GD_PUSH);
+    ITEM(386_TLS_GD_CALL);
+    ITEM(386_TLS_GD_POP);
+    ITEM(386_TLS_LDM_32);
+    ITEM(386_TLS_LDM_PUSH);
+    ITEM(386_TLS_LDM_CALL);
+    ITEM(386_TLS_LDM_POP);
+    ITEM(386_TLS_LDO_32);
+    ITEM(386_TLS_IE_32);
+    ITEM(386_TLS_LE_32);
+    ITEM(386_TLS_DTPMOD32);
+    ITEM(386_TLS_DTPOFF32);
+    ITEM(386_TLS_TPOFF32);
+    ITEM(386_NUM);
+  default:
+    return "XXX";
+  }
+#undef ITEM
+}
+
+static const char *
+type_to_str (unsigned long reloc_type, uint16_t machine)
+{
+  switch (machine)
+    {
+    case EM_386:
+      return i386_type_to_str (reloc_type);
+      break;
+    case EM_X86_64:
+      return x86_64_type_to_str (reloc_type);
+      break;
+    default:
+      return "YYY";
+    }
 }
 
 int main (int argc, char *argv[])
@@ -90,7 +158,8 @@ int main (int argc, char *argv[])
 	    {
 	      printf ("i=%d r_offset=0x%lx sym=0x%lx type=0x%lx/%s r_addend=0x%lx\n", 
 		      j, rela->r_offset, ELFW_R_SYM (rela->r_info),
-		      ELFW_R_TYPE (rela->r_info), type_to_str (ELFW_R_TYPE (rela->r_info)),
+		      ELFW_R_TYPE (rela->r_info), type_to_str (ELFW_R_TYPE (rela->r_info),
+							       header->e_machine),
 		      rela->r_addend);
 	      rela++;
 	    }

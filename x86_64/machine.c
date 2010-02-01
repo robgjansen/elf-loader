@@ -118,6 +118,7 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
   default:
     return "XXX";
   }
+#undef ITEM
 }
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
 void machine_lazy_reloc (struct VdlFile *file)
@@ -140,7 +141,7 @@ void machine_lazy_reloc (struct VdlFile *file)
     {
       return;
     }
-  VDL_LOG_ASSERT (dt_pltrel == DT_RELA, "x86-64 uses rela entries");)
+  VDL_LOG_ASSERT (dt_pltrel == DT_RELA, "x86-64 uses rela entries");
   // If this platform does prelinking, the prelinker has stored
   // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero.
   // No, there is no documentation about this other than the code

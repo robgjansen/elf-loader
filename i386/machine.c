@@ -138,6 +138,7 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
   default:
     return "XXX";
   }
+#undef ITEM
 }
 
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);

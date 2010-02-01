@@ -25,7 +25,7 @@ LIBDL_FILE=/lib64/libdl.so.2
 LDSO_DEBUG_FILE=/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug
 endif
 
-all: ldso libvdl.so elfedit internal-tests
+all: ldso libvdl.so elfedit internal-tests display-relocs
 
 test: FORCE
 	$(MAKE) -C test
@@ -94,7 +94,7 @@ internal-tests: internal-tests.o internal-test-alloc.o internal-test-futex.o $(L
 display-relocs: display-relocs.o
 
 clean: 
-	-rm -f internal-tests elfedit readversiondef core hello hello-ldso 2> /dev/null
+	-rm -f internal-tests elfedit readversiondef display-relocs core hello hello-ldso 2> /dev/null
 	-rm -f ldso libvdl.so *.o  $(ARCH)/*.o 2>/dev/null
 	-rm -f *~ $(ARCH)/*~ 2>/dev/null
 	-rm -f \#* $(ARCH)/\#* 2>/dev/null
