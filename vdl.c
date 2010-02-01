@@ -210,6 +210,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
   // we can replace the libc loader.
   vdl_context_add_lib_remap (context, "/lib/ld-linux.so.2", "ldso");
   vdl_context_add_lib_remap (context, "/lib64/ld-linux-x86-64.so.2", "ldso");
+  vdl_context_add_lib_remap (context, "ld-linux.so.2", "ldso");
   vdl_context_add_lib_remap (context, "ld-linux-x86-64.so.2", "ldso");
   vdl_context_add_lib_remap (context, "libdl.so.2", "libvdl.so");
   vdl_context_add_symbol_remap (context, 
