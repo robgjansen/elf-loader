@@ -160,10 +160,13 @@ int main (int argc, char *argv[])
 	  for (j = 0; j < n_rela; j++)
 	    {
 	      printf ("i=%d r_offset=0x%lx sym=0x%lx type=0x%lx/%s r_addend=0x%lx\n", 
-		      j, rela->r_offset, ELFW_R_SYM (rela->r_info),
-		      ELFW_R_TYPE (rela->r_info), type_to_str (ELFW_R_TYPE (rela->r_info),
-							       header->e_machine),
-		      rela->r_addend);
+		      j, 
+		      (unsigned long) rela->r_offset, 
+		      (unsigned long) ELFW_R_SYM (rela->r_info),
+		      (unsigned long) ELFW_R_TYPE (rela->r_info), 
+		      type_to_str (ELFW_R_TYPE (rela->r_info),
+				   header->e_machine),
+		      (unsigned long) rela->r_addend);
 	      rela++;
 	    }
 	}
