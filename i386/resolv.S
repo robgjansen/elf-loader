@@ -15,7 +15,7 @@ machine_resolve_trampoline:
 	pushl 16(%esp)
 	# push GOT[1] on stack
 	pushl 16(%esp)
-	call vdl_reloc_one_jmprel
+	call vdl_reloc_offset_jmprel
 	# was lookup successful ? (position z flag)
 	test %eax,%eax
 	# save return value in case we have to jump there
@@ -31,7 +31,7 @@ machine_resolve_trampoline:
 	jz fail
 	# cleanup the second argument pushed by PLT0
 	addl $4,%esp
-	# jump on return value from vdl_file_reloc_one_plt
+	# jump on return value from vdl_reloc_offset_jmprel
 	ret
 	# cleanup both arguments pushed by PLT0 and PLTX respectively
 fail:	addl $8,%esp

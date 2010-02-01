@@ -21,9 +21,9 @@ machine_resolve_trampoline:
 	push %r11
 	# setup 1st arg: struct VdlFile *file
 	mov 0x48(%rsp), %rdi
-	# setup 2nd arg: unsigned long offset
+	# setup 2nd arg: unsigned long index
 	mov 0x50(%rsp), %rsi
-	call vdl_reloc_one_jmprel
+	call vdl_reloc_index_jmprel
 	# was lookup successful ? (position z flag)
 	test %rax,%rax
 	# save return value in case we have to jump there
@@ -43,7 +43,7 @@ machine_resolve_trampoline:
 	jz fail
 	# cleanup argument pushed by PLT0
 	add $8,%rsp
-	# jump on return value from vdl_file_reloc_one_plt
+	# jump on return value from vdl_reloc_index_jmprel
 	ret
 	# cleanup both arguments pushed by PLT0 and PLTX
 fail:	add $16,%rsp

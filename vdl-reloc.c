@@ -210,8 +210,8 @@ reloc_jmprel (struct VdlFile *file)
     }
 }
 unsigned long 
-vdl_reloc_one_jmprel (struct VdlFile *file, 
-		      unsigned long offset)
+vdl_reloc_offset_jmprel (struct VdlFile *file, 
+			 unsigned long offset)
 {
   futex_lock (&g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
@@ -222,21 +222,56 @@ vdl_reloc_one_jmprel (struct VdlFile *file,
       dt_pltrelsz == 0 || 
       dt_jmprel == 0)
     {
+      futex_unlock (&g_vdl.futex);
+      return 0;
+    }
+  VDL_LOG_ASSERT (offset < dt_pltrelsz, 
+		  "Relocation entry not within range");
+
+  unsigned long symbol;
+  if (dt_pltrel == DT_REL)
+    {
+      ElfW(Rel) *rel = (ElfW(Rel)*)(dt_jmprel+offset);
+      symbol = process_rel (file, rel);
+    }
+  else
+    {
+      ElfW(Rela) *rela = (ElfW(Rela)*)(dt_jmprel+offset);
+      symbol = process_rela (file, rela);
+    }
+  futex_unlock (&g_vdl.futex);
+  return symbol;
+}
+
+unsigned long 
+vdl_reloc_index_jmprel (struct VdlFile *file, 
+			unsigned long index)
+{
+  futex_lock (&g_vdl.futex);
+  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
+  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
+  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  
+  if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
+      dt_pltrelsz == 0 || 
+      dt_jmprel == 0)
+    {
+      futex_unlock (&g_vdl.futex);
       return 0;
     }
   unsigned long symbol;
   if (dt_pltrel == DT_REL)
     {
-      VDL_LOG_ASSERT (offset < dt_pltrelsz / sizeof (ElfW(Rel)), 
+      VDL_LOG_ASSERT (index < dt_pltrelsz / sizeof(ElfW(Rel)), 
 		      "Relocation entry not within range");
-      ElfW(Rel) *rel = &((ElfW(Rel)*)dt_jmprel)[offset];
+      ElfW(Rel) *rel = &((ElfW(Rel)*)dt_jmprel)[index];
       symbol = process_rel (file, rel);
     }
   else
     {
-      VDL_LOG_ASSERT (offset < dt_pltrelsz / sizeof (ElfW(Rela)), 
+      VDL_LOG_ASSERT (index < dt_pltrelsz / sizeof(ElfW(Rela)), 
 		      "Relocation entry not within range");
-      ElfW(Rela) *rela = &((ElfW(Rela)*)dt_jmprel)[offset];
+      ElfW(Rela) *rela = &((ElfW(Rela)*)dt_jmprel)[index];
       symbol = process_rela (file, rela);
     }
   futex_unlock (&g_vdl.futex);
