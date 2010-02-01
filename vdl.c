@@ -703,7 +703,8 @@ find_by_name (struct VdlContext *context,
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      if (vdl_utils_strisequal (cur->name, name))
+      if (cur->context == context &&
+	  vdl_utils_strisequal (cur->name, name))
 	{
 	  return cur;
 	}
