@@ -150,8 +150,7 @@ int main (int argc, char *argv[])
   ElfW(Shdr) *sh = (ElfW(Shdr)*)(file + header->e_shoff);
   int i;
   for (i = 0; i < header->e_shnum; i++)
-    {
-      
+    {      
       if (sh[i].sh_type == SHT_RELA)
 	{
 	  ElfW(Rela) *rela = (ElfW(Rela)*) (file + sh[i].sh_offset);
@@ -168,6 +167,23 @@ int main (int argc, char *argv[])
 				   header->e_machine),
 		      (unsigned long) rela->r_addend);
 	      rela++;
+	    }
+	}
+      else if (sh[i].sh_type == SHT_REL)
+	{
+	  ElfW(Rel) *rel = (ElfW(Rel)*) (file + sh[i].sh_offset);
+	  unsigned long n_rel = sh[i].sh_size / sh[i].sh_entsize;
+	  int j;
+	  for (j = 0; j < n_rel; j++)
+	    {
+	      printf ("i=%d r_offset=0x%lx sym=0x%lx type=0x%lx/%s\n", 
+		      j, 
+		      (unsigned long) rel->r_offset, 
+		      (unsigned long) ELFW_R_SYM (rel->r_info),
+		      (unsigned long) ELFW_R_TYPE (rel->r_info), 
+		      type_to_str (ELFW_R_TYPE (rel->r_info),
+				   header->e_machine));
+	      rel++;
 	    }
 	}
     }
