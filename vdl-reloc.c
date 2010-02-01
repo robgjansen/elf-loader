@@ -227,11 +227,15 @@ vdl_reloc_one_jmprel (struct VdlFile *file,
   unsigned long symbol;
   if (dt_pltrel == DT_REL)
     {
+      VDL_LOG_ASSERT (offset < dt_pltrelsz / sizeof (ElfW(Rel)), 
+		      "Relocation entry not within range");
       ElfW(Rel) *rel = &((ElfW(Rel)*)dt_jmprel)[offset];
       symbol = process_rel (file, rel);
     }
   else
     {
+      VDL_LOG_ASSERT (offset < dt_pltrelsz / sizeof (ElfW(Rela)), 
+		      "Relocation entry not within range");
       ElfW(Rela) *rela = &((ElfW(Rela)*)dt_jmprel)[offset];
       symbol = process_rela (file, rela);
     }
