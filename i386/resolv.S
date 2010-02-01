@@ -21,7 +21,8 @@ machine_resolve_trampoline:
 	# save return value in case we have to jump there
 	movl %eax,24(%esp)
 	# clear the arguments we pushed on the stack
-	addl $8,%esp
+	pop %edx
+	pop %edx
 	# restore caller-saved registers
 	pop %edx
 	pop %ecx
