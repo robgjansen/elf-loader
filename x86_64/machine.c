@@ -216,7 +216,7 @@ unsigned long machine_thread_pointer_get (void)
   return value;
 }
 
-uint32_t machine_cmpxchg (uint32_t *ptr, uint32_t old, uint32_t new)
+uint32_t machine_atomic_compare_and_exchange (uint32_t *ptr, uint32_t old, uint32_t new)
 {
   uint32_t prev;
   asm volatile ("lock cmpxchgl %1,%2"

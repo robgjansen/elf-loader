@@ -22,7 +22,7 @@ void machine_reloc_with_match (unsigned long *reloc_addr,
 const char *machine_reloc_type_to_str (unsigned long reloc_type);
 bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size);
 void machine_lazy_reloc (struct VdlFile *file);
-uint32_t machine_cmpxchg (uint32_t *val, uint32_t old, uint32_t new);
+uint32_t machine_atomic_compare_and_exchange (uint32_t *val, uint32_t old, uint32_t new);
 uint32_t machine_atomic_dec (uint32_t *val);
 const char *machine_get_system_search_dirs (void);
 const char *machine_get_lib (void);

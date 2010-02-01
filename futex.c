@@ -10,14 +10,14 @@ void futex_init (struct futex *futex)
 void futex_lock (struct futex *futex)
 {
   uint32_t c;
-  if ((c = machine_cmpxchg (&futex->state, 0, 1)) != 0)
+  if ((c = machine_atomic_compare_and_exchange (&futex->state, 0, 1)) != 0)
     {
       do {
-	if (c == 2 || machine_cmpxchg (&futex->state, 1, 2) != 0)
+	if (c == 2 || machine_atomic_compare_and_exchange (&futex->state, 1, 2) != 0)
 	  {
 	    system_futex_wait (&futex->state, 2);
 	  }
-      } while ((c = machine_cmpxchg (&futex->state, 0, 2)) != 0);
+      } while ((c = machine_atomic_compare_and_exchange (&futex->state, 0, 2)) != 0);
     }
 }
 
