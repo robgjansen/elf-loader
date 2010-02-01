@@ -56,9 +56,12 @@ x86_64_type_to_str (unsigned long type)
     ITEM(X86_64_DTPOFF32);
     ITEM(X86_64_GOTTPOFF);
     ITEM(X86_64_TPOFF32);
+#ifdef R_X86_64_PC64
+    // not defined on some older distributions.
     ITEM(X86_64_PC64);
     ITEM(X86_64_GOTOFF64);
     ITEM(X86_64_GOTPC32);
+#endif
   default:
     return "XXX";
   }
