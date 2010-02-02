@@ -700,6 +700,8 @@ static struct VdlFile *
 find_by_name (struct VdlContext *context,
 	      const char *name)
 {
+  //XXX: we should treat 'ldso' specially and not check against 'context' in
+  // this case because we want all contexts to use the same loaded ldso.
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
