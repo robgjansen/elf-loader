@@ -2,8 +2,8 @@ CFLAGS=-g3 -Wall -Werror
 LDFLAGS=-Wl,--warn-unresolved-symbols -L.
 LINKER=$(CC)
 
-TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17
-TARGETS=hello libn.so libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so \
+TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17 test18
+TARGETS=hello libq.so libp.so libn.so libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
 all: $(TARGETS)
@@ -66,6 +66,8 @@ libefl.so: LDFLAGS+=-lf -ll
 libg.so: LDFLAGS+=-lh
 libj.so: LDFLAGS+=-lk
 libk.so: LDFLAGS+=-ll
+libp.so: LDFLAGS+=-lq -nostdlib
+libq.so: LDFLAGS+=-nostdlib
 test0: LDFLAGS+=-la
 test0_1: LDFLAGS+=-lb -la
 test8_5: LDFLAGS+=-lpthread
@@ -77,6 +79,7 @@ test13: LDFLAGS+=-lf
 test14: LDFLAGS+=-ln
 test16: LINKER=$(CXX)
 run-test12: TEST_PRE_COMMAND=rm libl.so
+
 
 clean:
 	-rm -f *.o *~ 2>/dev/null
