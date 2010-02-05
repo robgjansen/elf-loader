@@ -1,0 +1,4 @@
+libtest18 constructor
+loaded libp.so twice
+both libraries have separate symbols and global variables
+libtest18 destructor
