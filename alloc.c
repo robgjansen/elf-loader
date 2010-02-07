@@ -2,6 +2,24 @@
 #include "system.h"
 #include <sys/mman.h>
 
+#ifdef HAVE_VALGRIND_H
+# include "valgrind/valgrind.h"
+# include "valgrind/memcheck.h"
+# define REPORT_MALLOC(buffer, size) \
+  VALGRIND_MALLOCLIKE_BLOCK (buffer,size, 0, 0)
+# define REPORT_FREE(buffer) \
+  VALGRIND_FREELIKE_BLOCK (buffer, 0)
+# define MARK_DEFINED(buffer) \
+  VALGRIND_MAKE_MEM_DEFINED(buffer, sizeof(void*))
+# define MARK_UNDEFINED(buffer) \
+  VALGRIND_MAKE_MEM_UNDEFINED(buffer, sizeof(void*))
+#else
+# define REPORT_MALLOC(buffer, size)
+# define REPORT_FREE(buffer)
+# define MARK_DEFINED(buffer)
+# define MARK_UNDEFINED(buffer)
+#endif
+
 
 void alloc_initialize (struct Alloc *alloc)
 {
@@ -94,13 +112,19 @@ uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size)
 	}
       // fast path.
       struct AllocAvailable *avail = alloc->buckets[bucket];
-      alloc->buckets[bucket] = avail->next;
+      MARK_DEFINED(avail);
+      struct AllocAvailable *next = avail->next;
+      MARK_UNDEFINED(avail);
+      alloc->buckets[bucket] = next;
+      REPORT_MALLOC(avail, size);
       return (uint8_t*)avail;
     }
   else
     {
       alloc_chunk (alloc, size + chunk_overhead ());
-      return alloc_brk (alloc, size);
+      uint8_t *buffer = alloc_brk (alloc, size);
+      REPORT_MALLOC(buffer, size);
+      return buffer;
     }
 }
 void alloc_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size)
@@ -112,6 +136,7 @@ void alloc_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size)
       struct AllocAvailable *avail = (struct AllocAvailable *)buffer;
       avail->next = alloc->buckets[bucket];
       alloc->buckets[bucket] = avail;
+      REPORT_FREE(buffer);
     }
   else
     {
@@ -128,10 +153,13 @@ void alloc_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size)
 		{
 		  prev->next = tmp->next;
 		}
+	      REPORT_FREE(buffer);
 	      system_munmap (tmp->buffer, tmp->size);
-	      break;
+	      return;
 	    }
 	}
+      // this should never happen but it happens in case of a double-free
+      REPORT_FREE(buffer);
     }
 }
 
