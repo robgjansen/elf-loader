@@ -280,6 +280,7 @@ stage2_initialize (struct Stage2Input input)
   interpreter = interpreter_new (input.interpreter_load_base,
 				 pt_interp,
 				 context);
+  loaded = vdl_file_list_append_one (loaded, interpreter);
 
   struct VdlFileList *ld_preload = do_ld_preload (context, (const char **)input.program_envp);
   loaded = vdl_file_list_append (loaded, vdl_file_list_copy (ld_preload));
@@ -302,7 +303,7 @@ stage2_initialize (struct Stage2Input input)
 
   // We need to do this before relocation because the TLS-type relocations 
   // need tls information.
-  vdl_tls_initialize ();
+  vdl_tls_file_initialize_static (loaded);
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set

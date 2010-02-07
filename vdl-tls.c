@@ -23,7 +23,9 @@ allocate_tls_index (void)
       struct VdlFile *cur;
       for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
 	{
-	  if (cur->has_tls && cur->tls_index == i)
+	  if (cur->tls_initialized &&
+	      cur->has_tls && 
+	      cur->tls_index == i)
 	    {
 	      break;
 	    }
@@ -44,7 +46,6 @@ file_initialize (struct VdlFile *file)
     {
       return;
     }
-  file->tls_initialized = 1;
 
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_map.mem_start_align;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_map.mem_start_align + header->e_phoff);
@@ -53,14 +54,19 @@ file_initialize (struct VdlFile *file)
   if (pt_tls == 0)
     {
       file->has_tls = 0;
+      file->tls_initialized = 1;
       return;
     }
+  // note that the call below is _before tls_initialized = 1 because
+  // it does matter. allocate_tls_index looks into the global g_vdl.link_map
+  unsigned long tls_index = allocate_tls_index ();
   file->has_tls = 1;
+  file->tls_initialized = 1;
   file->tls_tmpl_start = file->load_base + pt_tls->p_vaddr;
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;
-  file->tls_index = allocate_tls_index ();
+  file->tls_index = tls_index;
   file->tls_is_static = (dt_flags & DF_STATIC_TLS)?1:0;
   file->tls_tmpl_gen = g_vdl.tls_gen;
   g_vdl.tls_gen++;
@@ -132,17 +138,11 @@ vdl_tls_file_list_has_static (struct VdlFileList *list)
 
 
 void
-vdl_tls_initialize (void)
+vdl_tls_file_initialize_static (struct VdlFileList *list)
 {
   g_vdl.tls_gen = 1;
   // We gather tls information for each module. 
-  {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-      {
-	file_initialize (cur);
-      }
-  }
+  vdl_tls_file_initialize (list);
   // Then, we calculate the size of the memory needed for the 
   // static and local tls model. We also initialize correctly
   // the tls_offset field to be able to perform relocations
@@ -151,19 +151,20 @@ vdl_tls_initialize (void)
     unsigned long tcb_size = 0;
     unsigned long n_dtv = 0;
     unsigned long max_align = 1;
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    struct VdlFileList *cur;
+    for (cur = list; cur != 0; cur = cur->next)
       {
-	if (cur->has_tls)
+	struct VdlFile *file = cur->item;
+	if (file->has_tls)
 	  {
-	    if (cur->tls_is_static)
+	    if (file->tls_is_static)
 	      {
-		tcb_size += cur->tls_tmpl_size + cur->tls_init_zero_size;
-		tcb_size = vdl_utils_align_up (tcb_size, cur->tls_align);
-		cur->tls_offset = - tcb_size;
-		if (cur->tls_align > max_align)
+		tcb_size += file->tls_tmpl_size + file->tls_init_zero_size;
+		tcb_size = vdl_utils_align_up (tcb_size, file->tls_align);
+		file->tls_offset = - tcb_size;
+		if (file->tls_align > max_align)
 		  {
-		    max_align = cur->tls_align;
+		    max_align = file->tls_align;
 		  }
 	      }
 	    n_dtv++;

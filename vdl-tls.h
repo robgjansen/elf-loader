@@ -6,7 +6,7 @@
 // called prior initial relocation processing. 
 // collect and store tls information about everything
 // in g_vdl and each file
-void vdl_tls_initialize (void);
+void vdl_tls_file_initialize_static (struct VdlFileList *list);
 // allocate a tcb buffer
 unsigned long vdl_tls_tcb_allocate (void);
 // setup the sysinfo field in tcb
