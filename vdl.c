@@ -339,13 +339,16 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 }
 
 static void
-file_delete (struct VdlFile *file)
+file_delete (struct VdlFile *file, bool mapping)
 {
-  unsigned long mapping_size = get_total_mapping_size (file->ro_map, file->rw_map);
-  int status = system_munmap ((void*)file->ro_map.mem_start_align, mapping_size);
-  if (status == -1)
+  if (mapping)
     {
-      VDL_LOG_ERROR ("unable to unmap \"%s\"\n", file->filename);
+      unsigned long mapping_size = get_total_mapping_size (file->ro_map, file->rw_map);
+      int status = system_munmap ((void*)file->ro_map.mem_start_align, mapping_size);
+      if (status == -1)
+	{
+	  VDL_LOG_ERROR ("unable to unmap \"%s\"\n", file->filename);
+	}
     }
 
   file->next = 0;
@@ -365,12 +368,12 @@ file_delete (struct VdlFile *file)
   g_vdl.n_removed++;
 }
 
-void vdl_files_delete (struct VdlFileList *files)
+void vdl_files_delete (struct VdlFileList *files, bool mapping)
 {
   struct VdlFileList *cur;
   for (cur = files; cur != 0; cur = cur->next)
     {
-      file_delete (cur->item);
+      file_delete (cur->item, mapping);
     }
 }
 

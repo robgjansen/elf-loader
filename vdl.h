@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include <elf.h>
 #include <link.h>
 #include "alloc.h"
@@ -314,7 +315,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const char *filename, 
 				 const char *name,
 				 struct VdlContext *context);
-void vdl_files_delete (struct VdlFileList *files);
+void vdl_files_delete (struct VdlFileList *files, bool mapping);
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				    const char *filename, 
 				    const char *name);

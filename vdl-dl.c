@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "vdl.h"
 #include "vdl-log.h"
 #include "vdl-utils.h"
@@ -245,7 +244,7 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
 
     vdl_tls_file_deinitialize (unload);
 
-    vdl_files_delete (unload);
+    vdl_files_delete (unload, true);
 
     vdl_file_list_free (unload);
 
@@ -293,7 +292,7 @@ int vdl_dlclose (void *handle)
 
   vdl_tls_file_deinitialize (unload);
 
-  vdl_files_delete (unload);
+  vdl_files_delete (unload, true);
 
   vdl_file_list_free (unload);
 
@@ -434,7 +433,7 @@ int vdl_dladdr (const void *addr, Dl_info *info)
 void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigned long caller)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
-		    handle, symbol, version, caller);
+		    handle, symbol, (version==0)?"":version, caller);
   futex_lock (&g_vdl.futex);
   struct VdlFileList *scope = 0;
   struct VdlFile *caller_file = addr_to_file (caller);
