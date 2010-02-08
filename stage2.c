@@ -326,6 +326,8 @@ stage2_initialize (struct Stage2Input input)
   vdl_init_fini_call_init (call_init);
   vdl_file_list_free (call_init);
 
+  vdl_file_list_free (loaded);
+
   unsigned long entry = vdl_file_get_entry_point (main_file);
   if (entry == 0)
     {
