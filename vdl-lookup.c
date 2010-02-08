@@ -500,7 +500,10 @@ vdl_lookup (struct VdlFile *file,
 	    const char *ver_filename,
 	    enum VdlLookupFlag flags)
 {
-  vdl_context_symbol_remap (file->context, &name, &ver_name, &ver_filename);
+  if (!(flags & VDL_LOOKUP_NO_REMAP))
+    {
+      vdl_context_symbol_remap (file->context, &name, &ver_name, &ver_filename);
+    }
   // calculate the hash here to avoid calculating 
   // it twice in both calls to symbol_lookup
   unsigned long elf_hash = vdl_elf_hash (name);
@@ -572,9 +575,13 @@ vdl_lookup_with_scope (const struct VdlContext *from_context,
 		       const char *name, 
 		       const char *ver_name,
 		       const char *ver_filename,
+		       enum VdlLookupFlag flags,
 		       struct VdlFileList *scope)
 {
-  vdl_context_symbol_remap (from_context, &name, &ver_name, &ver_filename);
+  if (!(flags & VDL_LOOKUP_NO_REMAP))
+    {
+      vdl_context_symbol_remap (from_context, &name, &ver_name, &ver_filename);
+    }
   unsigned long elf_hash = vdl_elf_hash (name);
   uint32_t gnu_hash = vdl_gnu_hash (name);
   unsigned long ver_hash = 0;
@@ -585,6 +592,6 @@ vdl_lookup_with_scope (const struct VdlContext *from_context,
   struct VdlLookupResult result;
   result = vdl_lookup_with_scope_internal (0, name, ver_name, ver_filename,
 					   elf_hash, gnu_hash, ver_hash,
-					   0, scope);
+					   flags, scope);
   return result;
 }

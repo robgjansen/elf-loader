@@ -13,4 +13,5 @@ global:
 	vdl_dl_add_lib_remap_public;
 	vdl_dl_add_symbol_remap_public;
 	vdl_dl_add_callback_public;
+	libc_freeres_interceptor;
 };

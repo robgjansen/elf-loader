@@ -16,4 +16,6 @@ struct Stage1InputOutput
 
 void stage1 (struct Stage1InputOutput *input_output);
 
+void stage1_freeres (void);
+
 #endif /* STAGE1_H */

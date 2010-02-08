@@ -25,4 +25,6 @@ struct Stage2Output stage2_initialize (struct Stage2Input input);
 
 void stage2_finalize (void);
 
+void stage2_freeres (void);
+
 #endif /* STAGE2_H */

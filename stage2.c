@@ -4,7 +4,9 @@
 #include "vdl-log.h"
 #include "vdl-file-list.h"
 #include "vdl-reloc.h"
+#include "vdl-dl.h"
 #include "glibc.h"
+#include "valgrind.h"
 #include "gdb.h"
 #include "machine.h"
 #include "stage2.h"
@@ -12,8 +14,6 @@
 #include "vdl-tls.h"
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
-#include <elf.h>
-#include <link.h>
 
 
 static struct VdlStringList *
@@ -333,6 +333,8 @@ stage2_initialize (struct Stage2Input input)
   // glibc-specific crap to avoid segfault in initializer
   glibc_initialize ();
 
+  valgrind_initialize ();
+
   // Finally, call init functions
   struct VdlFileList *call_init = vdl_sort_call_init (loaded);
   vdl_init_fini_call_init (call_init);
@@ -353,14 +355,34 @@ error:
   return output; // quiet compiler
 }
 
+void stage2_freeres (void)
+{
+  VDL_LOG_FUNCTION ("");
+  // We know, that we will _not_ be called again after we return
+  // from this function so, we can cleanup everything _except_ for the
+  // code/data memory mappings because the caller code segment would be 
+  // unmapped and that would trigger interesting crashes upon return
+  // from this function. When we return, the caller is going to call
+  // the exit_group syscall.
+
+  struct VdlFileList *link_map = get_global_link_map ();
+      
+  vdl_files_delete (link_map, false);
+      
+  vdl_utils_str_list_free (g_vdl.search_dirs);
+  g_vdl.search_dirs = 0;
+
+  vdl_file_list_free (link_map);
+}
+
 void
 stage2_finalize (void)
 {
   // The only thing we need to do here is to invoke the destructors
-  // in the correct order. freeing other memory is uneeded
-  // because we are going to exit very soon.
+  // in the correct order.
   struct VdlFileList *link_map = get_global_link_map ();
   struct VdlFileList *call_fini = vdl_sort_call_fini (link_map);
   vdl_init_fini_call_fini (call_fini);
   vdl_file_list_free (call_fini);
+  vdl_file_list_free (link_map);
 }

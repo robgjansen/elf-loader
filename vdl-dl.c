@@ -430,7 +430,14 @@ int vdl_dladdr (const void *addr, Dl_info *info)
 {
   return vdl_dladdr1 (addr, info, 0, 0);
 }
-void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigned long caller)
+void *vdl_dlvsym (void *handle, const char *symbol, const char *version, 
+		  unsigned long caller)
+{
+  return vdl_dlvsym_with_flags (handle, symbol, version, 0, caller);
+}
+void *vdl_dlvsym_with_flags (void *handle, const char *symbol, const char *version, 
+			     unsigned long flags,
+			     unsigned long caller)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
 		    handle, symbol, (version==0)?"":version, caller);
@@ -482,7 +489,7 @@ void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigne
     }
   struct VdlLookupResult result;
   
-  result = vdl_lookup_with_scope (context, symbol, version, 0, scope);
+  result = vdl_lookup_with_scope (context, symbol, version, 0, flags, scope);
   if (!result.found)
     {
       set_error ("Could not find requested symbol \"%s\"", symbol);

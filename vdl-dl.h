@@ -17,6 +17,9 @@ int vdl_dladdr (const void *addr, Dl_info *info);
 int vdl_dladdr1 (const void *addr, Dl_info *info, 
 		 void **extra_info, int flags);
 void *vdl_dlvsym (void *handle, const char *symbol, const char *version, unsigned long caller);
+void *vdl_dlvsym_with_flags (void *handle, const char *symbol, const char *version, 
+			     unsigned long flags,
+			     unsigned long caller);
 int vdl_dlinfo (void *handle, int request, void *p);
 void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag);
 // create a new linkmap

@@ -71,6 +71,7 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->state = VDL_CONSISTENT;
   vdl->interpreter_load_base = interpreter_load_base;
   vdl->bind_now = 0; // by default, do lazy binding
+  vdl->finalized = 0;
   vdl->contexts = 0;
   vdl->search_dirs = 0;
   vdl->tls_gen = 1;
@@ -167,8 +168,12 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
 void stage1_finalize (void)
 {
   stage2_finalize ();
-  // Now, start cleaning up the loader itself.
-  // XXX
+  g_vdl.finalized = 1;
+}
+
+void stage1_freeres (void)
+{
+  stage2_freeres ();
 }
 
 // Called from stage0 entry point asm code.

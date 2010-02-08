@@ -53,7 +53,7 @@ LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
 interp.c gdb.c glibc.c \
 stage1.c stage2.c  \
 $(ARCH)/stage0.S vdl-dl.c \
-vdl-dl-public.c
+vdl-dl-public.c valgrind.c
 SOURCE=$(LDSO_FULL_SOURCE) libvdl.c elfedit.c readversiondef.c
 
 LDSO_OBJECTS=$(addsuffix .o,$(basename $(LDSO_SOURCE)))

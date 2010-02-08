@@ -17,7 +17,10 @@ enum VdlLookupFlag {
   // find a matching symbol in the main binary. This is
   // typically used to perform the lookup associated
   // with a R_*_COPY relocation.
-  VDL_LOOKUP_NO_EXEC = 1
+  VDL_LOOKUP_NO_EXEC = 1,
+  // indicates that no symbol remap should be performed
+  // This can be used to get the original symbol back.
+  VDL_LOOKUP_NO_REMAP = 2
 };
 struct VdlLookupResult vdl_lookup (struct VdlFile *from_file,
 				   const char *name, 
@@ -30,6 +33,7 @@ struct VdlLookupResult vdl_lookup_with_scope (const struct VdlContext *from_cont
 					      const char *name, 
 					      const char *ver_name,
 					      const char *ver_filename,
+					      enum VdlLookupFlag flags,
 					      struct VdlFileList *scope);
 
 #endif /* VDL_LOOKUP_H */
