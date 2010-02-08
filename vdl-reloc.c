@@ -247,6 +247,7 @@ unsigned long
 vdl_reloc_index_jmprel (struct VdlFile *file, 
 			unsigned long index)
 {
+  VDL_LOG_FUNCTION ("file=%s, index=%lu", file->name, index);
   futex_lock (&g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
   unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
