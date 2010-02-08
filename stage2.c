@@ -363,6 +363,10 @@ void stage2_freeres (void)
   g_vdl.search_dirs = 0;
 
   vdl_file_list_free (link_map);
+
+  unsigned long tcb = machine_thread_pointer_get ();
+  vdl_tls_dtv_deallocate (tcb);
+  vdl_tls_tcb_deallocate (tcb);
 }
 
 void
