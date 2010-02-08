@@ -203,7 +203,11 @@ bool machine_insert_trampoline (unsigned long from, unsigned long to,
   // our jump and that none of that code is running yet so, we don't have
   // to worry about modifying a piece of code which is running already.
   unsigned long page_start = from / 4096 * 4096;
-  system_mprotect ((void*)page_start, 4096, PROT_WRITE);
+  int status = system_mprotect ((void*)page_start, 4096, PROT_WRITE);
+  if (status != 0)
+    {
+      return false;
+    }
   signed long delta = to;
   delta -= from + 5;
   unsigned long delta_unsigned = delta;
@@ -213,8 +217,8 @@ bool machine_insert_trampoline (unsigned long from, unsigned long to,
   buffer[2] = (delta_unsigned >> 8) & 0xff;
   buffer[3] = (delta_unsigned >> 16) & 0xff;
   buffer[4] = (delta_unsigned >> 24) & 0xff;
-  system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
-  return true;
+  status = system_mprotect ((void *)page_start, 4096, PROT_READ | PROT_EXEC);
+  return status == 0;
 }
 
 void machine_thread_pointer_set (unsigned long tp)

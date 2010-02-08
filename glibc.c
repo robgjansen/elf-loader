@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "glibc.h"
 #include "machine.h"
 #include "vdl.h"
@@ -253,28 +252,33 @@ do_glibc_patch (struct VdlFile *file)
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &_dl_addr_hack,
-				 result.symbol->st_value);
+      bool ok = machine_insert_trampoline (addr, (unsigned long) &_dl_addr_hack,
+					   result.symbol->st_value);
+      VDL_LOG_ASSERT (ok, "Unable to intercept dl_addr. Check your selinux config.");
     }
   result = vdl_lookup_local (file, "__libc_dlopen_mode");
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen, 
-				 result.symbol->st_size);
+      bool ok = machine_insert_trampoline (addr, (unsigned long) &vdl_dlopen, 
+					   result.symbol->st_size);
+      VDL_LOG_ASSERT (ok, "Unable to intercept dl_addr. Check your selinux config.");
     }
   result = vdl_lookup_local (file, "__libc_dlclose");
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose,
-				 result.symbol->st_size);
+      bool ok = machine_insert_trampoline (addr, (unsigned long) &vdl_dlclose,
+					   result.symbol->st_size);
+      VDL_LOG_ASSERT (ok, "Unable to intercept dl_addr. Check your selinux config.");
     }
   result = vdl_lookup_local (file, "__libc_dlsym");
   if (result.found)
     {
       unsigned long addr = file->load_base + result.symbol->st_value;
-      machine_insert_trampoline (addr, (unsigned long) &dlsym_hack, result.symbol->st_value);
+      bool ok = machine_insert_trampoline (addr, (unsigned long) &dlsym_hack, 
+					   result.symbol->st_value);
+      VDL_LOG_ASSERT (ok, "Unable to intercept dl_addr. Check your selinux config.");
     }
 }
 
