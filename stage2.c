@@ -110,8 +110,10 @@ do_ld_preload (struct VdlContext *context, const char **envp)
       if (ld_preload_file == 0)
 	{
 	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	  vdl_utils_strfree (ld_preload_filename);
 	  goto error;
 	}
+      vdl_utils_strfree (ld_preload_filename);
       ld_preload_file->count++;
       retval = vdl_file_list_append_one (retval, ld_preload_file);
     }
