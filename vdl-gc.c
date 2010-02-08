@@ -3,65 +3,9 @@
 #include "vdl-file-list.h"
 #include "vdl.h"
 #include "vdl-log.h"
-#include "vdl-tls.h"
 
-static void
-vdl_file_remove (struct VdlFile *item)
-{
-  VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
-
-  // first, remove them from the global link_map
-  struct VdlFile *next = item->next;
-  struct VdlFile *prev = item->prev;
-  item->next = 0;
-  item->prev = 0;
-  if (next == 0 && prev == 0)
-    {
-      VDL_LOG_ASSERT (item == g_vdl.link_map, "invariant broken");
-      g_vdl.link_map = 0;
-    }
-  if (prev != 0)
-    {
-      prev->next = next;
-    }
-  if (next != 0)
-    {
-      next->prev = prev;
-    }
-
-  // then, remove them from our local scope map
-  item->local_scope = vdl_file_list_free_one (item->local_scope, item);
-
-  // then, remove them from the local scope maps of all
-  // those who have potentially a reference to us
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      cur->local_scope = vdl_file_list_free_one (cur->local_scope, item);
-    }  
-
-  // finally, remove them from the global scope map
-  item->context->global_scope = vdl_file_list_free_one (item->context->global_scope, item);
-}
-#if 0
-static uint32_t 
-vdl_context_get_count (const struct VdlContext *context)
-{
-  // and count number of files in this context
-  uint32_t context_count = 0;
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      if (cur->context == context)
-	{
-	  context_count++;
-	}
-    }
-  return context_count;
-}
-#endif
-
-static struct VdlFileList *vdl_gc_get_white (void)
+// return the white subset of the input set of files
+static struct VdlFileList *vdl_gc_get_white (struct VdlFileList *list)
 {
   struct VdlFileList *grey = 0;
 
@@ -69,17 +13,18 @@ static struct VdlFileList *vdl_gc_get_white (void)
   // except for the roots which are marked as grey and keep
   // track of all roots.
   {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    struct VdlFileList *cur;
+    for (cur = list; cur != 0; cur = cur->next)
       {
-	if (cur->count > 0)
+	struct VdlFile *item = cur->item;
+	if (item->count > 0)
 	  {
-	    cur->gc_color = VDL_GC_GREY;
-	    grey = vdl_file_list_prepend_one (grey, cur);
+	    item->gc_color = VDL_GC_GREY;
+	    grey = vdl_file_list_prepend_one (grey, item);
 	  }
 	else
 	  {
-	    cur->gc_color = VDL_GC_WHITE;
+	    item->gc_color = VDL_GC_WHITE;
 	  }
       }
   }
@@ -93,22 +38,24 @@ static struct VdlFileList *vdl_gc_get_white (void)
       struct VdlFileList *cur;
       for (cur = first->item->gc_symbols_resolved_in; cur != 0; cur = cur->next)
 	{
-	  if (cur->item->gc_color == VDL_GC_WHITE)
+	  struct VdlFile *item = cur->item;
+	  if (item->gc_color == VDL_GC_WHITE)
 	    {
 	      // move referenced objects which are white to the grey list.
 	      // by inserting them at the front of the list.
-	      cur->item->gc_color = VDL_GC_GREY;
-	      grey = vdl_file_list_prepend_one (grey, cur->item);
+	      item->gc_color = VDL_GC_GREY;
+	      grey = vdl_file_list_prepend_one (grey, item);
 	    }
 	}
       for (cur = first->item->deps; cur != 0; cur = cur->next)
 	{
-	  if (cur->item->gc_color == VDL_GC_WHITE)
+	  struct VdlFile *item = cur->item;
+	  if (item->gc_color == VDL_GC_WHITE)
 	    {
 	      // move referenced objects which are white to the grey list.
 	      // by inserting them at the front of the list.
-	      cur->item->gc_color = VDL_GC_GREY;
-	      grey = vdl_file_list_prepend_one (grey, cur->item);
+	      item->gc_color = VDL_GC_GREY;
+	      grey = vdl_file_list_prepend_one (grey, item);
 	    }
 	}
       // finally, mark our grey object as black.
@@ -119,12 +66,13 @@ static struct VdlFileList *vdl_gc_get_white (void)
   // finally, gather the list of white objects.
   struct VdlFileList *white = 0;
   {
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    struct VdlFileList *cur;
+    for (cur = list; cur != 0; cur = cur->next)
       {
-	if (cur->gc_color == VDL_GC_WHITE)
+	struct VdlFile *item = cur->item;
+	if (item->gc_color == VDL_GC_WHITE)
 	  {
-	    white = vdl_file_list_prepend_one (white, cur);
+	    white = vdl_file_list_prepend_one (white, item);
 	  }
       }
   }
@@ -136,7 +84,8 @@ struct VdlFileList *
 vdl_gc_get_objects_to_unload (void)
 {
   struct VdlFileList *all_free = 0;
-  struct VdlFileList *free = vdl_gc_get_white ();
+  struct VdlFileList *global = vdl_file_list_get_global_linkmap ();
+  struct VdlFileList *free = vdl_gc_get_white (global);
   while (free != 0)
     {
       struct VdlFileList *cur;
@@ -144,13 +93,14 @@ vdl_gc_get_objects_to_unload (void)
 	{
 	  // now, we remove that file from the global list to ensure
 	  // that the next call to vdl_gc_get_white won't return it again
-	  vdl_file_remove (cur->item);
+	  global = vdl_file_list_free_one (global, cur->item);
 	}
       all_free = vdl_file_list_append (all_free, free);
 
       // Now, try to see if some of the deps will have to be unloaded
-      free = vdl_gc_get_white ();
+      free = vdl_gc_get_white (global);
     }
+  vdl_file_list_free (global);
   return all_free;
 }
 

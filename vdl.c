@@ -261,10 +261,15 @@ vdl_context_delete (struct VdlContext *context)
       vdl_utils_strfree (entry->dst_ver_name);
       vdl_utils_strfree (entry->dst_ver_filename);
     }
-  vdl_utils_free (context->symbol_remaps, context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
+  vdl_utils_free (context->symbol_remaps, 
+		  context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
 
   // delete event callback entries
-    vdl_utils_free (context->event_callbacks, context->n_event_callbacks*sizeof(struct VdlContextCallbackEntry));
+  if (context->event_callbacks != 0)
+    {
+      vdl_utils_free (context->event_callbacks, 
+		      context->n_event_callbacks*sizeof(struct VdlContextCallbackEntry));
+    }
 
   // finally, delete context itself
   vdl_utils_delete (context);
@@ -287,6 +292,46 @@ file_append (struct VdlFile *item)
   item->prev = cur;
   item->next = 0;
   g_vdl.n_added++;
+}
+void
+file_remove (struct VdlFile *item)
+{
+  VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
+
+  // first, remove them from the global link_map
+  struct VdlFile *next = item->next;
+  struct VdlFile *prev = item->prev;
+  item->next = 0;
+  item->prev = 0;
+  if (prev == 0)
+    {
+      g_vdl.link_map = next;
+    }
+  else
+    {
+      prev->next = next;
+    }
+  if (next != 0)
+    {
+      next->prev = prev;
+    }
+  g_vdl.n_removed++;
+}
+
+static uint32_t 
+vdl_context_get_count (const struct VdlContext *context)
+{
+  // and count number of files in this context
+  uint32_t context_count = 0;
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      if (cur->context == context)
+	{
+	  context_count++;
+	}
+    }
+  return context_count;
 }
 static struct VdlFileMap
 file_map_add_load_base (struct VdlFileMap map, unsigned long load_base)
@@ -339,7 +384,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 }
 
 static void
-file_delete (struct VdlFile *file, bool mapping)
+vdl_file_delete (struct VdlFile *file, bool mapping)
 {
   if (mapping)
     {
@@ -351,21 +396,28 @@ file_delete (struct VdlFile *file, bool mapping)
 	}
     }
 
-  file->next = 0;
-  file->prev = 0;
+  // remove from global linkmap
+  file_remove (file);
+
+  if (vdl_context_get_count (file->context) == 0)
+    {
+      vdl_context_delete (file->context);
+    }
+
   vdl_file_list_free (file->deps);
-  file->deps = 0;
   vdl_file_list_free (file->local_scope);
-  file->local_scope = 0;
   vdl_file_list_free (file->gc_symbols_resolved_in);
-  file->gc_symbols_resolved_in = 0;
   vdl_utils_strfree (file->name);
-  file->name = 0;
   vdl_utils_strfree (file->filename);
+
+  file->deps = 0;
+  file->local_scope = 0;
+  file->gc_symbols_resolved_in = 0;
+  file->name = 0;
   file->filename = 0;
   file->context = 0;
+
   vdl_utils_delete (file);
-  g_vdl.n_removed++;
 }
 
 void vdl_files_delete (struct VdlFileList *files, bool mapping)
@@ -373,7 +425,7 @@ void vdl_files_delete (struct VdlFileList *files, bool mapping)
   struct VdlFileList *cur;
   for (cur = files; cur != 0; cur = cur->next)
     {
-      file_delete (cur->item, mapping);
+      vdl_file_delete (cur->item, mapping);
     }
 }
 

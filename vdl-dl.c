@@ -281,6 +281,23 @@ int vdl_dlclose (void *handle)
 
   // first, we gather the list of all objects to unload/delete
   struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
+
+  // Then, we clear them from any scopes. We do this before calling
+  // the finalizers to make sure that no one will have the weird
+  // idea of resolving a symbol into the objects we are about to remove.
+  {
+    // remove from the local scope maps of all
+    // those who have potentially a reference to us
+    struct VdlFile *cur;
+    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+      {
+	cur->local_scope = vdl_file_list_free_one (cur->local_scope, file);
+      }  
+
+    // finally, remove from the global scope map
+    file->context->global_scope = vdl_file_list_free_one (file->context->global_scope, file);
+  }
+
   struct VdlFileList *call_fini = vdl_sort_call_fini (unload);
 
   // must not hold the lock to call fini
