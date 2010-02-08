@@ -193,3 +193,14 @@ void vdl_file_list_print (struct VdlFileList *list)
     }
   vdl_log_printf (VDL_LOG_PRINT, "\n");
 }
+struct VdlFileList *vdl_file_list_get_global_linkmap (void)
+{
+  struct VdlFileList *retval = 0;
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      retval = vdl_file_list_prepend_one (retval, cur);
+    }
+  retval = vdl_file_list_reverse (retval);
+  return retval;
+}

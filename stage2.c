@@ -183,18 +183,6 @@ is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
   char *soname = (char *)(dt_strtab + dt_soname);
   return vdl_utils_strisequal (soname, LDSO_SONAME);
 }
-static struct VdlFileList *
-get_global_link_map (void)
-{
-  struct VdlFileList *retval = 0;
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      retval = vdl_file_list_prepend_one (retval, cur);
-    }
-  retval = vdl_file_list_reverse (retval);
-  return retval;
-}
 static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned long phnum)
 {
   // XXX will not work when main exec is loader itself
@@ -365,7 +353,7 @@ void stage2_freeres (void)
   // from this function. When we return, the caller is going to call
   // the exit_group syscall.
 
-  struct VdlFileList *link_map = get_global_link_map ();
+  struct VdlFileList *link_map = vdl_file_list_get_global_linkmap ();
       
   vdl_files_delete (link_map, false);
       
@@ -380,7 +368,7 @@ stage2_finalize (void)
 {
   // The only thing we need to do here is to invoke the destructors
   // in the correct order.
-  struct VdlFileList *link_map = get_global_link_map ();
+  struct VdlFileList *link_map = vdl_file_list_get_global_linkmap ();
   struct VdlFileList *call_fini = vdl_sort_call_fini (link_map);
   vdl_init_fini_call_fini (call_fini);
   vdl_file_list_free (call_fini);

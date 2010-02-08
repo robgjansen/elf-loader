@@ -20,4 +20,6 @@ struct VdlFileList *vdl_file_list_free_one (struct VdlFileList *list,
 struct VdlFileList *vdl_file_list_find (struct VdlFileList *list,
 					struct VdlFile *item);
 void vdl_file_list_print (struct VdlFileList *list);
+struct VdlFileList *vdl_file_list_get_global_linkmap (void);
+
 #endif /* VDL_FILE_LIST_H */
