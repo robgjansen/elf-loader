@@ -92,35 +92,33 @@ do_ld_preload (struct VdlContext *context, const char **envp)
   // other library, but after the main binary itself.
   struct VdlFileList *retval = 0;
   const char *ld_preload = vdl_utils_getenv (envp, "LD_PRELOAD");
-  if (ld_preload != 0)
+  struct VdlStringList *list = vdl_utils_strsplit (ld_preload, ':');
+  struct VdlStringList *cur;
+  for (cur = list; cur != 0; cur = cur->next)
     {
-      struct VdlStringList *list = vdl_utils_strsplit (ld_preload, ':');
-      struct VdlStringList *cur;
-      for (cur = list; cur != 0; cur = cur->next)
+      char *filename = cur->str;
+      // search the requested program
+      char *ld_preload_filename = vdl_search_filename (filename, 0, 0);
+      if (ld_preload_filename == 0)
 	{
-	  char *filename = cur->str;
-	  // search the requested program
-	  char *ld_preload_filename = vdl_search_filename (filename, 0, 0);
-	  if (ld_preload_filename == 0)
-	    {
-	      VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", filename);
-	      goto error;
-	    }
-	  // map it in memory.
-	  struct VdlFile *ld_preload_file = vdl_file_map_single (context, ld_preload_filename, 
-								 ld_preload);
-	  if (ld_preload_file == 0)
-	    {
-	      VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
-	      goto error;
-	    }
-	  ld_preload_file->count++;
-	  retval = vdl_file_list_append_one (retval, ld_preload_file);
+	  VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", filename);
+	  goto error;
 	}
+      // map it in memory.
+      struct VdlFile *ld_preload_file = vdl_file_map_single (context, ld_preload_filename, 
+							     ld_preload);
+      if (ld_preload_file == 0)
+	{
+	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
+	  goto error;
+	}
+      ld_preload_file->count++;
+      retval = vdl_file_list_append_one (retval, ld_preload_file);
     }
-  
+  vdl_utils_str_list_free (list);
   return retval;
  error:
+  vdl_utils_str_list_free (list);
   return 0;
 }
 
