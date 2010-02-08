@@ -3,7 +3,7 @@ DEBUG+=-DMALLOC_DEBUG_ENABLE
 #OPT=-O2
 LDSO_SONAME=ldso
 VALGRIND_CFLAGS=$(shell ./get-valgrind-cflags.py)
-CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -Wp,-M,-MF,.deps/$*.d
+CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-M,-MF,.deps/$*.d
 CXXFLAGS=$(CFLAGS)
 LDFLAGS=$(OPT)
 

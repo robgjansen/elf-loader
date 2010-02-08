@@ -1,7 +1,6 @@
 #ifndef VDL_DL_H
 #define VDL_DL_H
 
-#define _GNU_SOURCE 
 #include <dlfcn.h> // for Dl_info
 #include <link.h> // for struct dl_phdr_info
 
