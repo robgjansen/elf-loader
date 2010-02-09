@@ -227,7 +227,12 @@ vdl_context_delete (struct VdlContext *context)
   vdl_file_list_free (context->global_scope);
   context->global_scope = 0;
   // unlink from main context list
-  if (context->prev != 0)
+  if (context->prev == 0)
+    {
+      // first entry in global list.
+      g_vdl.contexts = context->next;
+    }
+  else
     {
       context->prev->next = context->next;
     }
@@ -242,33 +247,44 @@ vdl_context_delete (struct VdlContext *context)
   context->envp = 0;
 
   // delete lib remap entries
-  int i;
-  for (i = 0; i < context->n_lib_remaps; i++)
+  if (context->lib_remaps != 0)
     {
-      vdl_utils_strfree (context->lib_remaps[i].src);
-      vdl_utils_strfree (context->lib_remaps[i].dst);
+      int i;
+      for (i = 0; i < context->n_lib_remaps; i++)
+	{
+	  vdl_utils_strfree (context->lib_remaps[i].src);
+	  vdl_utils_strfree (context->lib_remaps[i].dst);
+	}
+      vdl_utils_free (context->lib_remaps, 
+		      context->n_lib_remaps*sizeof(struct VdlContextLibRemapEntry));
+      context->n_lib_remaps = 0;
     }
-  vdl_utils_free (context->lib_remaps, context->n_lib_remaps*sizeof(struct VdlContextLibRemapEntry));
 
-  // delete symbol remap entries
-  for (i = 0; i < context->n_symbol_remaps; i++)
+  if (context->symbol_remaps != 0)
     {
-      struct VdlContextSymbolRemapEntry *entry = &context->symbol_remaps[i];
-      vdl_utils_strfree (entry->src_name);
-      vdl_utils_strfree (entry->src_ver_name);
-      vdl_utils_strfree (entry->src_ver_filename);
-      vdl_utils_strfree (entry->dst_name);
-      vdl_utils_strfree (entry->dst_ver_name);
-      vdl_utils_strfree (entry->dst_ver_filename);
+      int i;
+      // delete symbol remap entries
+      for (i = 0; i < context->n_symbol_remaps; i++)
+	{
+	  struct VdlContextSymbolRemapEntry *entry = &context->symbol_remaps[i];
+	  vdl_utils_strfree (entry->src_name);
+	  vdl_utils_strfree (entry->src_ver_name);
+	  vdl_utils_strfree (entry->src_ver_filename);
+	  vdl_utils_strfree (entry->dst_name);
+	  vdl_utils_strfree (entry->dst_ver_name);
+	  vdl_utils_strfree (entry->dst_ver_filename);
+	}
+      vdl_utils_free (context->symbol_remaps, 
+		      context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
+      context->n_symbol_remaps = 0;
     }
-  vdl_utils_free (context->symbol_remaps, 
-		  context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
 
   // delete event callback entries
   if (context->event_callbacks != 0)
     {
       vdl_utils_free (context->event_callbacks, 
 		      context->n_event_callbacks*sizeof(struct VdlContextCallbackEntry));
+      context->n_event_callbacks = 0;
     }
 
   // finally, delete context itself
@@ -755,14 +771,21 @@ static struct VdlFile *
 find_by_name (struct VdlContext *context,
 	      const char *name)
 {
-  //XXX: we should treat 'ldso' specially and not check against 'context' in
-  // this case because we want all contexts to use the same loaded ldso.
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      if (cur->context == context &&
-	  vdl_utils_strisequal (cur->name, name))
+      if (!vdl_utils_strisequal (cur->name, name))
 	{
+	  continue;
+	}
+      if (cur->context == context)
+	{
+	  return cur;
+	}
+      if (vdl_utils_strisequal (name, "ldso"))
+	{
+	  // we want to make sure that all contexts
+	  // reuse the same ldso.
 	  return cur;
 	}
     }
