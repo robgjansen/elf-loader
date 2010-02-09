@@ -14,6 +14,22 @@ int main (int argc, char *argv[])
     {
       printf ("loaded libp.so twice\n");
     }
+  Lmid_t lmid1;
+  Lmid_t lmid2;
+  int status = dlinfo (h1, RTLD_DI_LMID, &lmid1);
+  if (status == 0)
+    {
+      printf ("got lmid1\n");
+    }
+  status = dlinfo (h2, RTLD_DI_LMID, &lmid2);
+  if (status == 0)
+    {
+      printf ("got lmid2\n");
+    }
+  if (lmid1 != lmid2)
+    {
+      printf ("yes, contexts are different !\n");
+    }
   Fn fp1 = dlsym (h1, "libp_set_global");
   Fn fq1 = dlsym (h1, "libq_set_global");
   Fn fp2 = dlsym (h2, "libp_set_global");
