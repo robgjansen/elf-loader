@@ -367,6 +367,16 @@ void stage2_freeres (void)
   unsigned long tcb = machine_thread_pointer_get ();
   vdl_tls_dtv_deallocate (tcb);
   vdl_tls_tcb_deallocate (tcb);
+
+  {
+    struct ErrorList *cur, *next;
+    for (cur = g_vdl.error; cur != 0; cur = next)
+      {
+	vdl_utils_strfree (cur->error);
+	next = cur->next;
+	vdl_utils_delete (cur);
+      }
+  }
 }
 
 void

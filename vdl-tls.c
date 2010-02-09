@@ -42,6 +42,7 @@ allocate_tls_index (void)
 static void
 file_initialize (struct VdlFile *file)
 {
+  VDL_LOG_FUNCTION ("file=%s, initialized=%u", file->name, file->tls_initialized);
   if (file->tls_initialized)
     {
       return;
@@ -71,6 +72,9 @@ file_initialize (struct VdlFile *file)
   file->tls_tmpl_gen = g_vdl.tls_gen;
   g_vdl.tls_gen++;
   g_vdl.tls_n_dtv++;
+  VDL_LOG_DEBUG ("file=%s tmpl_size=%lu zero_size=%lu\n", 
+		 file->name, file->tls_tmpl_size, 
+		 file->tls_init_zero_size);
 }
 
 void
@@ -140,6 +144,7 @@ vdl_tls_file_list_has_static (struct VdlFileList *list)
 void
 vdl_tls_file_initialize_static (struct VdlFileList *list)
 {
+  VDL_LOG_FUNCTION ("");
   g_vdl.tls_gen = 1;
   // We gather tls information for each module. 
   vdl_tls_file_initialize (list);
@@ -207,12 +212,14 @@ vdl_tls_tcb_initialize (unsigned long tcb, unsigned long sysinfo)
 struct dtv_t
 {
   unsigned long value;
-  unsigned long gen;
+  unsigned long is_static : 1;
+  unsigned long gen : (sizeof(unsigned long) * 8 - 1);
 };
 
 void
 vdl_tls_dtv_allocate (unsigned long tcb)
 {
+  VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   // allocate a dtv for the set of tls blocks needed now
   struct dtv_t *dtv = vdl_utils_malloc ((2+g_vdl.tls_n_dtv) * sizeof (struct dtv_t));
   dtv[0].value = g_vdl.tls_n_dtv;
@@ -226,6 +233,7 @@ vdl_tls_dtv_allocate (unsigned long tcb)
 void
 vdl_tls_dtv_initialize (unsigned long tcb)
 {
+  VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   struct dtv_t *dtv;
   vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
   // allocate a dtv for the set of tls blocks needed now
@@ -240,6 +248,7 @@ vdl_tls_dtv_initialize (unsigned long tcb)
 	    {
 	      signed long dtvi = tcb + cur->tls_offset;
 	      dtv[cur->tls_index].value = dtvi;
+	      dtv[cur->tls_index].is_static = 1;
 	      // copy the template in the module tls block
 	      vdl_utils_memcpy ((void*)dtvi, (void*)cur->tls_tmpl_start, cur->tls_tmpl_size);
 	      vdl_utils_memset ((void*)(dtvi + cur->tls_tmpl_size), 0, cur->tls_init_zero_size);
@@ -247,6 +256,7 @@ vdl_tls_dtv_initialize (unsigned long tcb)
 	  else
 	    {
 	      dtv[cur->tls_index].value = 0; // unallocated
+	      dtv[cur->tls_index].is_static = 0;
 	    }
 	  dtv[cur->tls_index].gen = cur->tls_tmpl_gen;
 	}
@@ -272,6 +282,7 @@ find_file_by_module (unsigned long module)
 void
 vdl_tls_dtv_deallocate (unsigned long tcb)
 {
+  VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   struct dtv_t *dtv;
   vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
 
@@ -284,19 +295,15 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
 	  // this was an unallocated entry
 	  continue;
 	}
-      struct VdlFile *file = find_file_by_module (module);
-      if (file == 0)
+      if (dtv[module].is_static)
 	{
-	  // the module has been unloaded since its corresponding
-	  // entry in the dtv was set. nothing to do, really.
+	  // this was a static entry so, we don't
+	  // have anything to free here.
 	  continue;
 	}
-      if (!file->tls_is_static)
-	{
-	  // this was not a static entry
-	  unsigned long *dtvi = (unsigned long *)dtv[module].value;
-	  vdl_utils_free (dtvi, dtvi[-1]);
-	}
+      // this was not a static entry
+      unsigned long *dtvi = (unsigned long *)dtv[module].value;
+      vdl_utils_free (&dtvi[-1], dtvi[-1]);
     }
   vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
 }
@@ -304,6 +311,7 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
 void
 vdl_tls_tcb_deallocate (unsigned long tcb)
 {
+  VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   unsigned long start = tcb - g_vdl.tls_static_size;
   vdl_utils_free ((void*)start, g_vdl.tls_static_size + CONFIG_TCB_SIZE);
 }
@@ -316,6 +324,95 @@ get_current_dtv (void)
   struct dtv_t *dtv;
   vdl_utils_memcpy (&dtv, (void*)(tp+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
   return dtv;
+}
+static void
+update_dtv (void)
+{
+  VDL_LOG_FUNCTION ("");
+  unsigned long tp = machine_thread_pointer_get ();
+  struct dtv_t *dtv = get_current_dtv ();
+  unsigned long dtv_size = dtv[-1].value;
+  VDL_LOG_ASSERT (dtv[0].gen != g_vdl.tls_gen, 
+		  "dtv is not up-to-date");
+
+  // first, we update the currently-available entries of the dtv.
+  {
+      unsigned long module;
+      for (module = 1; module <= dtv_size; module++)
+	{
+	  if (dtv[module].value == 0)
+	    {
+	      // this is an un-initialized entry so, we leave it alone
+	      continue;
+	    }
+	  struct VdlFile *file = find_file_by_module (module);
+	  if (file != 0 && dtv[module].gen == file->tls_tmpl_gen)
+	    {
+	      // the entry is uptodate.
+	      continue;
+	    }
+	  // module was unloaded
+	  if (!dtv[module].is_static)
+	    {
+	      // and it was not static so, we free its memory
+	      unsigned long *dtvi = (unsigned long *)dtv[module].value;
+	      vdl_utils_free (&dtvi[-1], dtvi[-1]);		  
+	      dtv[module].value = 0;
+	    }
+	  if (file == 0)
+	    {
+	      // no new module was loaded so, we are good.
+	      continue;
+	    }
+	  // we have a new module loaded
+	  // we clear it so that it is initialized later if needed
+	  dtv[module].value = 0;
+	  dtv[module].gen = 0;
+	  dtv[module].is_static = 0;
+	}
+  }
+
+  // now, check the size of the new dtv
+  if (g_vdl.tls_n_dtv <= dtv_size)
+    {
+      // we have a big-enough dtv so, now that it's uptodate,
+      // update the generation
+      dtv[0].gen = g_vdl.tls_gen;
+      return;
+    }
+
+  // the size of the new dtv is bigger than the 
+  // current dtv. We need a newly-sized dtv
+  vdl_tls_dtv_allocate (tp);
+  struct dtv_t *new_dtv = get_current_dtv ();
+  unsigned long new_dtv_size = new_dtv[-1].value;
+  unsigned long module;
+  // first, copy over the data from the old dtv into the new one.
+  for (module = 1; module <= dtv_size; module++)
+    {
+      new_dtv[module] = dtv[module];
+    }
+  // then, initialize the new area in the new dtv
+  for (module = dtv_size+1; module <= new_dtv_size; module++)
+    {
+      new_dtv[module].value = 0;
+      new_dtv[module].gen = 0;
+      new_dtv[module].is_static = 0;
+      struct VdlFile *file = find_file_by_module (module);
+      if (file == 0)
+	{
+	  // the module has been loaded and then unloaded before
+	  // we updated our dtv so, well,
+	  // nothing to do here, just skip this empty entry
+	  continue;
+	}
+      VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should never"
+		      "be initialized here");
+    }
+  // now that the dtv is updated, update the generation
+  new_dtv[0].gen = g_vdl.tls_gen;
+  // finally, clear the old dtv
+  vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
 }
 unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 {
@@ -330,128 +427,15 @@ unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
   // the dtv entry to point to the requested module block
   return 0;
 }
-static void
-update_dtv (void)
-{
-  unsigned long tp = machine_thread_pointer_get ();
-  struct dtv_t *dtv = get_current_dtv ();
-  unsigned long dtv_size = dtv[-1].value;
-  // first, check its size
-  if (g_vdl.tls_n_dtv <= dtv_size)
-    {
-      // ok, our current dtv is big enough. We just need
-      // to update its content
-      unsigned long module;
-      for (module = 1; module <= dtv_size; module++)
-	{
-	  struct VdlFile *file = find_file_by_module (module);
-	  if (file == 0)
-	    {
-	      // the module has been unloaded so, well,
-	      // nothing to do here, just skip this empty entry
-	      continue;
-	    }
-	  if (dtv[module].gen == file->tls_tmpl_gen)
-	    {
-	      // this entry is uptodate. skip it
-	      continue;
-	    }
-	  VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should "
-			  "always be uptodate");
-	  if (dtv[module].value == 0)
-	    {
-	      // this is just an un-initialized entry so, we leave it alone
-	      continue;
-	    }
-	  // Now, we know that this entry was initialized at some point
-	  // but it's not uptodate anymore. This can happen only if
-	  // the user has unmapped a module with tls capability, 
-	  // and reloaded a new module with tls capability and the
-	  // new module has been allocated the same tls module index
-	  // as the old module. All we have to do here is make sure that this
-	  // entry gets initialized when it's needed
-	  dtv[module].value = 0;
-	}
-      // now that the dtv is updated, update the generation
-      dtv[0].gen = g_vdl.tls_gen;
-      return;
-    }
-
-  // the size of the new dtv is bigger than the 
-  // current dtv. We need a newly-sized dtv
-  vdl_tls_dtv_allocate (tp);
-  struct dtv_t *new_dtv = get_current_dtv ();
-  unsigned long new_dtv_size = new_dtv[-1].value;
-  unsigned long module;
-  // first, initialize the common area between
-  // the old and the new dtv. also, clear
-  // the old dtv
-  for (module = 1; module <= dtv_size; module++)
-    {
-      struct VdlFile *file = find_file_by_module (module);
-      if (file == 0)
-	{
-	  // the module has been unloaded so, well,
-	  // nothing to do here. for clarity, we initialize
-	  // these entries, but it's not needed, really.
-	  new_dtv[module].value = 0;
-	  new_dtv[module].gen = 0;
-	  continue;
-	}
-      if (dtv[module].gen == file->tls_tmpl_gen)
-	{
-	  // copy uptodate entries
-	  new_dtv[module] = dtv[module];	  
-	  continue;
-	}
-      if (dtv[module].value == 0)
-	{
-	  // an uninitialized entry. nothing to do. for clarity, 
-	  // initialize new dtv too.
-	  new_dtv[module].value = 0;
-	  new_dtv[module].gen = 0;
-	  continue;
-	}
-      // these are entries which were initialized at some point in the past 
-      // but which are not uptodate anymore. i.e., entries which represent 
-      // an old unloaded module with a newly-loaded module, both with the 
-      // same tls module index.
-      // first, free the old block (the size of the block is located
-      // just before the start of the block)
-      unsigned long * dtvi = (unsigned long *)dtv[module].value;
-      vdl_utils_free (dtvi, dtvi[-1]);
-      // then, make sure the new block will be initialized later
-      new_dtv[module].value = 0;
-      new_dtv[module].gen = 0;
-    }
-  // then, initialize the new area in the new dtv
-  for (module = dtv_size+1; module <= new_dtv_size; module++)
-    {
-      new_dtv[module].value = 0;
-      new_dtv[module].gen = 0;
-      struct VdlFile *file = find_file_by_module (module);
-      if (file == 0)
-	{
-	  // the module has been loaded and then unloaded before
-	  // we updated our dtv so, well,
-	  // nothing to do here, just skip this empty entry
-	  continue;
-	}
-      VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should never"
-		      "be initialized here");
-    }
-  // finally, clear the old dtv
-  vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
-}
 unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
 {
-  struct dtv_t *dtv = get_current_dtv ();
-  if (dtv[0].gen == g_vdl.tls_gen && dtv[module].value != 0)
+  VDL_LOG_FUNCTION ("module=%lu, offset=%lu", module, offset);
+  unsigned long addr = vdl_tls_get_addr_fast (module, offset);
+  if (addr != 0)
     {
-      // our dtv is really uptodate _and_ the requested module block
-      // has been already initialized.
-      return dtv[module].value + offset;
+      return addr;
     }
+  struct dtv_t *dtv = get_current_dtv ();
   if (dtv[0].gen == g_vdl.tls_gen && dtv[module].value == 0)
     {
       // the dtv is uptodate but the requested module block 
@@ -469,10 +453,10 @@ unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
       // finally, update the dtv
       dtv[module].value = (unsigned long)dtvi;
       dtv[module].gen = file->tls_tmpl_gen;
+      dtv[module].is_static = 0;
       // and return the requested value
       return dtv[module].value + offset;
     }
-
   // we know for sure that the dtv is _not_ uptodate now
   update_dtv ();
 
