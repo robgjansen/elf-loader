@@ -9,10 +9,10 @@
   VALGRIND_MALLOCLIKE_BLOCK (buffer,size, 0, 0)
 # define REPORT_FREE(buffer) \
   VALGRIND_FREELIKE_BLOCK (buffer, 0)
-# define MARK_DEFINED(buffer) \
-  VALGRIND_MAKE_MEM_DEFINED(buffer, sizeof(void*))
-# define MARK_UNDEFINED(buffer) \
-  VALGRIND_MAKE_MEM_UNDEFINED(buffer, sizeof(void*))
+# define MARK_DEFINED(buffer, size)				\
+  VALGRIND_MAKE_MEM_DEFINED(buffer, size)
+# define MARK_UNDEFINED(buffer, size)			\
+  VALGRIND_MAKE_MEM_UNDEFINED(buffer, size)
 #else
 # define REPORT_MALLOC(buffer, size)
 # define REPORT_FREE(buffer)
@@ -63,6 +63,7 @@ static void alloc_chunk (struct Alloc *alloc, uint32_t size)
   chunk->brk = chunk_overhead ();
   chunk->next = alloc->chunks;
   alloc->chunks = chunk;
+  MARK_UNDEFINED (chunk->buffer + chunk->brk, size - chunk->brk);
 }
 
 static uint8_t *alloc_brk (struct Alloc *alloc, uint32_t needed)
@@ -112,9 +113,9 @@ uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size)
 	}
       // fast path.
       struct AllocAvailable *avail = alloc->buckets[bucket];
-      MARK_DEFINED(avail);
+      MARK_DEFINED(avail, sizeof(void*));
       struct AllocAvailable *next = avail->next;
-      MARK_UNDEFINED(avail);
+      MARK_UNDEFINED(avail, sizeof(void*));
       alloc->buckets[bucket] = next;
       REPORT_MALLOC(avail, size);
       return (uint8_t*)avail;
