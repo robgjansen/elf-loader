@@ -266,6 +266,21 @@ void *vdl_dlsym (void *handle, const char *symbol, unsigned long caller)
   return vdl_dlvsym (handle, symbol, 0, caller);
 }
 
+static void 
+remove_from_scopes (struct VdlFile *file)
+{
+  // remove from the local scope maps of all
+  // those who have potentially a reference to us
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      cur->local_scope = vdl_file_list_free_one (cur->local_scope, file);
+    }  
+
+  // finally, remove from the global scope map
+  file->context->global_scope = vdl_file_list_free_one (file->context->global_scope, file);
+}
+
 int vdl_dlclose (void *handle)
 {
   VDL_LOG_FUNCTION ("handle=0x%llx", handle);
@@ -286,16 +301,11 @@ int vdl_dlclose (void *handle)
   // the finalizers to make sure that no one will have the weird
   // idea of resolving a symbol into the objects we are about to remove.
   {
-    // remove from the local scope maps of all
-    // those who have potentially a reference to us
-    struct VdlFile *cur;
-    for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    struct VdlFileList *cur;
+    for (cur = unload; cur != 0; cur = cur->next)
       {
-	cur->local_scope = vdl_file_list_free_one (cur->local_scope, file);
-      }  
-
-    // finally, remove from the global scope map
-    file->context->global_scope = vdl_file_list_free_one (file->context->global_scope, file);
+	remove_from_scopes (cur->item);
+      }
   }
 
   struct VdlFileList *call_fini = vdl_sort_call_fini (unload);
