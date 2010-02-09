@@ -153,8 +153,6 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
       VDL_LOG_ASSERT (false, "Could not find main executable within linkmap");
     }
 
-  // map it in memory using the normal context, that is, the
-  // first context in the context list.
   struct VdlFileList *loaded = 0;
   struct VdlFile *mapped_file = vdl_file_map_single_maybe (context,
 							   filename,
@@ -255,6 +253,8 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
 void *vdl_dlopen (const char *filename, int flags)
 {
   futex_lock (&g_vdl.futex);
+  // map it in memory using the normal context, that is, the
+  // first context in the context list.
   void *handle = dlopen_with_context (g_vdl.contexts, filename, flags);
   futex_unlock (&g_vdl.futex);
   return handle;

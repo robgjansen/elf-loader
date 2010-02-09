@@ -113,10 +113,11 @@ struct VdlFile
   long int is_main_namespace;
 
   // This count indicates how many users hold a reference
-  // to this file either because the file has been dlopened
-  // (the dlopen increases the ref count), or because this
-  // file is a dependency of another file, or because this
-  // file was loaded during the loader initialization.
+  // to this file:
+  //   - the file has been dlopened (the dlopen increases the ref count)
+  //   - the file is the main binary, loader or ld_preload binaries
+  //     loaded during loader initialization
+  // All other files have a count of zero.
   uint32_t count;
   char *name;
   dev_t st_dev;
