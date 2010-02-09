@@ -24,17 +24,11 @@ needed.
 3) What is its status ?
 -----------------------
 
-Right now, this loader can load and run a variety of simple
-non-multithreaded command-line programs which make no use of 
-dlopen/dclose. ls and cp have been tested.
+Right now, this loader can load pretty complex programs, including
+things like evolution and firefox.
 
 4) What is the TODO ?
 ---------------------
 
 The current roadmap calls for the implementation of:
-  - libdl.so (dlopen/dlclose/etc.)
-  - multithreaded support (including TLS)
-  - port to x86-64
-  - addition of the new features I need
   - fix gdb support to debug programs not loaded with PT_INTERP
-  - info threads does not work
