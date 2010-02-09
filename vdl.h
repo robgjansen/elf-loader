@@ -252,6 +252,7 @@ struct VdlContext
 struct ErrorList
 {
   char *error;
+  char *prev_error;
   unsigned long thread_pointer;
   struct ErrorList *next;
 };

@@ -372,7 +372,10 @@ void stage2_freeres (void)
     struct ErrorList *cur, *next;
     for (cur = g_vdl.error; cur != 0; cur = next)
       {
+	vdl_utils_strfree (cur->prev_error);
 	vdl_utils_strfree (cur->error);
+	cur->prev_error = 0;
+	cur->error = 0;
 	next = cur->next;
 	vdl_utils_delete (cur);
       }

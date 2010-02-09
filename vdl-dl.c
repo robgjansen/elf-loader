@@ -28,6 +28,7 @@ static struct ErrorList *find_error (void)
   struct ErrorList * item = vdl_utils_new (struct ErrorList);
   item->thread_pointer = thread_pointer;
   item->error = 0;
+  item->prev_error = 0;
   item->next = g_vdl.error;
   g_vdl.error = item;
   return item;
@@ -40,10 +41,9 @@ static void set_error (const char *str, ...)
   char *error_string = vdl_utils_vprintf (str, list);
   va_end (list);
   struct ErrorList *error = find_error ();
-  if (error->error != 0)
-    {
-      vdl_utils_strfree (error->error);
-    }
+  vdl_utils_strfree (error->prev_error);
+  vdl_utils_strfree (error->error);
+  error->prev_error = 0;
   error->error = error_string;
 }
 
@@ -325,10 +325,8 @@ char *vdl_dlerror (void)
   futex_lock (&g_vdl.futex);
   struct ErrorList *error = find_error ();
   char *error_string = error->error;
-  if (error_string != 0)
-    {
-      vdl_utils_strfree (error_string);
-    }
+  vdl_utils_strfree (error->prev_error);
+  error->prev_error = error->error;
   // clear the error we are about to report to the user
   error->error = 0;
   futex_unlock (&g_vdl.futex);
