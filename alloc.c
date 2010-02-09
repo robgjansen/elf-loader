@@ -16,8 +16,8 @@
 #else
 # define REPORT_MALLOC(buffer, size)
 # define REPORT_FREE(buffer)
-# define MARK_DEFINED(buffer)
-# define MARK_UNDEFINED(buffer)
+# define MARK_DEFINED(buffer, size)
+# define MARK_UNDEFINED(buffer, size)
 #endif
 
 
