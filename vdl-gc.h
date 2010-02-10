@@ -9,8 +9,12 @@
  * removed from all global lists so, it should be safe
  * to just delete them here
  */
-struct VdlFileList *
-vdl_gc_get_objects_to_unload (void);
+struct GcResult
+{
+  struct VdlFileList *unload;
+  struct VdlFileList *not_unload;
+};
+struct GcResult vdl_gc_get_objects_to_unload (void);
 
 
 #endif /* VDL_GC_H */

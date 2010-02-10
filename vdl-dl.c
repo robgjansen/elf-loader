@@ -238,13 +238,14 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
   {
     // we don't need to call_fini here because we have not yet
     // called call_init.
-    struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
+    struct GcResult gc = vdl_gc_get_objects_to_unload ();
 
-    vdl_tls_file_deinitialize (unload);
+    vdl_tls_file_deinitialize (gc.unload);
 
-    vdl_files_delete (unload, true);
+    vdl_files_delete (gc.unload, true);
 
-    vdl_file_list_free (unload);
+    vdl_file_list_free (gc.unload);
+    vdl_file_list_free (gc.not_unload);
 
     gdb_notify ();
   }
@@ -267,14 +268,14 @@ void *vdl_dlsym (void *handle, const char *symbol, unsigned long caller)
 }
 
 static void 
-remove_from_scopes (struct VdlFile *file)
+remove_from_scopes (struct VdlFileList *files, struct VdlFile *file)
 {
   // remove from the local scope maps of all
   // those who have potentially a reference to us
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+  struct VdlFileList *cur;
+  for (cur = files; cur != 0; cur = cur->next)
     {
-      cur->local_scope = vdl_file_list_free_one (cur->local_scope, file);
+      cur->item->local_scope = vdl_file_list_free_one (cur->item->local_scope, file);
     }  
 
   // finally, remove from the global scope map
@@ -295,20 +296,22 @@ int vdl_dlclose (void *handle)
   file->count--;
 
   // first, we gather the list of all objects to unload/delete
-  struct VdlFileList *unload = vdl_gc_get_objects_to_unload ();
+  struct GcResult gc = vdl_gc_get_objects_to_unload ();
 
-  // Then, we clear them from any scopes. We do this before calling
-  // the finalizers to make sure that no one will have the weird
-  // idea of resolving a symbol into the objects we are about to remove.
+  // Then, we clear them from the scopes of all other files. 
+  // so that no one can resolve symbols within them but they 
+  // can resolve symbols among themselves and into others.
+  // It's obviously important to do this before calling the 
+  // finalizers
   {
     struct VdlFileList *cur;
-    for (cur = unload; cur != 0; cur = cur->next)
+    for (cur = gc.unload; cur != 0; cur = cur->next)
       {
-	remove_from_scopes (cur->item);
+	remove_from_scopes (gc.not_unload, cur->item);
       }
   }
 
-  struct VdlFileList *call_fini = vdl_sort_call_fini (unload);
+  struct VdlFileList *call_fini = vdl_sort_call_fini (gc.unload);
 
   // must not hold the lock to call fini
   futex_unlock (&g_vdl.futex);
@@ -317,11 +320,12 @@ int vdl_dlclose (void *handle)
 
   vdl_file_list_free (call_fini);
 
-  vdl_tls_file_deinitialize (unload);
+  vdl_tls_file_deinitialize (gc.unload);
 
-  vdl_files_delete (unload, true);
+  vdl_files_delete (gc.unload, true);
 
-  vdl_file_list_free (unload);
+  vdl_file_list_free (gc.unload);
+  vdl_file_list_free (gc.not_unload);
 
   gdb_notify ();
 

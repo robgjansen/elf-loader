@@ -80,7 +80,7 @@ static struct VdlFileList *vdl_gc_get_white (struct VdlFileList *list)
   return vdl_file_list_reverse (white);
 }
 
-struct VdlFileList *
+struct GcResult
 vdl_gc_get_objects_to_unload (void)
 {
   struct VdlFileList *all_free = 0;
@@ -100,7 +100,9 @@ vdl_gc_get_objects_to_unload (void)
       // Now, try to see if some of the deps will have to be unloaded
       free = vdl_gc_get_white (global);
     }
-  vdl_file_list_free (global);
-  return all_free;
+  struct GcResult result;
+  result.unload = all_free;
+  result.not_unload = global;
+  return result;
 }
 

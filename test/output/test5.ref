@@ -11,6 +11,7 @@ libf destructor
 libg destructor
 libh destructor
 special destructor in libh.so
+called function_g in libg
 dlclose libg.so completed
 libf constructor
 dlopen libf.so completed
@@ -22,6 +23,7 @@ dlclose libf.so completed
 libg destructor
 libh destructor
 special destructor in libh.so
+called function_g in libg
 dlclose libg.so completed
 leave main
 libtest5 destructor
