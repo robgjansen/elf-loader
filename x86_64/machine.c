@@ -209,7 +209,7 @@ bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned l
 void machine_thread_pointer_set (unsigned long tp)
 {
   unsigned long fs = tp;
-  int status = SYSCALL2 (arch_prctl, ARCH_SET_FS, fs);
+  int status = MACHINE_SYSCALL2 (arch_prctl, ARCH_SET_FS, fs);
   VDL_LOG_DEBUG ("status=%d\n", status);
   VDL_LOG_ASSERT (status == 0, "Unable to set TP");  
 }
@@ -255,10 +255,93 @@ const char *machine_get_lib (void)
 }
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
 {
-  long int status = SYSCALL6(mmap, start, length, prot, flags, fd, offset);
+  long int status = MACHINE_SYSCALL6(mmap, start, length, prot, flags, fd, offset);
   if (status < 0 && status > -4095)
     {
       return MAP_FAILED;
     }
   return (void*)status;
+}
+/* Linux system call interface for x86_64 via syscall
+ * Arguments:
+ * %rax System call number.
+ * %rdi Arg1
+ * %rsi Arg2
+ * %rdx Arg3
+ * %r10 Arg4
+ * %r8 Arg5
+ * %r9 Arg6
+ * %rax return value (-4095 to -1 is an error: -errno)
+ *
+ * clobbered: all above and %rcx and %r11
+ */                      
+long int machine_syscall1 (int name,
+			   unsigned long int a1)
+{
+  register unsigned long int resultvar;
+  long int _arg1 = (long int) (a1);
+  register long int _a1 asm ("rdi") = _arg1;
+  __asm__ __volatile__ ("syscall\n\t"
+			: "=a" (resultvar)
+			: "0" (name) , "r" (_a1)
+			: "memory", "cc", "r11", "rcx");
+  return resultvar;
+}
+long int machine_syscall2 (int name,
+			   unsigned long int a1, unsigned long int a2)
+{
+  register unsigned long int resultvar;
+  long int _arg1 = (long int) (a1);
+  register long int _a1 asm ("rdi") = _arg1;
+  long int _arg2 = (long int) (a2);
+  register long int _a2 asm ("rsi") = _arg2;
+  __asm__ __volatile__ ("syscall\n\t"
+			: "=a" (resultvar)
+			: "0" (name) , "r" (_a1), "r" (_a2)
+			: "memory", "cc", "r11", "rcx");
+  return resultvar;
+}
+long int machine_syscall3 (int name,
+			   unsigned long int a1, unsigned long int a2,
+			   unsigned long int a3)
+{
+  register unsigned long int resultvar;
+  long int _arg1 = (long int) (a1);
+  register long int _a1 asm ("rdi") = _arg1;
+  long int _arg2 = (long int) (a2);
+  register long int _a2 asm ("rsi") = _arg2;
+  long int _arg3 = (long int) (a3);
+  register long int _a3 asm ("rdx") = _arg3;
+  __asm__ __volatile__ ("syscall\n\t"
+			: "=a" (resultvar)
+			: "0" (name) , "r" (_a1), "r" (_a2),
+			  "r" (_a3) : "memory",
+			  "cc", "r11", "rcx");
+  return resultvar;
+}
+long int 
+machine_syscall6 (int name,
+		  unsigned long int a1, unsigned long int a2,
+		  unsigned long int a3, unsigned long int a4,
+		  unsigned long int a5, unsigned long int a6)
+{
+  register unsigned long int resultvar;
+  long int _arg1 = (long int) (a1);
+  register long int _a1 asm ("rdi") = _arg1;
+  long int _arg2 = (long int) (a2);
+  register long int _a2 asm ("rsi") = _arg2;
+  long int _arg3 = (long int) (a3);
+  register long int _a3 asm ("rdx") = _arg3;
+  long int _arg4 = (long int) (a4);
+  register long int _a4 asm ("r10") = _arg4;
+  long int _arg5 = (long int) (a5);
+  register long int _a5 asm ("r8") = _arg5;
+  long int _arg6 = (long int) (a6);
+  register long int _a6 asm ("r9") = _arg6;
+  __asm__ __volatile__ ("syscall\n\t"
+			: "=a" (resultvar)
+			: "0" (name) , "r" (_a1), "r" (_a2),
+			  "r" (_a3), "r" (_a4), "r" (_a5), "r" (_a6):
+			  "memory", "cc", "r11", "rcx");
+  return resultvar;
 }

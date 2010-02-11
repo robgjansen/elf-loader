@@ -1,5 +1,4 @@
 #include "system.h"
-#include "syscall.h"
 #include "machine.h"
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -16,12 +15,13 @@
 
 void *system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
 {
-  return machine_system_mmap (start, length, prot, flags, fd, offset);
+  void *retval = machine_system_mmap (start, length, prot, flags, fd, offset);
+  return retval;
 }
 
 int system_munmap (uint8_t *start, size_t size)
 {
-  int status = SYSCALL2 (munmap, start, size);
+  int status = MACHINE_SYSCALL2 (munmap, start, size);
   if (status < 0 && status > -256)
     {
       return -1;
@@ -30,7 +30,7 @@ int system_munmap (uint8_t *start, size_t size)
 }
 int system_mprotect (const void *addr, size_t len, int prot)
 {
-  int status = SYSCALL3 (mprotect, addr, len, prot);
+  int status = MACHINE_SYSCALL3 (mprotect, addr, len, prot);
   if (status < 0 && status > -256)
     {
       return -1;
@@ -39,11 +39,11 @@ int system_mprotect (const void *addr, size_t len, int prot)
 }
 void system_write (int fd, const void *buf, size_t size)
 {
-  SYSCALL3(write,fd,buf,size);
+  MACHINE_SYSCALL3(write,fd,buf,size);
 }
 int system_open_ro (const char *file)
 {
-  int status = SYSCALL2(open,file,O_RDONLY);
+  int status = MACHINE_SYSCALL2 (open,file,O_RDONLY);
   if (status < 0 && status > -256)
     {
       return -1;
@@ -52,7 +52,7 @@ int system_open_ro (const char *file)
 }
 int system_read (int fd, void *buffer, size_t to_read)
 {
-  int status = SYSCALL3(read, fd, buffer, to_read);
+  int status = MACHINE_SYSCALL3 (read, fd, buffer, to_read);
   if (status < 0 && status > -256)
     {
       return -1;
@@ -61,7 +61,7 @@ int system_read (int fd, void *buffer, size_t to_read)
 }
 int system_lseek (int fd, off_t offset, int whence)
 {
-  int status = SYSCALL3(lseek, fd, offset, whence);
+  int status = MACHINE_SYSCALL3 (lseek, fd, offset, whence);
   if (status < 0 && status > -256)
     {
       return -1;
@@ -70,7 +70,7 @@ int system_lseek (int fd, off_t offset, int whence)
 }
 int system_fstat (const char *file, struct stat *buf)
 {
-  int status = SYSCALL2(stat,file,buf);
+  int status = MACHINE_SYSCALL2 (stat,file,buf);
   if (status < 0 && status > -256)
     {
       return -1;
@@ -79,11 +79,11 @@ int system_fstat (const char *file, struct stat *buf)
 }
 void system_close (int fd)
 {
-  SYSCALL1 (close,fd);
+  MACHINE_SYSCALL1 (close,fd);
 }
 void system_exit (int status)
 {
-  SYSCALL1 (exit, status);
+  MACHINE_SYSCALL1 (exit, status);
 }
 
 int system_getpagesize (void)
@@ -94,9 +94,9 @@ int system_getpagesize (void)
 }
 void system_futex_wake (uint32_t *uaddr, uint32_t val)
 {
-  SYSCALL6(futex, uaddr, FUTEX_WAKE, val, 0, 0, 0);
+  MACHINE_SYSCALL6 (futex, uaddr, FUTEX_WAKE, val, 0, 0, 0);
 }
 void system_futex_wait (uint32_t *uaddr, uint32_t val)
 {
-  SYSCALL6(futex, uaddr, FUTEX_WAIT, val, 0, 0, 0);
+  MACHINE_SYSCALL6 (futex, uaddr, FUTEX_WAIT, val, 0, 0, 0);
 }

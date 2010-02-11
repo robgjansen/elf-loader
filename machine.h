@@ -4,6 +4,7 @@
 #include <elf.h>
 #include <link.h>
 #include <stdbool.h>
+#include <sys/syscall.h>
 #include "vdl.h"
 
 struct VdlLookupResult;
@@ -29,5 +30,27 @@ const char *machine_get_lib (void);
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
 void machine_thread_pointer_set (unsigned long tp);
 unsigned long machine_thread_pointer_get (void);
+
+long int machine_syscall1 (int name,
+			   unsigned long int a1);
+long int machine_syscall2 (int name,
+			   unsigned long int a1, unsigned long int a2);
+long int machine_syscall3 (int name,
+			   unsigned long int a1, unsigned long int a2,
+			   unsigned long int a3);
+long int machine_syscall6 (int name,
+			   unsigned long int a1, unsigned long int a2,
+			   unsigned long int a3, unsigned long int a4,
+			   unsigned long int a5, unsigned long int a6);
+
+#define MACHINE_SYSCALL1(name,a1)		\
+  machine_syscall1 (__NR_##name, (unsigned long)a1)
+#define MACHINE_SYSCALL2(name,a1,a2)		\
+  machine_syscall2 (__NR_##name, (unsigned long)a1, (unsigned long)a2)
+#define MACHINE_SYSCALL3(name,a1,a2,a3)		\
+  machine_syscall3 (__NR_##name, (unsigned long)a1, (unsigned long)a2, (unsigned long)a3)
+#define MACHINE_SYSCALL6(name,a1,a2,a3,a4,a5,a6)	\
+  machine_syscall6 (__NR_##name, (unsigned long)a1, (unsigned long)a2, (unsigned long)a3, \
+		    (unsigned long)a4, (unsigned long)a5, (unsigned long)a6)
 
 #endif /* MACHINE_H */

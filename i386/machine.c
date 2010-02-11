@@ -236,7 +236,7 @@ void machine_thread_pointer_set (unsigned long tp)
   desc.seg_not_present = 0;
   desc.useable = 1;
   
-  int status = SYSCALL1 (set_thread_area, &desc);
+  int status = MACHINE_SYSCALL1 (set_thread_area, &desc);
   VDL_LOG_ASSERT (status == 0, "Unable to set TCB");
 
   // set_thread_area allocated an entry in the GDT and returned
@@ -301,10 +301,109 @@ const char *machine_get_lib (void)
 
 void *machine_system_mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
 {
-  int status = SYSCALL6(mmap2, start, length, prot, flags, fd, offset / 4096);
+  int status = MACHINE_SYSCALL6(mmap2, start, length, prot, flags, fd, offset / 4096);
   if (status < 0 && status > -256)
     {
       return MAP_FAILED;
     }
   return (void*)status;
+}
+/* Linux system call interface for x86 via int 0x80
+ * Arguments:
+ * %eax System call number.
+ * %ebx Arg1
+ * %ecx Arg2
+ * %edx Arg3
+ * %esi Arg4
+ * %edi Arg5
+ * %ebp Arg6
+ *
+ * Notes:
+ * All registers except %eax must be saved (but ptrace may violate that)
+ * return value in %eax, indicates error in range -1,-256
+ */                      
+long int machine_syscall1 (int name,
+			   unsigned long int a1)
+{
+  register unsigned int resultvar;
+  __asm__ __volatile__ ("pushl %%ebx\n\t"
+			"movl %2, %%ebx\n\t"
+			"movl %1, %%eax\n\t"
+			"int $0x80\n\t"
+			"popl %%ebx\n\t"
+			: "=a" (resultvar)
+			: "i" (name) , "acdSD" (a1) : "memory", "cc");
+  return resultvar;
+}
+long int machine_syscall2 (int name,
+			   unsigned long int a1, unsigned long int a2)
+{
+  register unsigned int resultvar;
+  __asm__ __volatile__ ("pushl %%ebx\n\t"
+			"movl %2, %%ebx\n\t"
+			"pushl %%ecx\n\t"
+			"movl %3, %%ecx\n\t"
+			"movl %1, %%eax\n\t"
+			"int $0x80\n\t"
+			"popl %%ecx\n\t"
+			"popl %%ebx\n\t"
+			: "=a" (resultvar)
+			: "i" (name) , "acSD" (a1),
+			  "c" (a2) : "memory", "cc");
+  return resultvar;
+}
+long int machine_syscall3 (int name,
+			   unsigned long int a1, unsigned long int a2,
+			   unsigned long int a3)
+{
+  register unsigned int resultvar;
+  __asm__ __volatile__ ("pushl %%ebx\n\t"
+			"movl %2, %%ebx\n\t"
+			"pushl %%ecx\n\t"
+			"movl %3, %%ecx\n\t"
+			"pushl %%edx\n\t"
+			"movl %4, %%edx\n\t"
+			"movl %1, %%eax\n\t"
+			"int $0x80\n\t"
+			"popl %%edx\n\t"
+			"popl %%ecx\n\t"
+			"popl %%ebx\n\t"
+			: "=a" (resultvar)
+			: "i" (name) , "aSD" (a1),
+			  "c" (a2), "d" (a3) : "memory", "cc");
+  return resultvar;
+}
+long int machine_syscall6 (int name,
+			   unsigned long int arg1, unsigned long int arg2,
+			   unsigned long int arg3, unsigned long int arg4,
+			   unsigned long int arg5, unsigned long int arg6)
+{
+  register unsigned int resultvar;
+  int a6 = arg6;
+  __asm__ __volatile__ ("pushl %%ebx\n\t"
+			"movl %2, %%ebx\n\t"
+			"pushl %%ecx\n\t"
+			"movl %3, %%ecx\n\t"
+			"pushl %%edx\n\t"
+			"movl %4, %%edx\n\t"
+			"pushl %%esi\n\t"
+			"movl %5, %%esi\n\t"
+			"pushl %%edi\n\t"
+			"movl %6, %%edi\n\t"
+			"pushl %%ebp\n\t"
+			"movl %7, %%ebp\n\t"
+			"movl %1, %%eax\n\t"
+			"int $0x80\n\t"
+			"popl %%ebp\n\t"
+			"popl %%edi\n\t"
+			"popl %%esi\n\t"
+			"popl %%edx\n\t"
+			"popl %%ecx\n\t"
+			"popl %%ebx\n\t"
+			: "=a" (resultvar)
+			: "i" (name) , "a" (arg1),
+			  "c" (arg2), "d" (arg3), "S" (arg4),
+			  "D" (arg5), "m" (a6)
+			: "memory", "cc");
+  return resultvar;
 }
