@@ -2,6 +2,7 @@
 
 bool test_alloc (void);
 bool test_futex (void);
+bool test_array (void);
 
 #define RUN_TEST(name)					\
   do {							\
@@ -16,6 +17,7 @@ int main (int argc, char *argv[])
   bool ok = true;
   RUN_TEST (alloc);
   RUN_TEST (futex);
+  RUN_TEST (array);
   return ok?0:1;
 }
 
@@ -24,6 +26,7 @@ int main (int argc, char *argv[])
 #include <sys/syscall.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 extern "C" void system_futex_wake (uint32_t *uaddr, uint32_t val)
 {
   syscall (SYS_futex, uaddr, FUTEX_WAKE, val, 0, 0, 0);
@@ -50,4 +53,24 @@ machine_atomic_compare_and_exchange (uint32_t *val, uint32_t old,
 extern "C" uint32_t machine_atomic_dec (uint32_t *val)
 {
   return __sync_fetch_and_sub (val, 1);
+}
+extern "C" void *vdl_utils_malloc (size_t size)
+{
+  return malloc (size);
+}
+extern "C" void vdl_utils_free (void *buffer, size_t size)
+{
+  return free (buffer);
+}
+extern "C" void vdl_utils_memmove (void *dst, const void *src, size_t len)
+{
+  memmove (dst, src, len);
+}
+extern "C" void vdl_utils_memcpy (void *dst, const void *src, size_t len)
+{
+  memcpy (dst, src, len);
+}
+extern "C" void vdl_utils_memset(void *s, int c, size_t n)
+{
+  memset (s, c, n);
 }

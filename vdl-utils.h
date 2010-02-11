@@ -23,6 +23,7 @@ void vdl_utils_strfree (char *str);
 char *vdl_utils_strdup (const char *str);
 char *vdl_utils_strfind (char *str, const char *substr);
 void vdl_utils_memcpy (void *dst, const void *src, size_t len);
+void vdl_utils_memmove (void *dst, const void *src, size_t len);
 void vdl_utils_memset(void *s, int c, size_t n);
 char *vdl_utils_strconcat (const char *str, ...);
 const char *vdl_utils_getenv (const char **envp, const char *value);
@@ -46,6 +47,7 @@ unsigned long vdl_utils_align_down (unsigned long v, unsigned long align);
 unsigned long vdl_utils_align_up (unsigned long v, unsigned long align);
 
 #define vdl_utils_max(a,b)(((a)>(b))?(a):(b))
+#define vdl_utils_min(a,b)(((a)<(b))?(a):(b))
 
 ElfW(Phdr) *vdl_utils_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 

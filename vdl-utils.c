@@ -137,6 +137,38 @@ void vdl_utils_memcpy (void *d, const void *s, size_t len)
       tmp--;
     }
 }
+void vdl_utils_memmove (void *dst, const void *src, size_t len)
+{
+  uint8_t *ss = (uint8_t *)src;
+  uint8_t *se = ss + len;
+  uint8_t *ds = (uint8_t *)dst;
+  uint8_t *de = ds + len;
+  if (ss > de || se <= ds)
+    {
+      // no overlap
+      vdl_utils_memcpy (dst, src, len);
+    }
+  else if (de > se)
+    {
+      // overlap
+      unsigned long size = (unsigned long)de - (unsigned long)se;
+      vdl_utils_memcpy (de - size, se - size, size);
+      // recursively finish the copy
+      vdl_utils_memmove (dst, src, len - size);
+    }
+  else if (ds < ss)
+    {
+      // overlap
+      unsigned long size = (unsigned long)ss - (unsigned long)ds;
+      vdl_utils_memcpy (ds, ss, size);
+      // recursively finish the copy
+      vdl_utils_memmove (ds+size, ss+size, len - size);
+    }
+  else
+    {
+      VDL_LOG_ASSERT (false, "Copy from %p to %p for %lu failed ?", src, dst, len);
+    }
+}
 void vdl_utils_memset(void *d, int c, size_t n)
 {
   char *dst = d;

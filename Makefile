@@ -95,8 +95,10 @@ TEST_SOURCE = \
 internal-tests.cc \
 internal-test-alloc.cc \
 internal-test-futex.cc \
+internal-test-array.cc \
 alloc.c \
-futex.c
+futex.c \
+vdl-array.c
 TEST_OBJECT = $(addsuffix .o,$(basename $(TEST_SOURCE)))
 internal-tests: $(TEST_OBJECT)
 	$(CXX) $(LDFLAGS) $^ -o $@
