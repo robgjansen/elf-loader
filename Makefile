@@ -90,7 +90,7 @@ libvdl.so: libvdl.o ldso libdl.version
 
 elfedit: elfedit.o
 internal-tests: LDFLAGS+=-lpthread
-internal-tests: internal-tests.o internal-test-alloc.o internal-test-futex.o $(LDSO_COMMON_OBJECTS)
+internal-tests: internal-tests.o internal-test-alloc.o internal-test-futex.o alloc.o futex.o
 	$(CXX) $(LDFLAGS) $^ -o $@
 display-relocs: display-relocs.o
 
