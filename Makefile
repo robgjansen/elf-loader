@@ -28,9 +28,10 @@ endif
 
 all: ldso libvdl.so elfedit internal-tests display-relocs
 
-test: FORCE
+test: FORCE internal-tests
 	$(MAKE) -C test
 	$(MAKE) -C test run
+	./internal-tests
 
 test-valgrind: FORCE
 	$(MAKE) -C test
@@ -90,7 +91,14 @@ libvdl.so: libvdl.o ldso libdl.version
 
 elfedit: elfedit.o
 internal-tests: LDFLAGS+=-lpthread
-internal-tests: internal-tests.o internal-test-alloc.o internal-test-futex.o alloc.o futex.o
+TEST_SOURCE = \
+internal-tests.cc \
+internal-test-alloc.cc \
+internal-test-futex.cc \
+alloc.c \
+futex.c
+TEST_OBJECT = $(addsuffix .o,$(basename $(TEST_SOURCE)))
+internal-tests: $(TEST_OBJECT)
 	$(CXX) $(LDFLAGS) $^ -o $@
 display-relocs: display-relocs.o
 
