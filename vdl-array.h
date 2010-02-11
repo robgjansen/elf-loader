@@ -52,7 +52,7 @@ uint32_t vdl_array_low_get_size (struct VdlArray *array);
     *_value = value;							\
   }
 #define vdl_array_remove(array, at)		\
-  vdl_array_low_remove (array, at)
+  vdl_array_low_remove (array, at, 1)
 #define vdl_array_get_size(array)		\
   vdl_array_low_get_size (array)
 
