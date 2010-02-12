@@ -13,6 +13,7 @@
 #include "macros.h"
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
+#include "vdl-array.h"
 
 static struct ErrorList *find_error (void)
 {
@@ -69,10 +70,12 @@ addr_to_file (unsigned long caller)
 
 static struct VdlContext *search_context (struct VdlContext *context)
 {
-  struct VdlContext *cur;
-  for (cur = g_vdl.contexts; cur != 0; cur = cur->next)
+  struct VdlContext **i;
+  for (i = vdl_array_begin (g_vdl.contexts);
+       i != vdl_array_end (g_vdl.contexts); 
+       i++)
     {
-      if (context == cur)
+      if (context == *i)
 	{
 	  return context;
 	}
@@ -256,7 +259,8 @@ void *vdl_dlopen (const char *filename, int flags)
   futex_lock (&g_vdl.futex);
   // map it in memory using the normal context, that is, the
   // first context in the context list.
-  void *handle = dlopen_with_context (g_vdl.contexts, filename, flags);
+  struct VdlContext *context = vdl_array_front (g_vdl.contexts, struct VdlContext *);
+  void *handle = dlopen_with_context (context, filename, flags);
   futex_unlock (&g_vdl.futex);
   return handle;
 }
@@ -585,13 +589,14 @@ void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag)
   struct VdlContext *context;
   if (lmid == LM_ID_BASE)
     {
-      context = g_vdl.contexts;
+      context = vdl_array_front (g_vdl.contexts, struct VdlContext *);
     }
   else if (lmid == LM_ID_NEWLM)
     {
-      context = vdl_context_new (g_vdl.contexts->argc,
-				 g_vdl.contexts->argv,
-				 g_vdl.contexts->envp);
+      context = vdl_array_front (g_vdl.contexts, struct VdlContext *);
+      context = vdl_context_new (context->argc,
+				 context->argv,
+				 context->envp);
     }
   else
     {

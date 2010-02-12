@@ -29,6 +29,8 @@ bool test_array (void)
   INTERNAL_TEST_ASSERT_EQ (vdl_array_at (a, 0, int), 5);
   INTERNAL_TEST_ASSERT_EQ (vdl_array_at (a, 1, int), 4);
   INTERNAL_TEST_ASSERT_EQ (vdl_array_at (a, 2, int), 10);
+  INTERNAL_TEST_ASSERT_EQ (vdl_array_front (a, int), 5);
+  INTERNAL_TEST_ASSERT_EQ (vdl_array_back (a, int), 10);
   std::vector<int> tmp;
   for (int *i = (int*)vdl_array_begin(a); 
        i != (int*)vdl_array_end (a); i++)

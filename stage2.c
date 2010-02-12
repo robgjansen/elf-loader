@@ -14,6 +14,7 @@
 #include "vdl-tls.h"
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
+#include "vdl-array.h"
 
 
 static struct VdlStringList *
@@ -200,6 +201,7 @@ stage2_initialize (struct Stage2Input input)
   struct Stage2Output output;
 
   g_vdl.search_dirs = get_system_search_dirs ();
+  g_vdl.contexts = vdl_array_new (struct VdlContext);
 
   setup_env_vars ((const char**)input.program_envp);
 
@@ -380,6 +382,8 @@ void stage2_freeres (void)
 	vdl_utils_delete (cur);
       }
   }
+  vdl_array_delete (g_vdl.contexts);
+  g_vdl.contexts = 0;
 }
 
 void

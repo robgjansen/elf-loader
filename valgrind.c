@@ -4,6 +4,7 @@
 #include "vdl-lookup.h"
 #include "stage1.h"
 #include "vdl-log.h"
+#include "vdl-array.h"
 
 typedef void (*LibcFreeRes) (void);
 
@@ -41,7 +42,7 @@ valgrind_initialize (void)
   // we intercept only in the first context under the assumption that it's this
   // context which is going to trigger the exit_group syscall
   // which is the piece of code which will call __libc_freeres
-  vdl_context_add_symbol_remap (g_vdl.contexts,
+  vdl_context_add_symbol_remap (vdl_array_front (g_vdl.contexts, struct VdlContext *),
 				"__libc_freeres", 0, 0,
 				"libc_freeres_interceptor", 0, 0);
 }

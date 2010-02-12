@@ -74,3 +74,7 @@ extern "C" void vdl_memset(void *s, int c, size_t n)
 {
   memset (s, c, n);
 }
+extern "C" int vdl_memcmp (void *a, void *b, size_t n)
+{
+  return memcmp (a, b, n);
+}

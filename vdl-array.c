@@ -69,7 +69,20 @@ uint8_t *vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n)
   array->n -= remove_end - at;
   return (uint8_t *)(array->buffer + at * array->elem_size);
 }
-uint32_t vdl_array_low_get_size (struct VdlArray *array)
+uint32_t vdl_array_low_size (struct VdlArray *array)
 {
   return array->n;
+}
+uint8_t *vdl_array_low_find (struct VdlArray *array, uint8_t *value)
+{
+  uint8_t i;
+  for (i = 0; i < array->n; i++)
+    {
+      uint8_t *p = &array->buffer[i*array->elem_size];
+      if (vdl_memcmp (p, value, array->elem_size) == 0)
+	{
+	  return p;
+	}
+    }
+  return 0;
 }

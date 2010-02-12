@@ -56,3 +56,22 @@ void vdl_memset(void *d, int c, size_t n)
       dst[i] = c;
     }
 }
+
+int vdl_memcmp (void *a, void *b, size_t n)
+{
+  uint8_t *s1 = a;
+  uint8_t *s2 = b;
+  size_t i;
+  for (i = 0; i < n; i++)
+    {
+      if (*s1 < *s2)
+	{
+	  return -1;
+	}
+      else if (*s1 > *s2)
+	{
+	  return +1;
+	}
+    }
+  return 0;
+}
