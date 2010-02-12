@@ -17,14 +17,16 @@ extern "C" {
  * that's not an issue for now.
  */
 
-#define vdl_array_new(type,n) \
-  vdl_array_low_alloc (sizeof(type), n)
+#define vdl_array_new(type) \
+  vdl_array_low_alloc (sizeof(type), 0)
+#define vdl_array_new_with_size(type,size)		\
+  vdl_array_low_alloc (sizeof(type), size)
 #define vdl_array_delete(array) \
   vdl_array_low_free (array)
-#define vdl_array_get(array,i,type)		\
-  *((type *) vdl_array_low_get (array, i))
+#define vdl_array_at(array,i,type)		\
+  (*((type *) vdl_array_low_get (array, i)))
 #define vdl_array_set(array,i,value)				\
-  *(typeof(value) *) vdl_array_low_get (array, i) = value
+  vdl_array_at (array,i, typeof(value)) = value
 #define vdl_array_insert(array,at,value)			\
   {								\
     typeof(value) *_value = (typeof(value) *)			\
@@ -61,15 +63,22 @@ extern "C" {
   vdl_array_low_get_size (array)
 #define vdl_array_empty(array)		\
   (vdl_array_low_get_size (array) == 0)
-#define vdl_array_begin(array,type)			\
-  ((type *)vdl_array_low_get (array, 0))
-#define vdl_array_end(array,type)			\
-  ((type *)vdl_array_low_get (array,vdl_array_low_get_size (array)))
 #define vdl_array_erase(array,i)					\
   ((type *)vdl_array_low_remove (array,					\
 				 (((unsigned long)i) - ((unsigned long)array->buffer)) \
 				 / array->elem_size,			\
 				 1)
+#define vdl_array_peek(array,i,type)		\
+  *((type *) vdl_array_low_get (array, i))  
+#define vdl_array_clear(array)			\
+  vdl_array_low_remove (array, 0, array->n)
+
+// warning: these 2 macros will not work in C++
+#define vdl_array_begin(array)			\
+  ((void *)vdl_array_low_get (array, 0))
+#define vdl_array_end(array)			\
+  ((void *)vdl_array_low_get (array,vdl_array_low_get_size (array)))
+
 
 /* don't use the _low functions below. Use the macros above. */
 
