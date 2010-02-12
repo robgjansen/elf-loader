@@ -44,7 +44,7 @@ void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, con
   if (old_entries != 0)
     {
       vdl_memcpy (new_entries, old_entries, sizeof (struct VdlContextLibRemapEntry)*(old_n_entries));
-      vdl_utils_free (old_entries, sizeof (struct VdlContextLibRemapEntry)*old_n_entries);
+      vdl_utils_free (old_entries);
     }
   context->lib_remaps = new_entries;
   new_entries[old_n_entries].src = vdl_utils_strdup (src);
@@ -68,7 +68,7 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
     {
       vdl_memcpy (new_entries, old_entries, 
 		  sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries));
-      vdl_utils_free (old_entries, sizeof (struct VdlContextSymbolRemapEntry)*old_n_entries);
+      vdl_utils_free (old_entries);
     }
   context->symbol_remaps = new_entries;
   new_entries[old_n_entries].src_name = vdl_utils_strdup (src_name);
@@ -91,7 +91,7 @@ void vdl_context_add_callback (struct VdlContext *context,
     {
       vdl_memcpy (new_entries, old_entries, 
 		  sizeof (struct VdlContextCallbackEntry)*(old_n_entries));
-      vdl_utils_free (old_entries, sizeof (struct VdlContextCallbackEntry)*old_n_entries);
+      vdl_utils_free (old_entries);
     }
   context->event_callbacks = new_entries;
   new_entries[old_n_entries].fn = cb;
@@ -253,11 +253,10 @@ vdl_context_delete (struct VdlContext *context)
       int i;
       for (i = 0; i < context->n_lib_remaps; i++)
 	{
-	  vdl_utils_strfree (context->lib_remaps[i].src);
-	  vdl_utils_strfree (context->lib_remaps[i].dst);
+	  vdl_utils_free (context->lib_remaps[i].src);
+	  vdl_utils_free (context->lib_remaps[i].dst);
 	}
-      vdl_utils_free (context->lib_remaps, 
-		      context->n_lib_remaps*sizeof(struct VdlContextLibRemapEntry));
+      vdl_utils_free (context->lib_remaps);
       context->n_lib_remaps = 0;
     }
 
@@ -268,23 +267,21 @@ vdl_context_delete (struct VdlContext *context)
       for (i = 0; i < context->n_symbol_remaps; i++)
 	{
 	  struct VdlContextSymbolRemapEntry *entry = &context->symbol_remaps[i];
-	  vdl_utils_strfree (entry->src_name);
-	  vdl_utils_strfree (entry->src_ver_name);
-	  vdl_utils_strfree (entry->src_ver_filename);
-	  vdl_utils_strfree (entry->dst_name);
-	  vdl_utils_strfree (entry->dst_ver_name);
-	  vdl_utils_strfree (entry->dst_ver_filename);
+	  vdl_utils_free (entry->src_name);
+	  vdl_utils_free (entry->src_ver_name);
+	  vdl_utils_free (entry->src_ver_filename);
+	  vdl_utils_free (entry->dst_name);
+	  vdl_utils_free (entry->dst_ver_name);
+	  vdl_utils_free (entry->dst_ver_filename);
 	}
-      vdl_utils_free (context->symbol_remaps, 
-		      context->n_symbol_remaps*sizeof(struct VdlContextSymbolRemapEntry));
+      vdl_utils_free (context->symbol_remaps);
       context->n_symbol_remaps = 0;
     }
 
   // delete event callback entries
   if (context->event_callbacks != 0)
     {
-      vdl_utils_free (context->event_callbacks, 
-		      context->n_event_callbacks*sizeof(struct VdlContextCallbackEntry));
+      vdl_utils_free (context->event_callbacks);
       context->n_event_callbacks = 0;
     }
 
@@ -424,8 +421,8 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
   vdl_file_list_free (file->deps);
   vdl_file_list_free (file->local_scope);
   vdl_file_list_free (file->gc_symbols_resolved_in);
-  vdl_utils_strfree (file->name);
-  vdl_utils_strfree (file->filename);
+  vdl_utils_free (file->name);
+  vdl_utils_free (file->filename);
 
   file->deps = 0;
   file->local_scope = 0;
@@ -521,7 +518,7 @@ replace_magic (char *filename)
 						machine_get_lib (),
 						lib+4, 0);
       lib[0] = saved;
-      vdl_utils_strfree (filename);
+      vdl_utils_free (filename);
       VDL_LOG_DEBUG ("magic %s", new_filename);
       return new_filename;
     }
@@ -540,7 +537,7 @@ do_search (const char *name,
 	{
 	  return fullname;
 	}
-      vdl_utils_strfree (fullname);
+      vdl_utils_free (fullname);
     }
   return 0;
 }
@@ -578,7 +575,7 @@ char *vdl_search_filename (const char *name,
     {
       return realname;
     }
-  vdl_utils_strfree (realname);
+  vdl_utils_free (realname);
   return 0;
 }
 static void
@@ -745,7 +742,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
-  vdl_utils_free (phdr, header.e_phnum * header.e_phentsize);
+  vdl_utils_free (phdr);
   system_close (fd);
 
   vdl_context_notify (context, file, VDL_EVENT_MAPPED);
@@ -756,10 +753,7 @@ error:
     {
       system_close (fd);
     }
-  if (phdr != 0)
-    {
-      vdl_utils_free (phdr, header.e_phnum * header.e_phentsize);
-    }
+  vdl_utils_free (phdr);
   if (mapping_start != 0)
     {
       system_munmap ((void*)mapping_start, mapping_size);
@@ -836,7 +830,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
   if (system_fstat (filename, &buf) == -1)
     {
       VDL_LOG_ERROR ("Cannot stat %s\n", filename);
-      vdl_utils_strfree (filename);
+      vdl_utils_free (filename);
       return 0;
     }
   // If you create a symlink to a binary and link to the
@@ -850,7 +844,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
   file = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
   if (file != 0)
     {
-      vdl_utils_strfree (filename);
+      vdl_utils_free (filename);
       return file;
     }
   // The file is really not yet mapped so, we have to map it
@@ -861,7 +855,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
       *loaded = vdl_file_list_append_one (*loaded, file);
     }
 
-  vdl_utils_strfree (filename);
+  vdl_utils_free (filename);
 
   return file;
 }

@@ -10,16 +10,15 @@ void vdl_utils_linkmap_print (void);
 
 // allocate/free memory
 void *vdl_utils_malloc (size_t size);
-void vdl_utils_free (void *buffer, size_t size);
+void vdl_utils_free (void *buffer);
 #define vdl_utils_new(type) \
   (type *) vdl_utils_malloc (sizeof (type))
 #define vdl_utils_delete(v) \
-  vdl_utils_free (v, sizeof(*v))
+  vdl_utils_free (v)
 
 // string manipulation functions
 int vdl_utils_strisequal (const char *a, const char *b);
 int vdl_utils_strlen (const char *str);
-void vdl_utils_strfree (char *str);
 char *vdl_utils_strdup (const char *str);
 char *vdl_utils_strfind (char *str, const char *substr);
 char *vdl_utils_strconcat (const char *str, ...);

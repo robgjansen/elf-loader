@@ -304,9 +304,9 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
 	}
       // this was not a static entry
       unsigned long *dtvi = (unsigned long *)dtv[module].value;
-      vdl_utils_free (&dtvi[-1], dtvi[-1]);
+      vdl_utils_free (&dtvi[-1]);
     }
-  vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
+  vdl_utils_free (&dtv[-1]);
 }
 
 void
@@ -314,7 +314,7 @@ vdl_tls_tcb_deallocate (unsigned long tcb)
 {
   VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   unsigned long start = tcb - g_vdl.tls_static_size;
-  vdl_utils_free ((void*)start, g_vdl.tls_static_size + CONFIG_TCB_SIZE);
+  vdl_utils_free ((void*)start);
 }
 static struct dtv_t *
 get_current_dtv (void)
@@ -357,7 +357,7 @@ update_dtv (void)
 	    {
 	      // and it was not static so, we free its memory
 	      unsigned long *dtvi = (unsigned long *)dtv[module].value;
-	      vdl_utils_free (&dtvi[-1], dtvi[-1]);		  
+	      vdl_utils_free (&dtvi[-1]);
 	      dtv[module].value = 0;
 	    }
 	  if (file == 0)
@@ -413,7 +413,7 @@ update_dtv (void)
   // now that the dtv is updated, update the generation
   new_dtv[0].gen = g_vdl.tls_gen;
   // finally, clear the old dtv
-  vdl_utils_free (&dtv[-1], (dtv[-1].value+2)*sizeof(struct dtv_t));
+  vdl_utils_free (&dtv[-1]);
 }
 unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 {

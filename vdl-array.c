@@ -13,7 +13,7 @@ struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n)
 }
 void vdl_array_low_free (struct VdlArray *array)
 {
-  vdl_utils_free (array->buffer, array->elem_size * array->max_n);
+  vdl_utils_free (array->buffer);
   array->n = 0;
   array->max_n = 0;
   array->elem_size = 0;
@@ -49,7 +49,7 @@ uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n)
       vdl_memcpy (new_buffer + (at + n) * array->elem_size, 
 		  array->buffer + at * array->elem_size,
 			(array->n - at) * array->elem_size);
-      vdl_utils_free (array->buffer, array->n * array->elem_size);
+      vdl_utils_free (array->buffer);
       array->buffer = new_buffer;
       array->n += n;
       array->max_n = array->n;

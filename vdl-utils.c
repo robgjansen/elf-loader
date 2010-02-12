@@ -37,9 +37,13 @@ void *vdl_utils_malloc (size_t size)
   VDL_LOG_FUNCTION ("size=%d", size);
   return (void*)alloc_malloc (&g_vdl.alloc, size);
 }
-void vdl_utils_free (void *buffer, size_t size)
+void vdl_utils_free (void *buffer)
 {
-  VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
+  VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer);
+  if (buffer == 0)
+    {
+      return;
+    }
   alloc_free (&g_vdl.alloc, (uint8_t *)buffer);
 }
 int vdl_utils_strisequal (const char *a, const char *b)
@@ -65,14 +69,6 @@ int vdl_utils_strlen (const char *str)
       len++;
     }
   return len;
-}
-void vdl_utils_strfree (char *str)
-{
-  if (str == 0)
-    {
-      return;
-    }
-  vdl_utils_free (str, vdl_utils_strlen (str)+1);
 }
 char *vdl_utils_strdup (const char *str)
 {
@@ -216,7 +212,7 @@ void vdl_utils_str_list_free (struct VdlStringList *list)
   struct VdlStringList *cur, *next;
   for (cur = list; cur != 0; cur = next)
     {
-      vdl_utils_strfree (cur->str);
+      vdl_utils_free (cur->str);
       next = cur->next;
       vdl_utils_delete (cur);
     }
@@ -285,7 +281,7 @@ struct VdlStringList *vdl_utils_splitpath (const char *value)
       if (vdl_utils_strisequal (cur->str, ""))
 	{
 	  // the empty string is interpreted as '.'
-	  vdl_utils_strfree (cur->str);
+	  vdl_utils_free (cur->str);
 	  cur->str = vdl_utils_strdup (".");
 	}
     }
@@ -339,7 +335,7 @@ static void avprintf_callback (char c, void *context)
       char **pstr = (char**)context;
       char new_char[] = {c, 0};
       char *new_str = vdl_utils_strconcat (*pstr, new_char, 0);
-      vdl_utils_strfree (*pstr);
+      vdl_utils_free (*pstr);
       *pstr = new_str;
     }
 }

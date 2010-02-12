@@ -41,8 +41,8 @@ static void set_error (const char *str, ...)
   char *error_string = vdl_utils_vprintf (str, list);
   va_end (list);
   struct ErrorList *error = find_error ();
-  vdl_utils_strfree (error->prev_error);
-  vdl_utils_strfree (error->error);
+  vdl_utils_free (error->prev_error);
+  vdl_utils_free (error->error);
   error->prev_error = 0;
   error->error = error_string;
 }
@@ -339,7 +339,7 @@ char *vdl_dlerror (void)
   futex_lock (&g_vdl.futex);
   struct ErrorList *error = find_error ();
   char *error_string = error->error;
-  vdl_utils_strfree (error->prev_error);
+  vdl_utils_free (error->prev_error);
   error->prev_error = error->error;
   // clear the error we are about to report to the user
   error->error = 0;
