@@ -21,7 +21,7 @@ void vdl_array_low_free (struct VdlArray *array)
 }
 uint8_t *vdl_array_low_get (struct VdlArray *array, uint32_t i)
 {
-  if (i >= array->n)
+  if (i > array->n)
     {
       return 0;
     }
