@@ -36,7 +36,7 @@ uint32_t vdl_array_low_get_size (struct VdlArray *array);
       vdl_array_low_insert (array, at, 1);			\
     *_value = value;						\
   }
-#define vdl_array_append(array,value)					\
+#define vdl_array_push_back(array,value)				\
   {									\
     typeof(value) *_value = (typeof(value) *)				\
       vdl_array_low_insert (array,					\
@@ -44,7 +44,7 @@ uint32_t vdl_array_low_get_size (struct VdlArray *array);
 			    1);						\
     *_value = value;							\
   }
-#define vdl_array_prepend(array,value)					\
+#define vdl_array_push_front(array,value)				\
   {									\
     typeof(value) *_value = (typeof(value) *)				\
       vdl_array_low_insert (array,					\
@@ -52,6 +52,14 @@ uint32_t vdl_array_low_get_size (struct VdlArray *array);
 			    1);						\
     *_value = value;							\
   }
+#define vdl_array_pop_front(array) \
+  vdl_array_remove(array,0)
+#define vdl_array_pop_back(array) \
+  vdl_array_remove(array,vdl_array_get_size(array)-1)
+#define vdl_array_front(array,type)		\
+  vdl_array_get (array,0,type)
+#define vdl_array_back(array,type)				\
+  vdl_array_get (array,vdl_array_get_size (array)-1,type)
 #define vdl_array_remove(array, at)		\
   vdl_array_low_remove (array, at, 1)
 #define vdl_array_get_size(array)		\
