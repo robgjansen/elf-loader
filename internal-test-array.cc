@@ -22,7 +22,7 @@ bool test_array (void)
   vdl_array_remove (a, 0);
   INTERNAL_TEST_ASSERT_EQ (vdl_array_get_size (a), 2);
   INTERNAL_TEST_ASSERT_EQ (vdl_array_get (a, 0, int), 5);
-  INTERNAL_TEST_ASSERT_EQ (vdl_array_get (a, 2, int), 10);
+  INTERNAL_TEST_ASSERT_EQ (vdl_array_get (a, 1, int), 10);
   vdl_array_delete (a);
   return true;
 }
