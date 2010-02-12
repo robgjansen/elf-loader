@@ -7,6 +7,16 @@ extern "C" {
 
 #include <stdint.h>
 
+
+/**
+ * The API exported by this file is heavily inspired from the
+ * C++ std::vector template class. The naming as well as functionality
+ * are exactly equivalent. The current implementation is slow as hell
+ * but I don't care for now. It should be trivial to optimize the
+ * number of memory allocations to make it amortized O(1) but, again,
+ * that's not an issue for now.
+ */
+
 struct VdlArray
 {
   uint32_t n;
