@@ -11,6 +11,12 @@ struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n)
   array->buffer = vdl_utils_malloc (elem_size * n);
   return array;
 }
+struct VdlArray *vdl_array_low_copy (struct VdlArray *array)
+{
+  struct VdlArray *copy = vdl_array_low_alloc (array->elem_size, array->n);
+  vdl_memcpy (copy->buffer, array->buffer, array->n * array->elem_size);
+  return copy;
+}
 void vdl_array_low_free (struct VdlArray *array)
 {
   vdl_utils_free (array->buffer);

@@ -82,6 +82,8 @@ extern "C" {
   ({typeof (value) *_v = (typeof (value) *)		\
       vdl_array_low_find (array,(uint8_t *)&value);	\
     _v;})
+#define vdl_array_copy(array)			\
+  vdl_array_low_copy (array)
 
 
 
@@ -95,6 +97,7 @@ struct VdlArray
   uint8_t *buffer;
 };
 struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n);
+struct VdlArray *vdl_array_low_copy (struct VdlArray *array);
 void vdl_array_low_free (struct VdlArray *array);
 uint8_t *vdl_array_low_get (struct VdlArray *array, uint32_t i);
 uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n);
