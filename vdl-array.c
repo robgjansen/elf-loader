@@ -1,5 +1,6 @@
 #include "vdl-array.h"
 #include "vdl-utils.h"
+#include "vdl-mem.h"
 
 struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n)
 {
@@ -35,18 +36,18 @@ uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n)
     }
   if (array->n + n <= array->max_n)
     {
-      vdl_utils_memmove (array->buffer + (at + n) * array->elem_size,
-			 array->buffer + (at) * array->elem_size,
-			 n * array->elem_size);
+      vdl_memmove (array->buffer + (at + n) * array->elem_size,
+		   array->buffer + (at) * array->elem_size,
+		   n * array->elem_size);
       array->n += n;
     }
   else
     {
       uint8_t *new_buffer = vdl_utils_malloc (array->elem_size * (array->n + n));
-      vdl_utils_memcpy (new_buffer, array->buffer, at * array->elem_size);
-      vdl_utils_memset (new_buffer + at * array->elem_size, 0, n);
-      vdl_utils_memcpy (new_buffer + (at + n) * array->elem_size, 
-			array->buffer + at * array->elem_size,
+      vdl_memcpy (new_buffer, array->buffer, at * array->elem_size);
+      vdl_memset (new_buffer + at * array->elem_size, 0, n);
+      vdl_memcpy (new_buffer + (at + n) * array->elem_size, 
+		  array->buffer + at * array->elem_size,
 			(array->n - at) * array->elem_size);
       vdl_utils_free (array->buffer, array->n * array->elem_size);
       array->buffer = new_buffer;
@@ -62,9 +63,9 @@ void vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n)
       return;
     }
   uint32_t remove_end = vdl_utils_min (at + n, array->n);
-  vdl_utils_memmove (array->buffer + at * array->elem_size,
-		     array->buffer + remove_end * array->elem_size,
-		     (array->n - remove_end) * array->elem_size);
+  vdl_memmove (array->buffer + at * array->elem_size,
+	       array->buffer + remove_end * array->elem_size,
+	       (array->n - remove_end) * array->elem_size);
   array->n -= remove_end - at;
 }
 uint32_t vdl_array_low_get_size (struct VdlArray *array)

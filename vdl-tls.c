@@ -5,6 +5,7 @@
 #include "vdl-utils.h"
 #include "vdl-sort.h"
 #include "vdl-file-list.h"
+#include "vdl-mem.h"
 #include "machine.h"
 
 static unsigned long
@@ -187,18 +188,18 @@ vdl_tls_tcb_allocate (void)
   unsigned long tcb_size = g_vdl.tls_static_size;
   unsigned long total_size = tcb_size + CONFIG_TCB_SIZE; // specific to variant II
   unsigned long buffer = (unsigned long) vdl_utils_malloc (total_size);
-  vdl_utils_memset ((void*)buffer, 0, total_size);
+  vdl_memset ((void*)buffer, 0, total_size);
   unsigned long tcb = buffer + tcb_size;
   // complete setup of TCB
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_TCB_OFFSET), &tcb, sizeof (tcb));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_SELF_OFFSET), &tcb, sizeof (tcb));
   return tcb;
 }
 
 void
 vdl_tls_tcb_initialize (unsigned long tcb, unsigned long sysinfo)
 {
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_SYSINFO_OFFSET), &sysinfo, sizeof (sysinfo));
 }
 
 // This dtv structure needs to be compatible with the one used by the 
@@ -227,7 +228,7 @@ vdl_tls_dtv_allocate (unsigned long tcb)
   dtv++;
   dtv[0].value = 0;
   dtv[0].gen = g_vdl.tls_gen;
-  vdl_utils_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
+  vdl_memcpy ((void*)(tcb+CONFIG_TCB_DTV_OFFSET), &dtv, sizeof (dtv));
 }
 
 void
@@ -235,7 +236,7 @@ vdl_tls_dtv_initialize (unsigned long tcb)
 {
   VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   struct dtv_t *dtv;
-  vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
+  vdl_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
   // allocate a dtv for the set of tls blocks needed now
 
   struct VdlFile *cur;
@@ -250,8 +251,8 @@ vdl_tls_dtv_initialize (unsigned long tcb)
 	      dtv[cur->tls_index].value = dtvi;
 	      dtv[cur->tls_index].is_static = 1;
 	      // copy the template in the module tls block
-	      vdl_utils_memcpy ((void*)dtvi, (void*)cur->tls_tmpl_start, cur->tls_tmpl_size);
-	      vdl_utils_memset ((void*)(dtvi + cur->tls_tmpl_size), 0, cur->tls_init_zero_size);
+	      vdl_memcpy ((void*)dtvi, (void*)cur->tls_tmpl_start, cur->tls_tmpl_size);
+	      vdl_memset ((void*)(dtvi + cur->tls_tmpl_size), 0, cur->tls_init_zero_size);
 	    }
 	  else
 	    {
@@ -284,7 +285,7 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
 {
   VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   struct dtv_t *dtv;
-  vdl_utils_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
+  vdl_memcpy (&dtv, (void*)(tcb+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
 
   unsigned long dtv_size = dtv[-1].value;
   unsigned long module;
@@ -322,7 +323,7 @@ get_current_dtv (void)
   unsigned long tp = machine_thread_pointer_get ();
   // extract the dtv from it
   struct dtv_t *dtv;
-  vdl_utils_memcpy (&dtv, (void*)(tp+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
+  vdl_memcpy (&dtv, (void*)(tp+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
   return dtv;
 }
 static void
@@ -447,8 +448,8 @@ unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
       dtvi[0] = dtvi_size;
       dtvi++;
       // copy the template in the module tls block
-      vdl_utils_memcpy (dtvi, (void*)file->tls_tmpl_start, file->tls_tmpl_size);
-      vdl_utils_memset ((void*)(((unsigned long)dtvi) + file->tls_tmpl_size), 
+      vdl_memcpy (dtvi, (void*)file->tls_tmpl_start, file->tls_tmpl_size);
+      vdl_memset ((void*)(((unsigned long)dtvi) + file->tls_tmpl_size), 
 			0, file->tls_init_zero_size);
       // finally, update the dtv
       dtv[module].value = (unsigned long)dtvi;

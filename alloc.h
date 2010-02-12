@@ -29,7 +29,7 @@ struct Alloc
 void alloc_initialize (struct Alloc *alloc);
 void alloc_destroy (struct Alloc *alloc);
 uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size);
-void alloc_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size);
+void alloc_free (struct Alloc *alloc, uint8_t *buffer);
 
 #ifdef __cplusplus
 }

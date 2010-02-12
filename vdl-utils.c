@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include "vdl.h"
 #include "vdl-log.h"
+#include "vdl-mem.h"
 #include "avprintf-cb.h"
 
 
@@ -34,30 +35,12 @@ void vdl_utils_linkmap_print (void)
 void *vdl_utils_malloc (size_t size)
 {
   VDL_LOG_FUNCTION ("size=%d", size);
-#ifdef MALLOC_DEBUG_ENABLE
-  unsigned long *buffer = (unsigned long*)alloc_malloc (&g_vdl.alloc, 
-							size+2*sizeof(unsigned long));
-  buffer[0] = (unsigned long)buffer;
-  buffer[1] = size;
-  return (void*)(buffer+2);
-#else
   return (void*)alloc_malloc (&g_vdl.alloc, size);
-#endif
 }
 void vdl_utils_free (void *buffer, size_t size)
 {
   VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer, size);
-#ifdef MALLOC_DEBUG_ENABLE
-  unsigned long *buf = (unsigned long*)buffer;
-  VDL_LOG_ASSERT (buf[-2] == (unsigned long)(buf-2), "freeing invalid buffer");
-  VDL_LOG_ASSERT (buf[-1] == size, "freeing invalid size");
-  buf[-2] = 0xdeadbeaf;
-  buf[-1] = 0xdeadbeaf;
-  vdl_utils_memset (buf, 0x66, size);
-  alloc_free (&g_vdl.alloc, (uint8_t *)(buf-2), size+2*sizeof(unsigned long));
-#else
-  alloc_free (&g_vdl.alloc, (uint8_t *)buffer, size);
-#endif
+  alloc_free (&g_vdl.alloc, (uint8_t *)buffer);
 }
 int vdl_utils_strisequal (const char *a, const char *b)
 {
@@ -100,7 +83,7 @@ char *vdl_utils_strdup (const char *str)
   //VDL_LOG_FUNCTION ("str=%s", str);
   int len = vdl_utils_strlen (str);
   char *retval = vdl_utils_malloc (len+1);
-  vdl_utils_memcpy (retval, str, len+1);
+  vdl_memcpy (retval, str, len+1);
   return retval;
 }
 char *vdl_utils_strfind (char *str, const char *substr)
@@ -123,61 +106,6 @@ char *vdl_utils_strfind (char *str, const char *substr)
     }
   return 0;
 }
-void vdl_utils_memcpy (void *d, const void *s, size_t len)
-{
-  //VDL_LOG_FUNCTION ("dst=%p, src=%p, len=%d", d, s, len);
-  int tmp = len;
-  char *dst = d;
-  const char *src = s;
-  while (tmp > 0)
-    {
-      *dst = *src;
-      dst++;
-      src++;
-      tmp--;
-    }
-}
-void vdl_utils_memmove (void *dst, const void *src, size_t len)
-{
-  uint8_t *ss = (uint8_t *)src;
-  uint8_t *se = ss + len;
-  uint8_t *ds = (uint8_t *)dst;
-  uint8_t *de = ds + len;
-  if (ss > de || se <= ds)
-    {
-      // no overlap
-      vdl_utils_memcpy (dst, src, len);
-    }
-  else if (de > se)
-    {
-      // overlap
-      unsigned long size = (unsigned long)de - (unsigned long)se;
-      vdl_utils_memcpy (de - size, se - size, size);
-      // recursively finish the copy
-      vdl_utils_memmove (dst, src, len - size);
-    }
-  else if (ds < ss)
-    {
-      // overlap
-      unsigned long size = (unsigned long)ss - (unsigned long)ds;
-      vdl_utils_memcpy (ds, ss, size);
-      // recursively finish the copy
-      vdl_utils_memmove (ds+size, ss+size, len - size);
-    }
-  else
-    {
-      VDL_LOG_ASSERT (false, "Copy from %p to %p for %lu failed ?", src, dst, len);
-    }
-}
-void vdl_utils_memset(void *d, int c, size_t n)
-{
-  char *dst = d;
-  size_t i;
-  for (i = 0; i < n; i++)
-    {
-      dst[i] = c;
-    }
-}
 char *vdl_utils_strconcat (const char *str, ...)
 {
   VDL_LOG_FUNCTION ("str=%s", str);
@@ -198,13 +126,13 @@ char *vdl_utils_strconcat (const char *str, ...)
   retval = vdl_utils_malloc (size + 1);
   // copy first string
   tmp = retval;
-  vdl_utils_memcpy (tmp, str, vdl_utils_strlen (str));
+  vdl_memcpy (tmp, str, vdl_utils_strlen (str));
   tmp += vdl_utils_strlen (str);
   // concatenate the other strings.
   cur = va_arg (l2, char *);
   while (cur != 0)
     {
-      vdl_utils_memcpy (tmp, cur, vdl_utils_strlen (cur));
+      vdl_memcpy (tmp, cur, vdl_utils_strlen (cur));
       tmp += vdl_utils_strlen(cur);
       cur = va_arg (l2, char *);
     }
@@ -269,7 +197,7 @@ struct VdlStringList *vdl_utils_strsplit (const char *value, char separator)
       prev_len = cur-prev;
       next = vdl_utils_new (struct VdlStringList);
       next->str = vdl_utils_malloc (prev_len+1);
-      vdl_utils_memcpy (next->str, prev, prev_len);
+      vdl_memcpy (next->str, prev, prev_len);
       next->str[prev_len] = 0;
       next->next = list;
       list = next;

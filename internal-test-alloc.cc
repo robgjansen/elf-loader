@@ -13,7 +13,7 @@ bool test_alloc (void)
       int size = sizes[i];
       uint8_t *ptr = alloc_malloc (&alloc, size);
       memset (ptr, 0x66, size);
-      alloc_free (&alloc, ptr, size);
+      alloc_free (&alloc, ptr);
     }
   std::list<uint8_t *> ptrs;
   for (uint32_t i = 0; i < sizeof (sizes)/sizeof (int); i++)
@@ -25,7 +25,7 @@ bool test_alloc (void)
     }
   for (uint32_t i = 0; i < sizeof (sizes)/sizeof (int); i++)
     {
-      alloc_free (&alloc, ptrs.front (), sizes[i]);
+      alloc_free (&alloc, ptrs.front ());
       ptrs.pop_front ();
     }
   ptrs.clear ();
@@ -37,8 +37,8 @@ bool test_alloc (void)
 
   uint8_t *a = alloc_malloc (&alloc, 32000);
   uint8_t *b = alloc_malloc (&alloc, 2000);
-  alloc_free (&alloc, a, 32000);
-  alloc_free (&alloc, b, 2000);
+  alloc_free (&alloc, a);
+  alloc_free (&alloc, b);
 
   alloc_destroy (&alloc);
 

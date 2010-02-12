@@ -1,4 +1,5 @@
 #include "alloc.h"
+#include "vdl-mem.h"
 #include "system.h"
 #include <sys/mman.h>
 
@@ -20,27 +21,6 @@
 # define MARK_UNDEFINED(buffer, size)
 #endif
 
-
-void alloc_initialize (struct Alloc *alloc)
-{
-  int i;
-  alloc->chunks = 0;
-  for (i = 0; i < 32; i++)
-    {
-      alloc->buckets[i] = 0;
-    }
-  alloc->default_mmap_size = 1<<15;
-}
-void alloc_destroy (struct Alloc *alloc)
-{
-  struct AllocMmapChunk *tmp, *next;
-  for (tmp = alloc->chunks; tmp != 0; tmp = next)
-    {
-      next = tmp->next;
-      system_munmap (tmp->buffer, tmp->size);
-    }
-  alloc->chunks = 0;
-}
 
 static uint32_t round_to (uint32_t v, uint32_t to)
 {
@@ -99,7 +79,7 @@ static uint32_t bucket_to_size (uint8_t bucket)
   return size;
 }
 
-uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size)
+static uint8_t *alloc_do_malloc (struct Alloc *alloc, uint32_t size)
 {
   if (size < (alloc->default_mmap_size - chunk_overhead ()))
     {
@@ -128,7 +108,8 @@ uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size)
       return buffer;
     }
 }
-void alloc_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size)
+
+static void alloc_do_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size)
 {
   if (size < (alloc->default_mmap_size - chunk_overhead ()))
     {
@@ -164,3 +145,39 @@ void alloc_free (struct Alloc *alloc, uint8_t *buffer, uint32_t size)
     }
 }
 
+void alloc_initialize (struct Alloc *alloc)
+{
+  int i;
+  alloc->chunks = 0;
+  for (i = 0; i < 32; i++)
+    {
+      alloc->buckets[i] = 0;
+    }
+  alloc->default_mmap_size = 1<<15;
+}
+void alloc_destroy (struct Alloc *alloc)
+{
+  struct AllocMmapChunk *tmp, *next;
+  for (tmp = alloc->chunks; tmp != 0; tmp = next)
+    {
+      next = tmp->next;
+      system_munmap (tmp->buffer, tmp->size);
+    }
+  alloc->chunks = 0;
+}
+
+uint8_t *alloc_malloc (struct Alloc *alloc, uint32_t size)
+{
+  unsigned long *buffer = (unsigned long*) alloc_do_malloc (alloc, 
+							    size+1*sizeof(unsigned long));
+  buffer[0] = size;
+  return (void*)(buffer+1);
+}
+
+void alloc_free (struct Alloc *alloc, uint8_t *buffer)
+{
+  unsigned long *buf = (unsigned long*)buffer;
+  unsigned long size = buf[-1];
+  vdl_memset (buf, 0x66, size);
+  alloc_do_free (alloc, (uint8_t *)(buf-1), size+1*sizeof(unsigned long));
+}

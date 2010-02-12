@@ -62,15 +62,15 @@ extern "C" void vdl_utils_free (void *buffer, size_t size)
 {
   return free (buffer);
 }
-extern "C" void vdl_utils_memmove (void *dst, const void *src, size_t len)
+extern "C" void vdl_memmove (void *dst, const void *src, size_t len)
 {
   memmove (dst, src, len);
 }
-extern "C" void vdl_utils_memcpy (void *dst, const void *src, size_t len)
+extern "C" void vdl_memcpy (void *dst, const void *src, size_t len)
 {
   memcpy (dst, src, len);
 }
-extern "C" void vdl_utils_memset(void *s, int c, size_t n)
+extern "C" void vdl_memset(void *s, int c, size_t n)
 {
   memset (s, c, n);
 }

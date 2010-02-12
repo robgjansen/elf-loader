@@ -6,6 +6,7 @@
 #include "vdl-log.h"
 #include "vdl-file-list.h"
 #include "vdl-gc.h"
+#include "vdl-mem.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>
@@ -42,7 +43,7 @@ void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, con
     vdl_utils_malloc (sizeof (struct VdlContextLibRemapEntry)*(old_n_entries + 1));
   if (old_entries != 0)
     {
-      vdl_utils_memcpy (new_entries, old_entries, sizeof (struct VdlContextLibRemapEntry)*(old_n_entries));
+      vdl_memcpy (new_entries, old_entries, sizeof (struct VdlContextLibRemapEntry)*(old_n_entries));
       vdl_utils_free (old_entries, sizeof (struct VdlContextLibRemapEntry)*old_n_entries);
     }
   context->lib_remaps = new_entries;
@@ -65,8 +66,8 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
     vdl_utils_malloc (sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries + 1));
   if (old_entries != 0)
     {
-      vdl_utils_memcpy (new_entries, old_entries, 
-			sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries));
+      vdl_memcpy (new_entries, old_entries, 
+		  sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries));
       vdl_utils_free (old_entries, sizeof (struct VdlContextSymbolRemapEntry)*old_n_entries);
     }
   context->symbol_remaps = new_entries;
@@ -88,8 +89,8 @@ void vdl_context_add_callback (struct VdlContext *context,
     vdl_utils_malloc (sizeof (struct VdlContextCallbackEntry)*(old_n_entries + 1));
   if (old_entries != 0)
     {
-      vdl_utils_memcpy (new_entries, old_entries, 
-			sizeof (struct VdlContextCallbackEntry)*(old_n_entries));
+      vdl_memcpy (new_entries, old_entries, 
+		  sizeof (struct VdlContextCallbackEntry)*(old_n_entries));
       vdl_utils_free (old_entries, sizeof (struct VdlContextCallbackEntry)*old_n_entries);
     }
   context->event_callbacks = new_entries;
@@ -607,7 +608,7 @@ file_map_do (struct VdlFileMap map,
 	  VDL_LOG_ASSERT (int_result == 0, "Unable to change protection to zeroify last page");
 	}
       // zero the end of map
-      vdl_utils_memset ((void*)(load_base + map.mem_zero_start), 0, map.mem_zero_size);
+      vdl_memset ((void*)(load_base + map.mem_zero_start), 0, map.mem_zero_size);
       // now, restore the previous protection if needed
       if (!(prot & PROT_WRITE))
 	{

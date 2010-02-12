@@ -22,9 +22,6 @@ int vdl_utils_strlen (const char *str);
 void vdl_utils_strfree (char *str);
 char *vdl_utils_strdup (const char *str);
 char *vdl_utils_strfind (char *str, const char *substr);
-void vdl_utils_memcpy (void *dst, const void *src, size_t len);
-void vdl_utils_memmove (void *dst, const void *src, size_t len);
-void vdl_utils_memset(void *s, int c, size_t n);
 char *vdl_utils_strconcat (const char *str, ...);
 const char *vdl_utils_getenv (const char **envp, const char *value);
 

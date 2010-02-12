@@ -9,6 +9,7 @@
 #include "vdl-tls.h"
 #include "vdl-sort.h"
 #include "vdl-config.h"
+#include "vdl-mem.h"
 #include "macros.h"
 #include <elf.h>
 #include <dlfcn.h>
@@ -215,7 +216,7 @@ void glibc_initialize (void)
 {
   void **(*fn) (void) = vdl_dl_error_catch_tsd;
   char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
-  vdl_utils_memcpy ((void*)dst, &fn, sizeof (fn));
+  vdl_memcpy ((void*)dst, &fn, sizeof (fn));
 }
 
 

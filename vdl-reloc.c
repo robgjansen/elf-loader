@@ -5,6 +5,7 @@
 #include "vdl-file-list.h"
 #include "vdl-lookup.h"
 #include "vdl-utils.h"
+#include "vdl-mem.h"
 #include <stdbool.h>
 
 static bool
@@ -139,9 +140,9 @@ do_process_reloc (struct VdlFile *file,
 	  // we handle R_*_COPY relocs ourselves
 	  VDL_LOG_ASSERT (result.symbol->st_size == sym->st_size,
 			  "Symbols don't have the same size: likely a recipe for disaster.");
-	  vdl_utils_memcpy (reloc_addr, 
-			    (void*)(result.file->load_base + result.symbol->st_value),
-			    result.symbol->st_size);
+	  vdl_memcpy (reloc_addr, 
+		      (void*)(result.file->load_base + result.symbol->st_value),
+		      result.symbol->st_size);
 	}
       else
 	{
