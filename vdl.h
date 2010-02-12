@@ -236,8 +236,7 @@ struct VdlContext
   struct VdlArray *symbol_remaps;
   // describe which libraries should be remapped to which 
   // other libraries during loading
-  struct VdlContextLibRemapEntry *lib_remaps;
-  int n_lib_remaps;
+  struct VdlArray *lib_remaps;
   // report events within this context
   struct VdlContextCallbackEntry *event_callbacks;
   int n_event_callbacks;

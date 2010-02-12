@@ -36,21 +36,13 @@ get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
 }
 
 
-void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, const char *dst)
+void vdl_context_add_lib_remap (struct VdlContext *context, 
+				const char *src, const char *dst)
 {
-  int old_n_entries = context->n_lib_remaps;
-  struct VdlContextLibRemapEntry *old_entries = context->lib_remaps;
-  struct VdlContextLibRemapEntry *new_entries =  (struct VdlContextLibRemapEntry *)
-    vdl_utils_malloc (sizeof (struct VdlContextLibRemapEntry)*(old_n_entries + 1));
-  if (old_entries != 0)
-    {
-      vdl_memcpy (new_entries, old_entries, sizeof (struct VdlContextLibRemapEntry)*(old_n_entries));
-      vdl_utils_free (old_entries);
-    }
-  context->lib_remaps = new_entries;
-  new_entries[old_n_entries].src = vdl_utils_strdup (src);
-  new_entries[old_n_entries].dst = vdl_utils_strdup (dst);
-  context->n_lib_remaps++;
+  struct VdlContextLibRemapEntry entry;
+  entry.src = vdl_utils_strdup (src);
+  entry.dst = vdl_utils_strdup (dst);
+  vdl_array_push_back (context->lib_remaps, entry);
 }
 
 void vdl_context_add_symbol_remap (struct VdlContext *context, 
@@ -106,14 +98,14 @@ const char *
 vdl_context_lib_remap (const struct VdlContext *context, const char *name)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
-  struct VdlContextLibRemapEntry *entries = context->lib_remaps;
-  int nentries = context->n_lib_remaps;
-  int i; 
-  for (i = 0; i < nentries; i++)
+  struct VdlContextLibRemapEntry *i;
+  for (i = vdl_array_begin (context->lib_remaps);
+       i != vdl_array_end (context->lib_remaps);
+       i++)
     {
-      if (vdl_utils_strisequal (entries[i].src, name))
+      if (vdl_utils_strisequal (i->src, name))
 	{
-	  return entries[i].dst;
+	  return i->dst;
 	}
     }
   return name;
@@ -184,8 +176,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
     }
   context->next = g_vdl.contexts;
   context->prev = 0;
-  context->n_lib_remaps = 0;
-  context->lib_remaps = 0;
+  context->lib_remaps = vdl_array_new (struct VdlContextLibRemapEntry);
   context->symbol_remaps = vdl_array_new (struct VdlContextSymbolRemapEntry);
   context->n_event_callbacks = 0;
   context->event_callbacks = 0;
@@ -235,18 +226,15 @@ vdl_context_delete (struct VdlContext *context)
   context->argv = 0;
   context->envp = 0;
 
-  // delete lib remap entries
-  if (context->lib_remaps != 0)
-    {
-      int i;
-      for (i = 0; i < context->n_lib_remaps; i++)
-	{
-	  vdl_utils_free (context->lib_remaps[i].src);
-	  vdl_utils_free (context->lib_remaps[i].dst);
-	}
-      vdl_utils_free (context->lib_remaps);
-      context->n_lib_remaps = 0;
-    }
+  {
+    struct VdlContextLibRemapEntry *i;
+    for (i = vdl_array_begin (context->lib_remaps); i != vdl_array_end (context->lib_remaps); i++)
+      {
+	vdl_utils_free (i->src);
+	vdl_utils_free (i->dst);
+      }
+    vdl_array_delete (context->lib_remaps);
+  }
 
   {
     struct VdlContextSymbolRemapEntry *i;
