@@ -65,6 +65,11 @@ extern "C" {
   ((type *)vdl_array_low_get (array, 0))
 #define vdl_array_end(array,type)			\
   ((type *)vdl_array_low_get (array,vdl_array_low_get_size (array)))
+#define vdl_array_erase(array,i)					\
+  ((type *)vdl_array_low_remove (array,					\
+				 (((unsigned long)i) - ((unsigned long)array->buffer)) \
+				 / array->elem_size,			\
+				 1)
 
 /* don't use the _low functions below. Use the macros above. */
 
@@ -79,7 +84,7 @@ struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n);
 void vdl_array_low_free (struct VdlArray *array);
 uint8_t *vdl_array_low_get (struct VdlArray *array, uint32_t i);
 uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n);
-void vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n);
+uint8_t *vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n);
 uint32_t vdl_array_low_get_size (struct VdlArray *array);
 
 #ifdef __cplusplus

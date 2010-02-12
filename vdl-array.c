@@ -56,17 +56,18 @@ uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n)
     }
   return &array->buffer[at * array->elem_size];
 }
-void vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n)
+uint8_t *vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n)
 {
   if (at > array->n)
     {
-      return;
+      return 0;
     }
   uint32_t remove_end = vdl_utils_min (at + n, array->n);
   vdl_memmove (array->buffer + at * array->elem_size,
 	       array->buffer + remove_end * array->elem_size,
 	       (array->n - remove_end) * array->elem_size);
   array->n -= remove_end - at;
+  return (uint8_t *)(array->buffer + at * array->elem_size);
 }
 uint32_t vdl_array_low_get_size (struct VdlArray *array)
 {
