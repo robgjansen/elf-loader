@@ -32,7 +32,8 @@ uint32_t vdl_array_low_get_size (struct VdlArray *array);
   *(typeof(value) *) vdl_array_low_get (array, i) = value
 #define vdl_array_insert(array,at,value)			\
   {								\
-    typeof(value) _value = vdl_array_low_insert (array, at, 1); \
+    typeof(value) *_value = (typeof(value) *)			\
+      vdl_array_low_insert (array, at, 1);			\
     *_value = value;						\
   }
 #define vdl_array_append(array,value)					\

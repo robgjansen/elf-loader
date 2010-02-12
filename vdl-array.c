@@ -38,6 +38,7 @@ uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n)
       vdl_utils_memmove (array->buffer + (at + n) * array->elem_size,
 			 array->buffer + (at) * array->elem_size,
 			 n * array->elem_size);
+      array->n += n;
     }
   else
     {
