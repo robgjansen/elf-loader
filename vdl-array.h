@@ -59,6 +59,8 @@ extern "C" {
   vdl_array_low_remove (array, at, 1)
 #define vdl_array_size(array)		\
   vdl_array_low_get_size (array)
+#define vdl_array_empty(array)		\
+  (vdl_array_low_get_size (array) == 0)
 #define vdl_array_begin(array,type)			\
   ((type *)vdl_array_low_get (array, 0))
 #define vdl_array_end(array,type)			\
