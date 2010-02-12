@@ -25,13 +25,6 @@ struct VdlArray
   uint8_t *buffer;
 };
 
-struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n);
-void vdl_array_low_free (struct VdlArray *array);
-uint8_t *vdl_array_low_get (struct VdlArray *array, uint32_t i);
-uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n);
-void vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n);
-uint32_t vdl_array_low_get_size (struct VdlArray *array);
-
 #define vdl_array_new(type,n) \
   vdl_array_low_alloc (sizeof(type), n)
 #define vdl_array_delete(array) \
@@ -78,6 +71,15 @@ uint32_t vdl_array_low_get_size (struct VdlArray *array);
   ((type *)vdl_array_low_get (array, 0))
 #define vdl_array_end(array,type)			\
   ((type *)vdl_array_low_get (array,vdl_array_low_get_size (array)))
+
+/* don't use the _low functions below. Use the macros above. */
+struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n);
+void vdl_array_low_free (struct VdlArray *array);
+uint8_t *vdl_array_low_get (struct VdlArray *array, uint32_t i);
+uint8_t *vdl_array_low_insert (struct VdlArray *array, uint32_t at, uint32_t n);
+void vdl_array_low_remove (struct VdlArray *array, uint32_t at, uint32_t n);
+uint32_t vdl_array_low_get_size (struct VdlArray *array);
+
 #ifdef __cplusplus
 }
 #endif
