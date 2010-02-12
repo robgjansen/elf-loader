@@ -24,6 +24,7 @@
 #define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
 #endif
 
+struct VdlArray;
 
 struct VdlFileList
 {
@@ -232,8 +233,7 @@ struct VdlContext
   struct VdlFileList *global_scope;
   // describe which symbols should be remapped to which 
   // other symbols during symbol resolution
-  struct VdlContextSymbolRemapEntry *symbol_remaps;
-  int n_symbol_remaps;
+  struct VdlArray *symbol_remaps;
   // describe which libraries should be remapped to which 
   // other libraries during loading
   struct VdlContextLibRemapEntry *lib_remaps;

@@ -7,6 +7,7 @@
 #include "vdl-file-list.h"
 #include "vdl-gc.h"
 #include "vdl-mem.h"
+#include "vdl-array.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>
@@ -60,24 +61,14 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
 				   const char *dst_ver_name,
 				   const char *dst_ver_filename)
 {
-  int old_n_entries = context->n_symbol_remaps;
-  struct VdlContextSymbolRemapEntry *old_entries = context->symbol_remaps;
-  struct VdlContextSymbolRemapEntry *new_entries =  (struct VdlContextSymbolRemapEntry *)
-    vdl_utils_malloc (sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries + 1));
-  if (old_entries != 0)
-    {
-      vdl_memcpy (new_entries, old_entries, 
-		  sizeof (struct VdlContextSymbolRemapEntry)*(old_n_entries));
-      vdl_utils_free (old_entries);
-    }
-  context->symbol_remaps = new_entries;
-  new_entries[old_n_entries].src_name = vdl_utils_strdup (src_name);
-  new_entries[old_n_entries].src_ver_name = vdl_utils_strdup (src_ver_name);
-  new_entries[old_n_entries].src_ver_filename = vdl_utils_strdup (src_ver_filename);
-  new_entries[old_n_entries].dst_name = vdl_utils_strdup (dst_name);
-  new_entries[old_n_entries].dst_ver_name = vdl_utils_strdup (dst_ver_name);
-  new_entries[old_n_entries].dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
-  context->n_symbol_remaps++;
+  struct VdlContextSymbolRemapEntry entry;
+  entry.src_name = vdl_utils_strdup (src_name);
+  entry.src_ver_name = vdl_utils_strdup (src_ver_name);
+  entry.src_ver_filename = vdl_utils_strdup (src_ver_filename);
+  entry.dst_name = vdl_utils_strdup (dst_name);
+  entry.dst_ver_name = vdl_utils_strdup (dst_ver_name);
+  entry.dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
+  vdl_array_push_back (context->symbol_remaps, entry);
 }
 void vdl_context_add_callback (struct VdlContext *context,
 			       void (*cb) (void *handle, enum VdlEvent event, void *context),
@@ -134,16 +125,14 @@ vdl_context_symbol_remap (const struct VdlContext *context,
   VDL_LOG_FUNCTION ("name=%s, ver_name=%s, ver_filename=%s", *name, 
 		    (ver_name != 0 && *ver_name != 0)?*ver_name:"", 
 		    (ver_filename != 0 && *ver_filename != 0)?*ver_filename:"");
-  struct VdlContextSymbolRemapEntry *entries = context->symbol_remaps;
-  int nentries = context->n_symbol_remaps;
-  int i; 
-  for (i = 0; i < nentries; i++)
+  struct VdlContextSymbolRemapEntry *i;
+  for (i = vdl_array_begin (context->symbol_remaps); i != vdl_array_end (context->symbol_remaps); i++)
     {
-      if (!vdl_utils_strisequal (entries[i].src_name, *name))
+      if (!vdl_utils_strisequal (i->src_name, *name))
 	{
 	  continue;
 	}
-      else if (entries[i].src_ver_name == 0)
+      else if (i->src_ver_name == 0)
 	{
 	  goto match;
 	}
@@ -151,11 +140,11 @@ vdl_context_symbol_remap (const struct VdlContext *context,
 	{
 	  continue;
 	}
-      else if (!vdl_utils_strisequal (entries[i].src_ver_name, *ver_name))
+      else if (!vdl_utils_strisequal (i->src_ver_name, *ver_name))
 	{
 	  continue;
 	}
-      else if (entries[i].src_ver_filename == 0)
+      else if (i->src_ver_filename == 0)
 	{
 	  goto match;
 	}
@@ -163,21 +152,21 @@ vdl_context_symbol_remap (const struct VdlContext *context,
 	{
 	  continue;
 	}
-      else if (vdl_utils_strisequal (entries[i].src_ver_filename, *ver_filename))
+      else if (vdl_utils_strisequal (i->src_ver_filename, *ver_filename))
 	{
 	  goto match;
 	}
     }
   return;
  match:
-  *name = entries[i].dst_name;
+  *name = i->dst_name;
   if (ver_name != 0)
     {
-      *ver_name = entries[i].dst_ver_name;
+      *ver_name = i->dst_ver_name;
     }
   if (ver_filename != 0)
     {
-      *ver_filename = entries[i].dst_ver_filename;
+      *ver_filename = i->dst_ver_filename;
     }
   return;
 }
@@ -197,8 +186,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
   context->prev = 0;
   context->n_lib_remaps = 0;
   context->lib_remaps = 0;
-  context->n_symbol_remaps = 0;
-  context->symbol_remaps = 0;
+  context->symbol_remaps = vdl_array_new (struct VdlContextSymbolRemapEntry);
   context->n_event_callbacks = 0;
   context->event_callbacks = 0;
   g_vdl.contexts = context;
@@ -260,23 +248,19 @@ vdl_context_delete (struct VdlContext *context)
       context->n_lib_remaps = 0;
     }
 
-  if (context->symbol_remaps != 0)
-    {
-      int i;
-      // delete symbol remap entries
-      for (i = 0; i < context->n_symbol_remaps; i++)
-	{
-	  struct VdlContextSymbolRemapEntry *entry = &context->symbol_remaps[i];
-	  vdl_utils_free (entry->src_name);
-	  vdl_utils_free (entry->src_ver_name);
-	  vdl_utils_free (entry->src_ver_filename);
-	  vdl_utils_free (entry->dst_name);
-	  vdl_utils_free (entry->dst_ver_name);
-	  vdl_utils_free (entry->dst_ver_filename);
-	}
-      vdl_utils_free (context->symbol_remaps);
-      context->n_symbol_remaps = 0;
-    }
+  {
+    struct VdlContextSymbolRemapEntry *i;
+    for (i = vdl_array_begin (context->symbol_remaps); i != vdl_array_end (context->symbol_remaps); i++)
+      {
+	vdl_utils_free (i->src_name);
+	vdl_utils_free (i->src_ver_name);
+	vdl_utils_free (i->src_ver_filename);
+	vdl_utils_free (i->dst_name);
+	vdl_utils_free (i->dst_ver_name);
+	vdl_utils_free (i->dst_ver_filename);	
+      }
+    vdl_array_delete (context->symbol_remaps);
+  }
 
   // delete event callback entries
   if (context->event_callbacks != 0)
