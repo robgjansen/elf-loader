@@ -17,14 +17,6 @@ extern "C" {
  * that's not an issue for now.
  */
 
-struct VdlArray
-{
-  uint32_t n;
-  uint32_t max_n;
-  uint32_t elem_size;
-  uint8_t *buffer;
-};
-
 #define vdl_array_new(type,n) \
   vdl_array_low_alloc (sizeof(type), n)
 #define vdl_array_delete(array) \
@@ -73,6 +65,14 @@ struct VdlArray
   ((type *)vdl_array_low_get (array,vdl_array_low_get_size (array)))
 
 /* don't use the _low functions below. Use the macros above. */
+
+struct VdlArray
+{
+  uint32_t n;
+  uint32_t max_n;
+  uint32_t elem_size;
+  uint8_t *buffer;
+};
 struct VdlArray *vdl_array_low_alloc (uint32_t elem_size, uint32_t n);
 void vdl_array_low_free (struct VdlArray *array);
 uint8_t *vdl_array_low_get (struct VdlArray *array, uint32_t i);
