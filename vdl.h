@@ -220,7 +220,7 @@ enum VdlEvent {
   VDL_EVENT_CONSTRUCTED,
   VDL_EVENT_DESTROYED
 };
-struct VdlContextCallbackEntry
+struct VdlContextEventCallbackEntry
 {
   void (*fn) (void *handle, enum VdlEvent event, void *context);
   void *context;
@@ -238,8 +238,7 @@ struct VdlContext
   // other libraries during loading
   struct VdlArray *lib_remaps;
   // report events within this context
-  struct VdlContextCallbackEntry *event_callbacks;
-  int n_event_callbacks;
+  struct VdlArray *event_callbacks;
   // These variables are used by all .init functions
   // _some_ libc .init functions make use of these
   // 3 arguments so, even though no one else uses them, 

@@ -66,30 +66,21 @@ void vdl_context_add_callback (struct VdlContext *context,
 			       void (*cb) (void *handle, enum VdlEvent event, void *context),
 			       void *cb_context)
 {
-  int old_n_entries = context->n_event_callbacks;
-  struct VdlContextCallbackEntry *old_entries = context->event_callbacks;
-  struct VdlContextCallbackEntry *new_entries =  (struct VdlContextCallbackEntry *)
-    vdl_utils_malloc (sizeof (struct VdlContextCallbackEntry)*(old_n_entries + 1));
-  if (old_entries != 0)
-    {
-      vdl_memcpy (new_entries, old_entries, 
-		  sizeof (struct VdlContextCallbackEntry)*(old_n_entries));
-      vdl_utils_free (old_entries);
-    }
-  context->event_callbacks = new_entries;
-  new_entries[old_n_entries].fn = cb;
-  new_entries[old_n_entries].context = cb_context;
-  context->n_event_callbacks++;
+  struct VdlContextEventCallbackEntry entry;
+  entry.fn = cb;
+  entry.context = cb_context;
+  vdl_array_push_back (context->event_callbacks, entry);
 }
 void vdl_context_notify (struct VdlContext *context,
 			 struct VdlFile *file,
 			 enum VdlEvent event)
 {
-  int i;
-  for (i = 0; i < context->n_event_callbacks; i++)
+  struct VdlContextEventCallbackEntry *i;
+  for (i = vdl_array_begin (context->event_callbacks);
+       i != vdl_array_end (context->event_callbacks);
+       i++)
     {
-      struct VdlContextCallbackEntry *entry = &context->event_callbacks[i];
-      entry->fn (file, event, entry->context);
+      i->fn (file, event, i->context);
     }
 }
 
@@ -178,8 +169,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
   context->prev = 0;
   context->lib_remaps = vdl_array_new (struct VdlContextLibRemapEntry);
   context->symbol_remaps = vdl_array_new (struct VdlContextSymbolRemapEntry);
-  context->n_event_callbacks = 0;
-  context->event_callbacks = 0;
+  context->event_callbacks = vdl_array_new (struct VdlContextEventCallbackEntry);
   g_vdl.contexts = context;
   // keep a reference to argc, argv and envp.
   context->argc = argc;
@@ -250,12 +240,11 @@ vdl_context_delete (struct VdlContext *context)
     vdl_array_delete (context->symbol_remaps);
   }
 
-  // delete event callback entries
-  if (context->event_callbacks != 0)
-    {
-      vdl_utils_free (context->event_callbacks);
-      context->n_event_callbacks = 0;
-    }
+  vdl_array_delete (context->event_callbacks);
+
+  context->lib_remaps = 0;
+  context->symbol_remaps = 0;
+  context->event_callbacks = 0;
 
   // finally, delete context itself
   vdl_utils_delete (context);
