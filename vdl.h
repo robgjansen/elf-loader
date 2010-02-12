@@ -228,8 +228,6 @@ struct VdlContextEventCallbackEntry
 
 struct VdlContext
 {
-  struct VdlContext *prev;
-  struct VdlContext *next;
   struct VdlFileList *global_scope;
   // describe which symbols should be remapped to which 
   // other symbols during symbol resolution
