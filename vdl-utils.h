@@ -28,19 +28,10 @@ const char *vdl_utils_getenv (const char **envp, const char *value);
 // convenience function
 int vdl_utils_exists (const char *filename);
 
-// manipulate string lists.
+// manipulate lists of strings.
 void vdl_utils_str_list_delete (struct VdlList *list);
-
-struct VdlStringList *vdl_utils_strsplit (const char *value, char separator);
-void vdl_utils_str_list_free (struct VdlStringList *list);
-struct VdlStringList *vdl_utils_str_list_reverse (struct VdlStringList *list);
-struct VdlStringList * vdl_utils_str_list_append (struct VdlStringList *start, 
-						  struct VdlStringList *end);
-struct VdlStringList * vdl_utils_str_list_prepend (struct VdlStringList *start, 
-						   struct VdlStringList *end);
-struct VdlStringList * vdl_utils_str_list_split (struct VdlStringList *start, 
-						 struct VdlStringList *at);
-struct VdlStringList *vdl_utils_splitpath (const char *value);
+struct VdlList *vdl_utils_strsplit (const char *value, char separator);
+struct VdlList *vdl_utils_splitpath (const char *value);
 
 unsigned long vdl_utils_align_down (unsigned long v, unsigned long align);
 unsigned long vdl_utils_align_up (unsigned long v, unsigned long align);

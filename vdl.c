@@ -470,12 +470,12 @@ replace_magic (char *filename)
 }
 static char *
 do_search (const char *name, 
-	   struct VdlStringList *list)
+	   struct VdlList *list)
 {
-  struct VdlStringList *cur;
-  for (cur = list; cur != 0; cur = cur->next)
+  void **i;
+  for (i = vdl_list_begin (list); i != vdl_list_end (list); i = vdl_list_next (i))
     {
-      char *fullname = vdl_utils_strconcat (cur->str, "/", name, 0);
+      char *fullname = vdl_utils_strconcat (*i, "/", name, 0);
       fullname = replace_magic (fullname);
       if (vdl_utils_exists (fullname))
 	{
@@ -486,8 +486,8 @@ do_search (const char *name,
   return 0;
 }
 char *vdl_search_filename (const char *name, 
-			   struct VdlStringList *rpath,
-			   struct VdlStringList *runpath)
+			   struct VdlList *rpath,
+			   struct VdlList *runpath)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
   if (name[0] != '/')
@@ -496,11 +496,11 @@ char *vdl_search_filename (const char *name,
       // it is a relative filename so, we can try to locate it with the
       // search dirs.
       char *fullname = 0;
-      if (runpath != 0)
+      if (!vdl_list_empty (runpath))
 	{
 	  fullname = do_search (name, runpath);
 	}
-      else if (rpath != 0)
+      else
 	{
 	  fullname = do_search (name, rpath);
 	}
@@ -749,8 +749,8 @@ find_by_dev_ino (struct VdlContext *context,
 
 struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   const char *requested_filename,
-					   struct VdlStringList *rpath,
-					   struct VdlStringList *runpath,
+					   struct VdlList *rpath,
+					   struct VdlList *runpath,
 					   struct VdlFileList **loaded)
 {
   // Try to see if we don't have a hardcoded name conversion
@@ -804,22 +804,22 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
   return file;
 }
 
-static struct VdlStringList *
+static struct VdlList *
 get_path (struct VdlFile *file, int type)
 {
   unsigned long dt_path = vdl_file_get_dynamic_v (file, type);
   unsigned long dt_strtab = vdl_file_get_dynamic_p (file, DT_STRTAB);
   if (dt_path == 0 || dt_strtab == 0)
     {
-      return 0;
+      return vdl_list_new ();
     }
   const char *path = (const char *)(dt_strtab + dt_path);
-  struct VdlStringList *list = vdl_utils_splitpath (path);
+  struct VdlList *list = vdl_utils_splitpath (path);
   return list;
 }
 
 int vdl_file_map_deps_recursive (struct VdlFile *item, 
-				 struct VdlStringList *caller_rpath,
+				 struct VdlList *caller_rpath,
 				 struct VdlFileList **loaded)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
@@ -830,9 +830,12 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
     }
   item->deps_initialized = 1;
 
-  struct VdlStringList *rpath = get_path (item, DT_RPATH);
-  struct VdlStringList *runpath = get_path (item, DT_RUNPATH);
-  rpath = vdl_utils_str_list_prepend (caller_rpath, rpath);
+  struct VdlList *rpath = get_path (item, DT_RPATH);
+  struct VdlList *runpath = get_path (item, DT_RUNPATH);
+  struct VdlList *current_rpath = vdl_list_copy (rpath);
+  vdl_list_insert_range (current_rpath, vdl_list_end (current_rpath),
+			 vdl_list_begin (caller_rpath),
+			 vdl_list_end (caller_rpath));
 
   // get list of deps for the input file.
   struct VdlList *dt_needed = vdl_file_get_dt_needed (item);
@@ -845,7 +848,7 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
        cur = vdl_list_next (cur))
     {
       struct VdlFile *dep = vdl_file_map_single_maybe (item->context, *cur,
-						       rpath, runpath, loaded);
+						       current_rpath, runpath, loaded);
       if (dep == 0)
 	{
 	  // oops, failed to find the requested dt_needed
@@ -866,9 +869,9 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
 	}
     }
 
-  rpath = vdl_utils_str_list_split (rpath, caller_rpath);
-  vdl_utils_str_list_free (rpath);
-  vdl_utils_str_list_free (runpath);
+  vdl_utils_str_list_delete (rpath);
+  vdl_list_delete (current_rpath);
+  vdl_utils_str_list_delete (runpath);
   vdl_utils_str_list_delete (dt_needed);
 
   // Finally, update the deps
@@ -877,9 +880,9 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   return 1;
  error:
   vdl_utils_str_list_delete (dt_needed);
-  rpath = vdl_utils_str_list_split (rpath, caller_rpath);
-  vdl_utils_str_list_free (rpath);
-  vdl_utils_str_list_free (runpath);
+  vdl_utils_str_list_delete (rpath);
+  vdl_list_delete (current_rpath);
+  vdl_utils_str_list_delete (runpath);
   vdl_file_list_free (deps);
   vdl_file_list_free (*loaded);
   *loaded = 0;
@@ -888,7 +891,10 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
 int vdl_file_map_deps (struct VdlFile *item, 
 		       struct VdlFileList **loaded)
 {
-  return vdl_file_map_deps_recursive (item, 0, loaded);
+  struct VdlList *rpath = vdl_list_new ();
+  int status = vdl_file_map_deps_recursive (item, rpath, loaded);
+  vdl_list_delete (rpath);
+  return status;
 }
 static struct VdlFileMap 
 pt_load_to_file_map (const ElfW(Phdr) *phdr)

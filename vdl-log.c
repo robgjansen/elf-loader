@@ -2,6 +2,7 @@
 #include "avprintf-cb.h"
 #include "system.h"
 #include "vdl-utils.h"
+#include "vdl-list.h"
 
 uint32_t g_logging = 0;
 
@@ -21,46 +22,49 @@ void vdl_log_set (const char *debug_str)
     {
       return;
     }
-  struct VdlStringList *list = vdl_utils_strsplit (debug_str, ':');
-  struct VdlStringList *cur;
+  struct VdlList *list = vdl_utils_strsplit (debug_str, ':');
+  void **cur;
   uint32_t logging = 0;
-  for (cur = list; cur != 0; cur = cur->next)
+  for (cur = vdl_list_begin (list); 
+       cur != vdl_list_end (list); 
+       cur = vdl_list_next (cur))
     {
-      if (vdl_utils_strisequal (cur->str, "debug"))
+      if (vdl_utils_strisequal (*cur, "debug"))
 	{
 	  logging |= VDL_LOG_DBG;
 	}
-      else if (vdl_utils_strisequal (cur->str, "function"))
+      else if (vdl_utils_strisequal (*cur, "function"))
 	{
 	  logging |= VDL_LOG_FUNC;
 	}
-      else if (vdl_utils_strisequal (cur->str, "error"))
+      else if (vdl_utils_strisequal (*cur, "error"))
 	{
 	  logging |= VDL_LOG_ERR;
 	}
-      else if (vdl_utils_strisequal (cur->str, "assert"))
+      else if (vdl_utils_strisequal (*cur, "assert"))
 	{
 	  logging |= VDL_LOG_AST;
 	}
-      else if (vdl_utils_strisequal (cur->str, "symbol-fail"))
+      else if (vdl_utils_strisequal (*cur, "symbol-fail"))
 	{
 	  logging |= VDL_LOG_SYM_FAIL;
 	}
-      else if (vdl_utils_strisequal (cur->str, "symbol-ok"))
+      else if (vdl_utils_strisequal (*cur, "symbol-ok"))
 	{
 	  logging |= VDL_LOG_SYM_OK;
 	}
-      else if (vdl_utils_strisequal (cur->str, "reloc"))
+      else if (vdl_utils_strisequal (*cur, "reloc"))
 	{
 	  logging |= VDL_LOG_REL;
 	}
-      else if (vdl_utils_strisequal (cur->str, "help"))
+      else if (vdl_utils_strisequal (*cur, "help"))
 	{
-	  VDL_LOG_ERROR ("Available logging levels: debug, function, error, assert, symbol-fail, symbol-ok, reloc\n", 1);
+	  VDL_LOG_ERROR ("Available logging levels: debug, "
+			 "function, error, assert, symbol-fail, symbol-ok, reloc\n");
 	}
     }
   g_logging |= logging;
-  vdl_utils_str_list_free (list);
+  vdl_utils_str_list_delete (list);
 }
 
 

@@ -188,11 +188,6 @@ struct VdlFile
   uint32_t depth;
 };
 
-struct VdlStringList
-{
-  char *str;
-  struct VdlStringList *next;
-};
 // the numbers below must match the declarations from svs4
 enum VdlState {
   VDL_CONSISTENT = 0,
@@ -264,7 +259,7 @@ struct Vdl
   unsigned long interpreter_load_base;
   // The list of directories to search for binaries
   // in DT_NEEDED entries.
-  struct VdlStringList *search_dirs;
+  struct VdlList *search_dirs;
   // The data structure used by the memory allocator
   // all heap memory allocations through vdl_alloc
   // and vdl_utils_free end up here.
@@ -320,8 +315,8 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
 				    const char *name);
 struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   const char *requested_filename,
-					   struct VdlStringList *rpath,
-					   struct VdlStringList *runpath,
+					   struct VdlList *rpath,
+					   struct VdlList *runpath,
 					   struct VdlFileList **loaded);
 int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
@@ -334,8 +329,8 @@ struct VdlFile *vdl_file_new_main (unsigned long phnum,
 
 ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 
-char *vdl_search_filename (const char *name, struct VdlStringList *rpath,
-			   struct VdlStringList *runpath);
+char *vdl_search_filename (const char *name, struct VdlList *rpath,
+			   struct VdlList *runpath);
 int vdl_get_file_info (uint32_t phnum,
 		       ElfW(Phdr) *phdr,
 		       struct VdlFileInfo *info);

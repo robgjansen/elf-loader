@@ -39,7 +39,7 @@ void *vdl_utils_malloc (size_t size)
 }
 void vdl_utils_free (void *buffer)
 {
-  VDL_LOG_FUNCTION ("buffer=%p, size=%d", buffer);
+  VDL_LOG_FUNCTION ("buffer=%p", buffer);
   if (buffer == 0)
     {
       return;
@@ -183,32 +183,30 @@ vdl_utils_str_list_delete (struct VdlList *list)
     }
   vdl_list_delete (list);
 }
-struct VdlStringList *vdl_utils_strsplit (const char *value, char separator)
+struct VdlList *vdl_utils_strsplit (const char *value, char separator)
 {
-  VDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
-  struct VdlStringList *list = 0;
+  VDL_LOG_FUNCTION ("value=%s, separator=%d", (value==0)?"":value, separator);
+  struct VdlList *list = vdl_list_new ();
   const char *prev = value;
   const char *cur = value;
 
   if (value == 0)
     {
-      return 0;
+      return list;
     }
   while (1)
     {
-      struct VdlStringList *next;
       size_t prev_len;
+      char *str;
       while (*cur != separator && *cur != 0)
 	{
 	  cur++;
 	}
       prev_len = cur-prev;
-      next = vdl_utils_new (struct VdlStringList);
-      next->str = vdl_utils_malloc (prev_len+1);
-      vdl_memcpy (next->str, prev, prev_len);
-      next->str[prev_len] = 0;
-      next->next = list;
-      list = next;
+      str = vdl_utils_malloc (prev_len+1);
+      vdl_memcpy (str, prev, prev_len);
+      str[prev_len] = 0;
+      vdl_list_push_back (list, str);
       if (*cur == 0)
 	{
 	  break;
@@ -216,85 +214,23 @@ struct VdlStringList *vdl_utils_strsplit (const char *value, char separator)
       cur++;
       prev = cur;
     }
-  return vdl_utils_str_list_reverse (list);
-}
-void vdl_utils_str_list_free (struct VdlStringList *list)
-{
-  VDL_LOG_FUNCTION ("list=%p", list);
-  struct VdlStringList *cur, *next;
-  for (cur = list; cur != 0; cur = next)
-    {
-      vdl_utils_free (cur->str);
-      next = cur->next;
-      vdl_utils_delete (cur);
-    }
-}
-struct VdlStringList *vdl_utils_str_list_append (struct VdlStringList *start, struct VdlStringList *end)
-{
-  VDL_LOG_FUNCTION ("start=%p, end=%p", start, end);
-  struct VdlStringList *cur, *prev;
-  for (cur = start, prev = 0; cur != 0; cur = cur->next)
-    {
-      prev = cur;
-    }
-  if (prev == 0)
-    {
-      return end;
-    }
-  else
-    {
-      prev->next = end;
-      return start;
-    }
-}
-struct VdlStringList * vdl_utils_str_list_prepend (struct VdlStringList *start, 
-						   struct VdlStringList *end)
-{
-  return vdl_utils_str_list_append (end, start);
-}
-struct VdlStringList *
-vdl_utils_str_list_split (struct VdlStringList *start, 
-			  struct VdlStringList *at)
-{
-  if (start == at)
-    {
-      return 0;
-    }
-  struct VdlStringList *cur;
-  for (cur = start; cur != 0; cur = cur->next)
-    {
-      if (cur->next == at)
-	{
-	  cur->next = 0;
-	  return start;
-	}
-    }
-  return start;
+  return list;
 }
 
-struct VdlStringList *vdl_utils_str_list_reverse (struct VdlStringList *list)
+struct VdlList *vdl_utils_splitpath (const char *value)
 {
-  VDL_LOG_FUNCTION ("list=%p", list);
-  struct VdlStringList *ret = 0, *cur, *next;
-  for (cur = list; cur != 0; cur = next)
+  struct VdlList *list = vdl_utils_strsplit (value, ':');
+  void **i;
+  for (i = vdl_list_begin (list);
+       i != vdl_list_end (list);
+       i = vdl_list_next (i))
     {
-      next = cur->next;
-      cur->next = ret;
-      ret = cur;
-    }
-  return ret;
-}
-struct VdlStringList *vdl_utils_splitpath (const char *value)
-{
-  struct VdlStringList *list = vdl_utils_strsplit (value, ':');
-  struct VdlStringList *cur;
-  for (cur = list; cur != 0; cur = cur->next)
-    {
-      if (vdl_utils_strisequal (cur->str, ""))
+      if (vdl_utils_strisequal (*i, ""))
 	{
 	  // the empty string is interpreted as '.'
-	  vdl_utils_free (cur->str);
-	  cur->str = vdl_utils_strdup (".");
+	  vdl_utils_free (*i);
+	  i = vdl_list_erase (list, i);
+	  i = vdl_list_insert (list, i, vdl_utils_strdup ("."));
 	}
     }
   return list;

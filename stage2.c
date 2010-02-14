@@ -17,7 +17,7 @@
 #include "vdl-array.h"
 
 
-static struct VdlStringList *
+static struct VdlList *
 get_system_search_dirs (void)
 {
   return vdl_utils_splitpath (machine_get_system_search_dirs ());
@@ -93,11 +93,13 @@ do_ld_preload (struct VdlContext *context, const char **envp)
   // other library, but after the main binary itself.
   struct VdlFileList *retval = 0;
   const char *ld_preload = vdl_utils_getenv (envp, "LD_PRELOAD");
-  struct VdlStringList *list = vdl_utils_strsplit (ld_preload, ':');
-  struct VdlStringList *cur;
-  for (cur = list; cur != 0; cur = cur->next)
+  struct VdlList *list = vdl_utils_strsplit (ld_preload, ':');
+  void **cur;
+  for (cur = vdl_list_begin (list); 
+       cur != vdl_list_end (list); 
+       cur = vdl_list_next (cur))
     {
-      char *filename = cur->str;
+      char *filename = *cur;
       // search the requested program
       char *ld_preload_filename = vdl_search_filename (filename, 0, 0);
       if (ld_preload_filename == 0)
@@ -118,10 +120,10 @@ do_ld_preload (struct VdlContext *context, const char **envp)
       ld_preload_file->count++;
       retval = vdl_file_list_append_one (retval, ld_preload_file);
     }
-  vdl_utils_str_list_free (list);
+  vdl_utils_str_list_delete (list);
   return retval;
  error:
-  vdl_utils_str_list_free (list);
+  vdl_utils_str_list_delete (list);
   return 0;
 }
 
@@ -130,8 +132,12 @@ setup_env_vars (const char **envp)
 {
   // populate search_dirs from LD_LIBRARY_PATH
   const char *ld_lib_path = vdl_utils_getenv (envp, "LD_LIBRARY_PATH");
-  struct VdlStringList *list = vdl_utils_splitpath (ld_lib_path);
-  g_vdl.search_dirs = vdl_utils_str_list_append (list, g_vdl.search_dirs);
+  struct VdlList *list = vdl_utils_splitpath (ld_lib_path);
+  vdl_list_insert_range (g_vdl.search_dirs,
+			 vdl_list_begin (g_vdl.search_dirs),
+			 vdl_list_begin (list),
+			 vdl_list_end (list));
+  vdl_list_delete (list);
 
   // setup logging from LD_LOG
   const char *ld_log = vdl_utils_getenv (envp, "LD_LOG");
@@ -361,7 +367,7 @@ void stage2_freeres (void)
       
   vdl_files_delete (link_map, false);
       
-  vdl_utils_str_list_free (g_vdl.search_dirs);
+  vdl_utils_str_list_delete (g_vdl.search_dirs);
   g_vdl.search_dirs = 0;
 
   vdl_file_list_free (link_map);

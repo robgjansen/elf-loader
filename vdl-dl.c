@@ -157,10 +157,12 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
     }
 
   struct VdlFileList *loaded = 0;
+  struct VdlList *empty = vdl_list_new ();
   struct VdlFile *mapped_file = vdl_file_map_single_maybe (context,
 							   filename,
-							   0, 0,
+							   empty, empty,
 							   &loaded);
+  vdl_list_delete (empty);
   if (mapped_file == 0)
     {
       set_error ("Unable to load: \"%s\"", filename);
