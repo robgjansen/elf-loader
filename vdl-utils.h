@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include "vdl.h"
+#include "vdl-list.h"
 
 void vdl_utils_linkmap_print (void);
 
@@ -28,6 +29,8 @@ const char *vdl_utils_getenv (const char **envp, const char *value);
 int vdl_utils_exists (const char *filename);
 
 // manipulate string lists.
+void vdl_utils_str_list_delete (struct VdlList *list);
+
 struct VdlStringList *vdl_utils_strsplit (const char *value, char separator);
 void vdl_utils_str_list_free (struct VdlStringList *list);
 struct VdlStringList *vdl_utils_str_list_reverse (struct VdlStringList *list);

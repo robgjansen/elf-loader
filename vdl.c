@@ -8,6 +8,7 @@
 #include "vdl-gc.h"
 #include "vdl-mem.h"
 #include "vdl-array.h"
+#include "vdl-list.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>
@@ -427,30 +428,27 @@ vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
   return file->load_base + dyn->d_un.d_ptr;
 }
 
-static struct VdlStringList *vdl_file_get_dt_needed (struct VdlFile *file)
+static struct VdlList *vdl_file_get_dt_needed (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
+  struct VdlList *list = vdl_list_new ();
   unsigned long dt_strtab = vdl_file_get_dynamic_p (file, DT_STRTAB);
   if (dt_strtab == 0)
     {
-      return 0;
+      return list;
     }
   ElfW(Dyn) *dynamic = (ElfW(Dyn)*)file->dynamic;
   ElfW(Dyn)*cur;
-  struct VdlStringList *ret = 0;
   for (cur = dynamic; cur->d_tag != DT_NULL; cur++)
     {
       if (cur->d_tag == DT_NEEDED)
 	{
 	  const char *str = (const char *)(dt_strtab + cur->d_un.d_val);
-	  struct VdlStringList *tmp = vdl_utils_new (struct VdlStringList);
-	  tmp->str = vdl_utils_strdup (str);
-	  tmp->next = ret;
-	  ret = tmp;
 	  VDL_LOG_DEBUG ("needed=%s\n", str);
+	  vdl_list_push_back (list, vdl_utils_strdup (str));
 	}
     }
-  return vdl_utils_str_list_reverse (ret);
+  return list;
 }
 static char *
 replace_magic (char *filename)
@@ -837,14 +835,16 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   rpath = vdl_utils_str_list_prepend (caller_rpath, rpath);
 
   // get list of deps for the input file.
-  struct VdlStringList *dt_needed = vdl_file_get_dt_needed (item);
+  struct VdlList *dt_needed = vdl_file_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
   struct VdlFileList *deps = 0;
-  struct VdlStringList *cur;
-  for (cur = dt_needed; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (dt_needed);
+       cur != vdl_list_end (dt_needed);
+       cur = vdl_list_next (cur))
     {
-      struct VdlFile *dep = vdl_file_map_single_maybe (item->context, cur->str,
+      struct VdlFile *dep = vdl_file_map_single_maybe (item->context, *cur,
 						       rpath, runpath, loaded);
       if (dep == 0)
 	{
@@ -869,14 +869,14 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   rpath = vdl_utils_str_list_split (rpath, caller_rpath);
   vdl_utils_str_list_free (rpath);
   vdl_utils_str_list_free (runpath);
-  vdl_utils_str_list_free (dt_needed);
+  vdl_utils_str_list_delete (dt_needed);
 
   // Finally, update the deps
   item->deps = deps;
 
   return 1;
  error:
-  vdl_utils_str_list_free (dt_needed);
+  vdl_utils_str_list_delete (dt_needed);
   rpath = vdl_utils_str_list_split (rpath, caller_rpath);
   vdl_utils_str_list_free (rpath);
   vdl_utils_str_list_free (runpath);

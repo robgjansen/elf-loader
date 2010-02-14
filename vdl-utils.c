@@ -171,6 +171,18 @@ const char *vdl_utils_getenv (const char **envp, const char *value)
     }
   return 0;
 }
+void
+vdl_utils_str_list_delete (struct VdlList *list)
+{
+  void **i;
+  for (i = vdl_list_begin (list);
+       i != vdl_list_end (list);
+       i = vdl_list_next (i))
+    {
+      vdl_utils_free (*i);
+    }
+  vdl_list_delete (list);
+}
 struct VdlStringList *vdl_utils_strsplit (const char *value, char separator)
 {
   VDL_LOG_FUNCTION ("value=%s, separator=%d", value, separator);
