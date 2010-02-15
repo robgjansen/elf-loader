@@ -260,7 +260,7 @@ struct Vdl
   struct Alloc alloc;
   uint32_t bind_now : 1;
   uint32_t finalized : 1;
-  struct VdlArray *contexts;
+  struct VdlList *contexts;
   unsigned long tls_gen;
   unsigned long tls_static_size;
   unsigned long tls_static_align;

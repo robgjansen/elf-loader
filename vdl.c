@@ -161,7 +161,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
   struct VdlContext *context = vdl_utils_new (struct VdlContext);
   context->global_scope = vdl_list_new ();
 
-  vdl_array_push_back (g_vdl.contexts, context);
+  vdl_list_push_back (g_vdl.contexts, context);
 
   context->lib_remaps = vdl_array_new (struct VdlContextLibRemapEntry);
   context->symbol_remaps = vdl_array_new (struct VdlContextSymbolRemapEntry);
@@ -192,11 +192,7 @@ vdl_context_delete (struct VdlContext *context)
   vdl_list_delete (context->global_scope);
   context->global_scope = 0;
 
-  struct VdlContext **i = vdl_array_find (g_vdl.contexts, context);
-  if (i != 0)
-    {
-      vdl_array_erase (g_vdl.contexts, i);
-    }
+  vdl_list_remove (g_vdl.contexts, context);
   context->argc = 0;
   context->argv = 0;
   context->envp = 0;
@@ -315,7 +311,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->dynamic = info->dynamic + load_base;
   file->next = 0;
   file->prev = 0;
-  file->is_main_namespace = (context == vdl_array_front (g_vdl.contexts, struct VdlContext *))?0:1;
+  file->is_main_namespace = (context == vdl_list_front (g_vdl.contexts))?0:1;
   file->count = 0;
   file->context = context;
   file->st_dev = 0;
