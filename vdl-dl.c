@@ -14,24 +14,26 @@
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
 
-static struct ErrorList *find_error (void)
+static struct VdlError *find_error (void)
 {
   unsigned long thread_pointer = machine_thread_pointer_get ();
-  struct ErrorList *cur;
-  for (cur = g_vdl.error; cur != 0; cur = cur->next)
+  void **i;
+  for (i = vdl_list_begin (g_vdl.errors);
+       i != vdl_list_end (g_vdl.errors);
+       i = vdl_list_next (i))
     {
-      if (cur->thread_pointer == thread_pointer)
+      struct VdlError *error = *i;
+      if (error->thread_pointer == thread_pointer)
 	{
-	  return cur;
+	  return error;
 	}
     }
-  struct ErrorList * item = vdl_utils_new (struct ErrorList);
-  item->thread_pointer = thread_pointer;
-  item->error = 0;
-  item->prev_error = 0;
-  item->next = g_vdl.error;
-  g_vdl.error = item;
-  return item;
+  struct VdlError * error = vdl_utils_new (struct VdlError);
+  error->thread_pointer = thread_pointer;
+  error->error = 0;
+  error->prev_error = 0;
+  vdl_list_push_back (g_vdl.errors, error);
+  return error;
 }
 
 static void set_error (const char *str, ...)
@@ -40,7 +42,7 @@ static void set_error (const char *str, ...)
   va_start (list, str);
   char *error_string = vdl_utils_vprintf (str, list);
   va_end (list);
-  struct ErrorList *error = find_error ();
+  struct VdlError *error = find_error ();
   vdl_utils_free (error->prev_error);
   vdl_utils_free (error->error);
   error->prev_error = 0;
@@ -358,7 +360,7 @@ char *vdl_dlerror (void)
 {
   VDL_LOG_FUNCTION ("", 0);
   futex_lock (&g_vdl.futex);
-  struct ErrorList *error = find_error ();
+  struct VdlError *error = find_error ();
   char *error_string = error->error;
   vdl_utils_free (error->prev_error);
   error->prev_error = error->error;

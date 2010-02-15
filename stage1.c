@@ -79,7 +79,7 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->tls_static_align = 0;
   vdl->tls_n_dtv = 0;
   futex_init (&vdl->futex);
-  vdl->error = 0;
+  vdl->errors = 0;
   vdl->n_added = 0;
   vdl->n_removed = 0;
 

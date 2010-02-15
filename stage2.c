@@ -205,6 +205,7 @@ stage2_initialize (struct Stage2Input input)
 
   g_vdl.search_dirs = system_search_dirs_new ();
   g_vdl.contexts = vdl_list_new ();
+  g_vdl.errors = vdl_list_new ();
 
   setup_env_vars ((const char**)input.program_envp);
 
@@ -381,16 +382,17 @@ void stage2_freeres (void)
   vdl_tls_tcb_deallocate (tcb);
 
   {
-    struct ErrorList *cur, *next;
-    for (cur = g_vdl.error; cur != 0; cur = next)
+    void **i;
+    for (i = vdl_list_begin (g_vdl.errors);
+	 i != vdl_list_end (g_vdl.errors);
+	 i = vdl_list_next (i))
       {
-	vdl_utils_free (cur->prev_error);
-	vdl_utils_free (cur->error);
-	cur->prev_error = 0;
-	cur->error = 0;
-	next = cur->next;
-	vdl_utils_delete (cur);
+	struct VdlError *error = *i;
+	vdl_utils_free (error->prev_error);
+	vdl_utils_free (error->error);
+	vdl_utils_delete (error);
       }
+    vdl_list_delete (g_vdl.errors);
   }
   vdl_list_delete (g_vdl.contexts);
   g_vdl.contexts = 0;

@@ -233,12 +233,11 @@ struct VdlContext
   char **envp;  
 };
 
-struct ErrorList
+struct VdlError
 {
   char *error;
   char *prev_error;
   unsigned long thread_pointer;
-  struct ErrorList *next;
 };
 
 struct Vdl
@@ -266,7 +265,7 @@ struct Vdl
   struct futex futex;
   // holds an entry for each thread which calls one a function
   // which potentially sets the dlerror state.
-  struct ErrorList *error;
+  struct VdlList *errors;
   // both member variables are used exclusively by vdl_dl_iterate_phdr
   unsigned long n_added;
   unsigned long n_removed;
