@@ -31,6 +31,17 @@ void vdl_utils_linkmap_print (void)
     }
 }
 
+struct VdlList *vdl_utils_list_global_linkmap_new (void)
+{
+  struct VdlList *list = vdl_list_new ();
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      vdl_list_push_back (list, cur);
+    }
+  return list;
+}
+
 
 void *vdl_utils_malloc (size_t size)
 {

@@ -34,6 +34,6 @@ struct VdlLookupResult vdl_lookup_with_scope (const struct VdlContext *from_cont
 					      const char *ver_name,
 					      const char *ver_filename,
 					      enum VdlLookupFlag flags,
-					      struct VdlFileList *scope);
+					      struct VdlList *scope);
 
 #endif /* VDL_LOOKUP_H */

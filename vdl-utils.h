@@ -8,6 +8,8 @@
 
 void vdl_utils_linkmap_print (void);
 
+struct VdlList * vdl_utils_list_global_linkmap_new (void);
+
 
 // allocate/free memory
 void *vdl_utils_malloc (size_t size);

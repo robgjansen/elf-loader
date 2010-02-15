@@ -107,20 +107,11 @@ call_init (struct VdlFile *file)
 }
 
 
-void vdl_init_fini_call_init (struct VdlFileList *files)
+void vdl_init_fini_call_init (struct VdlList *files)
 {
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
-    {
-      call_init (cur->item);
-    }
-
+  vdl_list_iterate (files, (void(*)(void*))call_init);
 }
-void vdl_init_fini_call_fini (struct VdlFileList *files)
+void vdl_init_fini_call_fini (struct VdlList *files)
 {
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
-    {
-      call_fini (cur->item);
-    }
+  vdl_list_iterate (files, (void(*)(void*))call_fini);
 }

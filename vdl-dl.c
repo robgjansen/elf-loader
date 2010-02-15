@@ -1,7 +1,7 @@
 #include "vdl.h"
 #include "vdl-log.h"
 #include "vdl-utils.h"
-#include "vdl-file-list.h"
+#include "vdl-list.h"
 #include "gdb.h"
 #include "glibc.h"
 #include "vdl-dl.h"
@@ -144,24 +144,27 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
 
   if (filename == 0)
     {
-      struct VdlFileList *cur;
-      for (cur = context->global_scope; cur != 0; cur = cur->next)
+      void **cur;
+      for (cur = vdl_list_begin (context->global_scope); 
+	   cur != vdl_list_end (context->global_scope); 
+	   cur = vdl_list_next (cur))
 	{
-	  if (cur->item->is_executable)
+	  struct VdlFile *item = *cur;
+	  if (item->is_executable)
 	    {
-	      cur->item->count++;
-	      return cur;
+	      item->count++;
+	      return *cur;
 	    }
 	}
       VDL_LOG_ASSERT (false, "Could not find main executable within linkmap");
     }
 
-  struct VdlFileList *loaded = 0;
+  struct VdlList *loaded = vdl_list_new ();
   struct VdlList *empty = vdl_list_new ();
   struct VdlFile *mapped_file = vdl_file_map_single_maybe (context,
 							   filename,
 							   empty, empty,
-							   &loaded);
+							   loaded);
   vdl_list_delete (empty);
   if (mapped_file == 0)
     {
@@ -169,39 +172,47 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
       goto error;
     }
 
-  if (!vdl_file_map_deps (mapped_file, &loaded))
+  if (!vdl_file_map_deps (mapped_file, loaded))
     {
       set_error ("Unable to map dependencies of \"%s\"", filename);
       goto error;
     }
 
-  struct VdlFileList *scope = vdl_sort_deps_breadth_first (mapped_file);
+  struct VdlList *scope = vdl_sort_deps_breadth_first (mapped_file);
   if (flags & RTLD_GLOBAL)
     {
       // add this object as well as its dependencies to the global scope.
       // Note that it's not a big deal if the file has already been
       // added to the global scope in the past. We call unicize so
       // any duplicate entries appended here will be removed immediately.
-      context->global_scope = vdl_file_list_append (context->global_scope, 
-						    vdl_file_list_copy (scope));
-      vdl_file_list_unicize (context->global_scope);
+      vdl_list_insert_range (context->global_scope,
+			     vdl_list_end (context->global_scope),
+			     vdl_list_begin (scope),
+			     vdl_list_end (scope));
+      vdl_list_unicize (context->global_scope);
     }
 
   // setup the local scope of each newly-loaded file.
-  struct VdlFileList *cur;
-  for (cur = loaded; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (loaded); 
+       cur != vdl_list_end (loaded); 
+       cur = vdl_list_next (cur))
     {
-      cur->item->local_scope = vdl_file_list_copy (scope);
+      struct VdlFile *item = *cur;
+      vdl_list_insert_range (item->local_scope,
+			     vdl_list_end (item->local_scope),
+			     vdl_list_begin (scope),
+			     vdl_list_end (scope));
       if (flags & RTLD_DEEPBIND)
 	{
-	  cur->item->lookup_type = LOOKUP_LOCAL_GLOBAL;
+	  item->lookup_type = LOOKUP_LOCAL_GLOBAL;
 	}
       else
 	{
-	  cur->item->lookup_type = LOOKUP_GLOBAL_LOCAL;
+	  item->lookup_type = LOOKUP_GLOBAL_LOCAL;
 	}
     }
-  vdl_file_list_free (scope);
+  vdl_list_delete (scope);
 
   vdl_tls_file_initialize (loaded);
 
@@ -224,7 +235,7 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
 
   mapped_file->count++;
 
-  struct VdlFileList *call_init = vdl_sort_call_init (loaded);
+  struct VdlList *call_init = vdl_sort_call_init (loaded);
 
   // we need to release the lock before calling the initializers 
   // to avoid a deadlock if one of them calls dlopen or
@@ -234,8 +245,8 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
   futex_lock (&g_vdl.futex);
 
   // must hold the lock to call free
-  vdl_file_list_free (call_init);
-  vdl_file_list_free (loaded);
+  vdl_list_delete (call_init);
+  vdl_list_delete (loaded);
 
   return mapped_file;
 
@@ -243,14 +254,14 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
   {
     // we don't need to call_fini here because we have not yet
     // called call_init.
-    struct GcResult gc = vdl_gc_get_objects_to_unload ();
+    struct VdlGcResult gc = vdl_gc_run ();
 
     vdl_tls_file_deinitialize (gc.unload);
 
     vdl_files_delete (gc.unload, true);
 
-    vdl_file_list_free (gc.unload);
-    vdl_file_list_free (gc.not_unload);
+    vdl_list_delete (gc.unload);
+    vdl_list_delete (gc.not_unload);
 
     gdb_notify ();
   }
@@ -274,18 +285,21 @@ void *vdl_dlsym (void *handle, const char *symbol, unsigned long caller)
 }
 
 static void 
-remove_from_scopes (struct VdlFileList *files, struct VdlFile *file)
+remove_from_scopes (struct VdlList *files, struct VdlFile *file)
 {
   // remove from the local scope maps of all
   // those who have potentially a reference to us
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (files); 
+       cur != vdl_list_end (files); 
+       cur = vdl_list_next (cur))
     {
-      cur->item->local_scope = vdl_file_list_free_one (cur->item->local_scope, file);
+      struct VdlFile *item = *cur;
+      vdl_list_remove (item->local_scope, file);
     }  
 
   // finally, remove from the global scope map
-  file->context->global_scope = vdl_file_list_free_one (file->context->global_scope, file);
+  vdl_list_remove (file->context->global_scope, file);
 }
 
 int vdl_dlclose (void *handle)
@@ -302,7 +316,7 @@ int vdl_dlclose (void *handle)
   file->count--;
 
   // first, we gather the list of all objects to unload/delete
-  struct GcResult gc = vdl_gc_get_objects_to_unload ();
+  struct VdlGcResult gc = vdl_gc_run ();
 
   // Then, we clear them from the scopes of all other files. 
   // so that no one can resolve symbols within them but they 
@@ -310,28 +324,30 @@ int vdl_dlclose (void *handle)
   // It's obviously important to do this before calling the 
   // finalizers
   {
-    struct VdlFileList *cur;
-    for (cur = gc.unload; cur != 0; cur = cur->next)
+    void **cur;
+    for (cur = vdl_list_begin (gc.unload); 
+	 cur != vdl_list_end (gc.unload); 
+	 cur = vdl_list_next (cur))
       {
-	remove_from_scopes (gc.not_unload, cur->item);
+	remove_from_scopes (gc.not_unload, *cur);
       }
   }
 
-  struct VdlFileList *call_fini = vdl_sort_call_fini (gc.unload);
+  struct VdlList *call_fini = vdl_sort_call_fini (gc.unload);
 
   // must not hold the lock to call fini
   futex_unlock (&g_vdl.futex);
   vdl_init_fini_call_fini (call_fini);
   futex_lock (&g_vdl.futex);
 
-  vdl_file_list_free (call_fini);
+  vdl_list_delete (call_fini);
 
   vdl_tls_file_deinitialize (gc.unload);
 
   vdl_files_delete (gc.unload, true);
 
-  vdl_file_list_free (gc.unload);
-  vdl_file_list_free (gc.not_unload);
+  vdl_list_delete (gc.unload);
+  vdl_list_delete (gc.not_unload);
 
   gdb_notify ();
 
@@ -477,7 +493,7 @@ void *vdl_dlvsym_with_flags (void *handle, const char *symbol, const char *versi
   VDL_LOG_FUNCTION ("handle=0x%llx, symbol=%s, version=%s, caller=0x%llx", 
 		    handle, symbol, (version==0)?"":version, caller);
   futex_lock (&g_vdl.futex);
-  struct VdlFileList *scope = 0;
+  struct VdlList *scope;
   struct VdlFile *caller_file = addr_to_file (caller);
   struct VdlContext *context;
   if (caller_file == 0)
@@ -487,26 +503,29 @@ void *vdl_dlvsym_with_flags (void *handle, const char *symbol, const char *versi
     }
   if (handle == RTLD_DEFAULT)
     {
-      scope = vdl_file_list_copy (caller_file->context->global_scope);
+      scope = vdl_list_new ();
+      vdl_list_insert_range (scope,
+			     vdl_list_begin (scope),
+			     vdl_list_begin (caller_file->context->global_scope),
+			     vdl_list_end (caller_file->context->global_scope));
       context = caller_file->context;
     }
   else if (handle == RTLD_NEXT)
     {
       context = caller_file->context;
       // skip all objects before the caller object
-      bool found = false;
-      struct VdlFileList *cur;
-      for (cur = caller_file->context->global_scope; cur != 0; cur = cur->next)
+      void **cur = vdl_list_find (caller_file->context->global_scope,
+				  caller_file);
+      if (cur != vdl_list_end (caller_file->context->global_scope))
 	{
-	  if (cur->item == caller_file)
-	    {
-	      // go to the next object
-	      scope = vdl_file_list_copy (cur->next);
-	      found = true;
-	      break;
-	    }
+	  // go to the next object
+	  scope = vdl_list_new ();
+	  vdl_list_insert_range (scope,
+				 vdl_list_end (scope),
+				 vdl_list_next (cur),
+				 vdl_list_end (caller_file->context->global_scope));
 	}
-      if (!found)
+      else
 	{
 	  set_error ("Can't find caller in current local scope");
 	  goto error;
@@ -530,44 +549,43 @@ void *vdl_dlvsym_with_flags (void *handle, const char *symbol, const char *versi
       set_error ("Could not find requested symbol \"%s\"", symbol);
       goto error;
     }
-  vdl_file_list_free (scope);
+  vdl_list_delete (scope);
   futex_unlock (&g_vdl.futex);
   return (void*)(result.file->load_base + result.symbol->st_value);
  error:
-  if (scope != 0)
-    {
-      vdl_file_list_free (scope);
-    }
+  vdl_list_delete (scope);
   futex_unlock (&g_vdl.futex);
   return 0;
 }
 int vdl_dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info,
 						  size_t size, void *data),
-				 void *data,
-				 unsigned long caller)
+			 void *data,
+			 unsigned long caller)
 {
   int ret = 0;
   futex_lock (&g_vdl.futex);
   struct VdlFile *file = addr_to_file (caller);
 
   // report all objects within the global scope/context of the caller
-  struct VdlFileList *cur;
-  for (cur = file->context->global_scope; 
-       cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (file->context->global_scope); 
+       cur != vdl_list_end (file->context->global_scope); 
+       cur = vdl_list_next (cur))
     {
+      struct VdlFile *item = *cur;
       struct dl_phdr_info info;
-      ElfW(Ehdr) *header = (ElfW(Ehdr) *)cur->item->ro_map.mem_start_align;
-      ElfW(Phdr) *phdr = (ElfW(Phdr) *) (cur->item->ro_map.mem_start_align + header->e_phoff);
-      info.dlpi_addr = cur->item->load_base;
-      info.dlpi_name = cur->item->name;
+      ElfW(Ehdr) *header = (ElfW(Ehdr) *)item->ro_map.mem_start_align;
+      ElfW(Phdr) *phdr = (ElfW(Phdr) *) (item->ro_map.mem_start_align + header->e_phoff);
+      info.dlpi_addr = item->load_base;
+      info.dlpi_name = item->name;
       info.dlpi_phdr = phdr;
       info.dlpi_phnum = header->e_phnum;
       info.dlpi_adds = g_vdl.n_added;
       info.dlpi_subs = g_vdl.n_removed;
-      if (cur->item->has_tls)
+      if (item->has_tls)
 	{
-	  info.dlpi_tls_modid = cur->item->tls_index;
-	  info.dlpi_tls_data = (void*)vdl_tls_get_addr_fast (cur->item->tls_index, 0);
+	  info.dlpi_tls_modid = item->tls_index;
+	  info.dlpi_tls_data = (void*)vdl_tls_get_addr_fast (item->tls_index, 0);
 	}
       else
 	{

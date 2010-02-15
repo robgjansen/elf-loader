@@ -1,7 +1,7 @@
 #ifndef VDL_GC_H
 #define VDL_GC_H
 
-#include "vdl-file-list.h"
+struct VdlList;
 
 /* Perform a mark and sweep garbage tri-colour collection 
  * of all VdlFile objects and returns the list of objects 
@@ -9,12 +9,12 @@
  * removed from all global lists so, it should be safe
  * to just delete them here
  */
-struct GcResult
+struct VdlGcResult
 {
-  struct VdlFileList *unload;
-  struct VdlFileList *not_unload;
+  struct VdlList *unload;
+  struct VdlList *not_unload;
 };
-struct GcResult vdl_gc_get_objects_to_unload (void);
+struct VdlGcResult vdl_gc_run (void);
 
 
 #endif /* VDL_GC_H */

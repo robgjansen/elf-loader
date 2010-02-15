@@ -4,7 +4,7 @@
 #include "vdl-log.h"
 #include "vdl-utils.h"
 #include "vdl-sort.h"
-#include "vdl-file-list.h"
+#include "vdl-list.h"
 #include "vdl-mem.h"
 #include "machine.h"
 
@@ -79,24 +79,30 @@ file_initialize (struct VdlFile *file)
 }
 
 void
-vdl_tls_file_initialize (struct VdlFileList *files)
+vdl_tls_file_initialize (struct VdlList *files)
 {
   // The only thing we need to make sure here is that the executable 
   // gets assigned tls module id 1 if needed.
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (files); 
+       cur != vdl_list_end (files); 
+       cur = vdl_list_next (cur))
     {
-      if (cur->item->is_executable)
+      struct VdlFile *item = *cur;
+      if (item->is_executable)
 	{
-	  file_initialize (cur->item);
+	  file_initialize (item);
 	  break;
 	}
     }
-  for (cur = files; cur != 0; cur = cur->next)
+  for (cur = vdl_list_begin (files); 
+       cur != vdl_list_end (files); 
+       cur = vdl_list_next (cur))
     {
-      if (!cur->item->is_executable)
+      struct VdlFile *item = *cur;
+      if (!item->is_executable)
 	{
-	  file_initialize (cur->item);
+	  file_initialize (item);
 	}
     }
 }
@@ -117,23 +123,28 @@ file_deinitialize (struct VdlFile *file)
     }
 }
 
-void vdl_tls_file_deinitialize (struct VdlFileList *files)
+void vdl_tls_file_deinitialize (struct VdlList *files)
 {
   // the deinitialization order here does not matter at all.
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (files); 
+       cur != vdl_list_end (files); 
+       cur = vdl_list_next (cur))
     {
-      file_deinitialize (cur->item);
+      file_deinitialize (*cur);
     }  
 }
 
 bool
-vdl_tls_file_list_has_static (struct VdlFileList *list)
+vdl_tls_file_list_has_static (struct VdlList *list)
 {
-  struct VdlFileList *cur;
-  for (cur = list; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (list); 
+       cur != vdl_list_end (list); 
+       cur = vdl_list_next (cur))
     {
-      if (cur->item->has_tls && cur->item->tls_is_static)
+      struct VdlFile *item = *cur;
+      if (item->has_tls && item->tls_is_static)
 	{
 	  return true;
 	}
@@ -143,7 +154,7 @@ vdl_tls_file_list_has_static (struct VdlFileList *list)
 
 
 void
-vdl_tls_file_initialize_static (struct VdlFileList *list)
+vdl_tls_file_initialize_static (struct VdlList *list)
 {
   VDL_LOG_FUNCTION ("");
   g_vdl.tls_gen = 1;
@@ -157,10 +168,12 @@ vdl_tls_file_initialize_static (struct VdlFileList *list)
     unsigned long tcb_size = 0;
     unsigned long n_dtv = 0;
     unsigned long max_align = 1;
-    struct VdlFileList *cur;
-    for (cur = list; cur != 0; cur = cur->next)
+    void **cur;
+    for (cur = vdl_list_begin (list); 
+	 cur != vdl_list_end (list); 
+	 cur = vdl_list_next (cur))
       {
-	struct VdlFile *file = cur->item;
+	struct VdlFile *file = *cur;
 	if (file->has_tls)
 	  {
 	    if (file->tls_is_static)

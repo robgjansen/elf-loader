@@ -2,7 +2,7 @@
 #include "vdl.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
-#include "vdl-file-list.h"
+#include "vdl-list.h"
 #include "vdl-reloc.h"
 #include "vdl-dl.h"
 #include "glibc.h"
@@ -18,7 +18,7 @@
 
 
 static struct VdlList *
-get_system_search_dirs (void)
+system_search_dirs_new (void)
 {
   return vdl_utils_splitpath (machine_get_system_search_dirs ());
 }
@@ -82,8 +82,8 @@ interpreter_new (unsigned long load_base,
   return 0;
 }
 
-struct VdlFileList *
-do_ld_preload (struct VdlContext *context, const char **envp)
+struct VdlList *
+ld_preload_list_new (struct VdlContext *context, const char **envp)
 {
   // add the LD_PRELOAD binary if it is specified somewhere.
   // We must do this _before_ adding the dependencies of the main 
@@ -91,7 +91,7 @@ do_ld_preload (struct VdlContext *context, const char **envp)
   // the main binary is correct, that is, that symbols are 
   // resolved first within the LD_PRELOAD binary, before every
   // other library, but after the main binary itself.
-  struct VdlFileList *retval = 0;
+  struct VdlList *retval = vdl_list_new ();
   const char *ld_preload = vdl_utils_getenv (envp, "LD_PRELOAD");
   struct VdlList *list = vdl_utils_strsplit (ld_preload, ':');
   void **cur;
@@ -118,13 +118,11 @@ do_ld_preload (struct VdlContext *context, const char **envp)
 	}
       vdl_utils_free (ld_preload_filename);
       ld_preload_file->count++;
-      retval = vdl_file_list_append_one (retval, ld_preload_file);
+      vdl_list_push_back (retval, ld_preload_file);
     }
-  vdl_utils_str_list_delete (list);
-  return retval;
  error:
   vdl_utils_str_list_delete (list);
-  return 0;
+  return retval;
 }
 
 static void
@@ -206,7 +204,7 @@ stage2_initialize (struct Stage2Input input)
 {
   struct Stage2Output output;
 
-  g_vdl.search_dirs = get_system_search_dirs ();
+  g_vdl.search_dirs = system_search_dirs_new ();
   g_vdl.contexts = vdl_array_new (struct VdlContext);
 
   setup_env_vars ((const char**)input.program_envp);
@@ -264,8 +262,8 @@ stage2_initialize (struct Stage2Input input)
   main_file->count++;
   main_file->is_executable = 1;
   gdb_initialize (main_file);
-  struct VdlFileList *loaded = 0;
-  loaded = vdl_file_list_append_one (loaded, main_file);
+  struct VdlList *loaded = vdl_list_new ();
+  vdl_list_push_back (loaded, main_file);
 
   // add the interpreter itself to the link map to ensure that it is
   // recorded somewhere. We must add it to the link map only after
@@ -276,26 +274,33 @@ stage2_initialize (struct Stage2Input input)
   interpreter = interpreter_new (input.interpreter_load_base,
 				 pt_interp,
 				 context);
-  loaded = vdl_file_list_append_one (loaded, interpreter);
+  vdl_list_push_back (loaded, interpreter);
 
-  struct VdlFileList *ld_preload = do_ld_preload (context, (const char **)input.program_envp);
-  loaded = vdl_file_list_append (loaded, vdl_file_list_copy (ld_preload));
+  struct VdlList *ld_preload = ld_preload_list_new (context, (const char **)input.program_envp);
+  vdl_list_insert_range (loaded, vdl_list_end (loaded),
+			 vdl_list_begin (ld_preload),
+			 vdl_list_end (ld_preload));
 
-  VDL_LOG_ASSERT (vdl_file_map_deps (main_file, &loaded), 
+  VDL_LOG_ASSERT (vdl_file_map_deps (main_file, loaded), 
 		  "Unable to map dependencies of main file");
 
   // The global scope is defined as being made of the main binary
   // and all its dependencies, breadth-first, with duplicate items removed.
-  context->global_scope = 0;
-  context->global_scope = vdl_file_list_append_one (context->global_scope, 
-						    main_file);
-  // of course, the ld_preload binary must be in there if needed.
-  context->global_scope = vdl_file_list_append (context->global_scope, 
-						ld_preload);
-  struct VdlFileList *all_deps = vdl_sort_deps_breadth_first (main_file);
-  context->global_scope = vdl_file_list_append (context->global_scope, 
-						all_deps);
-  vdl_file_list_unicize (context->global_scope);
+  vdl_list_push_back (context->global_scope, main_file);
+  // of course, the ld_preload binaries must be in there if needed.
+  vdl_list_insert_range (context->global_scope,
+			 vdl_list_end (context->global_scope),
+			 vdl_list_begin (ld_preload),
+			 vdl_list_end (ld_preload));
+  struct VdlList *all_deps = vdl_sort_deps_breadth_first (main_file);
+  vdl_list_insert_range (context->global_scope,
+			 vdl_list_end (context->global_scope),
+			 vdl_list_begin (all_deps),
+			 vdl_list_end (all_deps));
+  vdl_list_delete (all_deps);
+  vdl_list_unicize (context->global_scope);
+
+  vdl_list_delete (ld_preload);
 
   // We need to do this before relocation because the TLS-type relocations 
   // need tls information.
@@ -332,11 +337,11 @@ stage2_initialize (struct Stage2Input input)
   valgrind_initialize ();
 
   // Finally, call init functions
-  struct VdlFileList *call_init = vdl_sort_call_init (loaded);
+  struct VdlList *call_init = vdl_sort_call_init (loaded);
   vdl_init_fini_call_init (call_init);
-  vdl_file_list_free (call_init);
+  vdl_list_delete (call_init);
 
-  vdl_file_list_free (loaded);
+  vdl_list_delete (loaded);
 
   unsigned long entry = vdl_file_get_entry_point (main_file);
   if (entry == 0)
@@ -363,14 +368,14 @@ void stage2_freeres (void)
   // from this function. When we return, the caller is going to call
   // the exit_group syscall.
 
-  struct VdlFileList *link_map = vdl_file_list_get_global_linkmap ();
+  struct VdlList *link_map = vdl_utils_list_global_linkmap_new ();
       
   vdl_files_delete (link_map, false);
       
   vdl_utils_str_list_delete (g_vdl.search_dirs);
   g_vdl.search_dirs = 0;
 
-  vdl_file_list_free (link_map);
+  vdl_list_delete (link_map);
 
   unsigned long tcb = machine_thread_pointer_get ();
   vdl_tls_dtv_deallocate (tcb);
@@ -397,9 +402,9 @@ stage2_finalize (void)
 {
   // The only thing we need to do here is to invoke the destructors
   // in the correct order.
-  struct VdlFileList *link_map = vdl_file_list_get_global_linkmap ();
-  struct VdlFileList *call_fini = vdl_sort_call_fini (link_map);
+  struct VdlList *link_map = vdl_utils_list_global_linkmap_new ();
+  struct VdlList *call_fini = vdl_sort_call_fini (link_map);
   vdl_init_fini_call_fini (call_fini);
-  vdl_file_list_free (call_fini);
-  vdl_file_list_free (link_map);
+  vdl_list_delete (call_fini);
+  vdl_list_delete (link_map);
 }

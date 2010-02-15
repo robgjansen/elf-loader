@@ -4,7 +4,6 @@
 #include "avprintf-cb.h"
 #include "vdl-utils.h"
 #include "vdl-log.h"
-#include "vdl-file-list.h"
 #include "vdl-gc.h"
 #include "vdl-mem.h"
 #include "vdl-array.h"
@@ -160,7 +159,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
   VDL_LOG_FUNCTION ("argc=%d", argc);
 
   struct VdlContext *context = vdl_utils_new (struct VdlContext);
-  context->global_scope = 0;
+  context->global_scope = vdl_list_new ();
 
   vdl_array_push_back (g_vdl.contexts, context);
 
@@ -190,7 +189,7 @@ vdl_context_delete (struct VdlContext *context)
 {
   VDL_LOG_FUNCTION ("context=%p", context);
   // get rid of associated global scope
-  vdl_file_list_free (context->global_scope);
+  vdl_list_delete (context->global_scope);
   context->global_scope = 0;
 
   struct VdlContext **i = vdl_array_find (g_vdl.contexts, context);
@@ -332,10 +331,10 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->is_executable = 0;
   // no need to initialize gc_color because it is always 
   // initialized when needed by vdl_gc
-  file->gc_symbols_resolved_in = 0;
+  file->gc_symbols_resolved_in = vdl_list_new ();
   file->lookup_type = LOOKUP_GLOBAL_LOCAL;
-  file->local_scope = 0;
-  file->deps = 0;
+  file->local_scope = vdl_list_new ();
+  file->deps = vdl_list_new ();
   file->name = vdl_utils_strdup (name);
   file->depth = 0;
 
@@ -365,9 +364,9 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
       vdl_context_delete (file->context);
     }
 
-  vdl_file_list_free (file->deps);
-  vdl_file_list_free (file->local_scope);
-  vdl_file_list_free (file->gc_symbols_resolved_in);
+  vdl_list_delete (file->deps);
+  vdl_list_delete (file->local_scope);
+  vdl_list_delete (file->gc_symbols_resolved_in);
   vdl_utils_free (file->name);
   vdl_utils_free (file->filename);
 
@@ -381,12 +380,12 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
   vdl_utils_delete (file);
 }
 
-void vdl_files_delete (struct VdlFileList *files, bool mapping)
+void vdl_files_delete (struct VdlList *files, bool mapping)
 {
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
+  void **i;
+  for (i = vdl_list_begin (files); i != vdl_list_end (files); i = vdl_list_next (i))
     {
-      vdl_file_delete (cur->item, mapping);
+      vdl_file_delete (*i, mapping);
     }
 }
 
@@ -751,7 +750,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   const char *requested_filename,
 					   struct VdlList *rpath,
 					   struct VdlList *runpath,
-					   struct VdlFileList **loaded)
+					   struct VdlList *loaded)
 {
   // Try to see if we don't have a hardcoded name conversion
   const char *name = vdl_context_lib_remap (context, requested_filename);
@@ -793,11 +792,9 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
     }
   // The file is really not yet mapped so, we have to map it
   file = vdl_file_map_single (context, filename, name);
+  VDL_LOG_ASSERT (file != 0, "The file should be there so this should not fail.");
 
-  if (loaded != 0)
-    {
-      *loaded = vdl_file_list_append_one (*loaded, file);
-    }
+  vdl_list_push_back (loaded, file);
 
   vdl_utils_free (filename);
 
@@ -820,7 +817,7 @@ get_path (struct VdlFile *file, int type)
 
 int vdl_file_map_deps_recursive (struct VdlFile *item, 
 				 struct VdlList *caller_rpath,
-				 struct VdlFileList **loaded)
+				 struct VdlList *loaded)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
 
@@ -841,7 +838,6 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   struct VdlList *dt_needed = vdl_file_get_dt_needed (item);
 
   // first, map each dep and accumulate them in deps variable
-  struct VdlFileList *deps = 0;
   void **cur;
   for (cur = vdl_list_begin (dt_needed);
        cur != vdl_list_end (dt_needed);
@@ -856,14 +852,15 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
 	}
       dep->depth = vdl_utils_max (dep->depth, item->depth + 1);
       // add the new file to the list of dependencies
-      deps = vdl_file_list_append_one (deps, dep);
+      vdl_list_push_back (item->deps, dep);
     }
 
   // then, recursively map the deps of each dep.
-  struct VdlFileList *dep;
-  for (dep = deps; dep != 0; dep = dep->next)
+  for (cur = vdl_list_begin (item->deps); 
+       cur != vdl_list_end (item->deps); 
+       cur = vdl_list_next (cur))
     {
-      if (!vdl_file_map_deps_recursive (dep->item, rpath, loaded))
+      if (!vdl_file_map_deps_recursive (*cur, rpath, loaded))
 	{
 	  goto error;
 	}
@@ -874,22 +871,17 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
   vdl_utils_str_list_delete (runpath);
   vdl_utils_str_list_delete (dt_needed);
 
-  // Finally, update the deps
-  item->deps = deps;
-
   return 1;
  error:
   vdl_utils_str_list_delete (dt_needed);
   vdl_utils_str_list_delete (rpath);
   vdl_list_delete (current_rpath);
   vdl_utils_str_list_delete (runpath);
-  vdl_file_list_free (deps);
-  vdl_file_list_free (*loaded);
-  *loaded = 0;
+  vdl_list_clear (loaded);
   return 0;
 }
 int vdl_file_map_deps (struct VdlFile *item, 
-		       struct VdlFileList **loaded)
+		       struct VdlList *loaded)
 {
   struct VdlList *rpath = vdl_list_new ();
   int status = vdl_file_map_deps_recursive (item, rpath, loaded);

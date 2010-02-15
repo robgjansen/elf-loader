@@ -1,76 +1,85 @@
 #include "vdl-sort.h"
-#include "vdl-file-list.h"
+#include "vdl-list.h"
 #include "vdl-utils.h"
 #include <stdint.h>
 
 static uint32_t
-get_max_depth (struct VdlFileList *files)
+get_max_depth (struct VdlList *files)
 {
   uint32_t max_depth = 0;
-  struct VdlFileList *cur;
-  for (cur = files; cur != 0; cur = cur->next)
+  void **cur;
+  for (cur = vdl_list_begin (files); 
+       cur != vdl_list_end (files); 
+       cur = vdl_list_next (cur))
     {
-      max_depth = vdl_utils_max (cur->item->depth,
+      struct VdlFile *file = *cur;
+      max_depth = vdl_utils_max (file->depth,
 				 max_depth);
     }
   return max_depth;
 }
 
-struct VdlFileList *
-vdl_sort_increasing_depth (struct VdlFileList *files)
+struct VdlList *
+vdl_sort_increasing_depth (struct VdlList *files)
 {
-
   uint32_t max_depth = get_max_depth (files);
   
-  struct VdlFileList *output = 0;
+  struct VdlList *output = vdl_list_new ();
 
   uint32_t i;
   for (i = 0; i <= max_depth; i++)
     {
       // find files with matching depth and output them
-      struct VdlFileList *cur;
-      for (cur = files; cur != 0; cur = cur->next)
+      void **cur;
+      for (cur = vdl_list_begin (files);
+	   cur != vdl_list_end (files); 
+	   cur = vdl_list_next (cur))
 	{
-	  if (cur->item->depth == i)
+	  struct VdlFile *file = *cur;
+	  if (file->depth == i)
 	    {
-	      output = vdl_file_list_append_one (output, cur->item);
+	      vdl_list_push_back (output, file);
 	    }
 	}
     }
-
   return output;
 }
 
-struct VdlFileList *vdl_sort_deps_breadth_first (struct VdlFile *file)
+struct VdlList *vdl_sort_deps_breadth_first (struct VdlFile *file)
 {
-  struct VdlFileList *list = 0;
-  list = vdl_file_list_append_one (list, file);
+  struct VdlList *sorted = vdl_list_new ();
+  vdl_list_push_back (sorted, file);
 
-  struct VdlFileList *cur = 0;
-  for (cur = list; cur != 0; cur = cur->next)
+  void **i;
+  for (i = vdl_list_begin (sorted); 
+       i != vdl_list_end (sorted); 
+       i = vdl_list_next (i))
     {
-      struct VdlFileList *dep;
-      for (dep = cur->item->deps; dep != 0; dep = dep->next)
+      struct VdlFile *item = *i;
+      void **j;
+      for (j = vdl_list_begin (item->deps);
+	   j != vdl_list_end (item->deps);
+	   j = vdl_list_next (j))
 	{
-	  if (vdl_file_list_find (list, dep->item) == 0)
+	  if (vdl_list_find (sorted, *j) == vdl_list_end (sorted))
 	    {
 	      // not found
-	      list = vdl_file_list_append_one (list, dep->item);
+	      vdl_list_push_back (sorted, *j);
 	    }
 	}
     }
 
-  return list;
+  return sorted;
 }
 
-struct VdlFileList *vdl_sort_call_init (struct VdlFileList *files)
+struct VdlList *vdl_sort_call_init (struct VdlList *files)
 {
-  struct VdlFileList *fini_order = vdl_sort_increasing_depth (files);
-  struct VdlFileList *init_order = vdl_file_list_reverse (fini_order);
-  return init_order;
+  struct VdlList *sorted = vdl_sort_increasing_depth (files);
+  vdl_list_reverse (sorted);
+  return sorted;
 }
-struct VdlFileList *vdl_sort_call_fini (struct VdlFileList *files)
+struct VdlList *vdl_sort_call_fini (struct VdlList *files)
 {
-  struct VdlFileList *fini_order = vdl_sort_increasing_depth (files);
-  return fini_order;
+  struct VdlList *sorted = vdl_sort_increasing_depth (files);
+  return sorted;
 }

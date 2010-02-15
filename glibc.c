@@ -5,7 +5,7 @@
 #include "vdl-log.h"
 #include "vdl-dl.h"
 #include "vdl-lookup.h"
-#include "vdl-file-list.h"
+#include "vdl-list.h"
 #include "vdl-tls.h"
 #include "vdl-sort.h"
 #include "vdl-config.h"
@@ -283,14 +283,10 @@ do_glibc_patch (struct VdlFile *file)
     }
 }
 
-void glibc_patch (struct VdlFileList *files)
+void glibc_patch (struct VdlList *files)
 {
-  struct VdlFileList *sorted = vdl_sort_increasing_depth (files);
-  sorted = vdl_file_list_reverse (sorted);
-  struct VdlFileList *cur;
-  for (cur = sorted; cur != 0; cur = cur->next)
-    {
-      do_glibc_patch (cur->item);
-    }
-  vdl_file_list_free (sorted);
+  struct VdlList *sorted = vdl_sort_increasing_depth (files);
+  vdl_list_reverse (sorted);
+  vdl_list_iterate (files, (void(*)(void*))do_glibc_patch);
+  vdl_list_delete (sorted);
 }

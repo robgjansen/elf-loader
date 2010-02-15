@@ -1,11 +1,10 @@
 #ifndef VDL_RELOC_H
 #define VDL_RELOC_H
 
-#include "vdl.h"
-#include <elf.h>
-#include <link.h>
+struct VdlList;
+struct VdlFile;
 
-void vdl_reloc (struct VdlFileList *list, int now);
+void vdl_reloc (struct VdlList *list, int now);
 // offset is in bytes, return value is reloced symbol
 // called from machine_resolve_trampoline 
 unsigned long vdl_reloc_offset_jmprel (struct VdlFile *file, 

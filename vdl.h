@@ -26,12 +26,6 @@
 
 struct VdlArray;
 
-struct VdlFileList
-{
-  struct VdlFile *item;
-  struct VdlFileList *next;
-};
-
 enum VdlLookupType
 {
   // indicates that lookups within this object should be performed
@@ -178,13 +172,13 @@ struct VdlFile
   // the set of references an object holds to another one
   // and thus avoid unloading an object which is held as a
   // reference by another object.
-  struct VdlFileList *gc_symbols_resolved_in;
+  struct VdlList *gc_symbols_resolved_in;
   enum VdlLookupType lookup_type;
   struct VdlContext *context;
-  struct VdlFileList *local_scope;
+  struct VdlList *local_scope;
   // list of files this file depends upon. 
   // equivalent to the content of DT_NEEDED.
-  struct VdlFileList *deps;
+  struct VdlList *deps;
   uint32_t depth;
 };
 
@@ -223,7 +217,7 @@ struct VdlContextEventCallbackEntry
 
 struct VdlContext
 {
-  struct VdlFileList *global_scope;
+  struct VdlList *global_scope;
   // describe which symbols should be remapped to which 
   // other symbols during symbol resolution
   struct VdlArray *symbol_remaps;
@@ -309,7 +303,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 				 const char *filename, 
 				 const char *name,
 				 struct VdlContext *context);
-void vdl_files_delete (struct VdlFileList *files, bool mapping);
+void vdl_files_delete (struct VdlList *files, bool mapping);
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				    const char *filename, 
 				    const char *name);
@@ -317,8 +311,8 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   const char *requested_filename,
 					   struct VdlList *rpath,
 					   struct VdlList *runpath,
-					   struct VdlFileList **loaded);
-int vdl_file_map_deps (struct VdlFile *item, struct VdlFileList **loaded);
+					   struct VdlList *loaded);
+int vdl_file_map_deps (struct VdlFile *item, struct VdlList *loaded);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
 
 struct VdlFile *vdl_file_new_main (unsigned long phnum,

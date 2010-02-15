@@ -2,7 +2,7 @@
 #include "machine.h"
 #include "vdl-log.h"
 #include "vdl-sort.h"
-#include "vdl-file-list.h"
+#include "vdl-list.h"
 #include "vdl-lookup.h"
 #include "vdl-utils.h"
 #include "vdl-mem.h"
@@ -341,14 +341,16 @@ do_reloc (struct VdlFile *file, int now)
     }
 }
 
-void vdl_reloc (struct VdlFileList *files, int now)
+void vdl_reloc (struct VdlList *files, int now)
 {
-  struct VdlFileList *sorted = vdl_sort_increasing_depth (files);
-  sorted = vdl_file_list_reverse (sorted);
-  struct VdlFileList *cur;
-  for (cur = sorted; cur != 0; cur = cur->next)
+  struct VdlList *sorted = vdl_sort_increasing_depth (files);
+  vdl_list_reverse (sorted);
+  void **cur;
+  for (cur = vdl_list_begin (sorted);
+       cur != vdl_list_end (sorted);
+       cur = vdl_list_next (cur))
     {
-      do_reloc (cur->item, now);
+      do_reloc (*cur, now);
     }
-  vdl_file_list_free (sorted);
+  vdl_list_delete (sorted);
 }
