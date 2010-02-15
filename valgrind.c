@@ -5,6 +5,7 @@
 #include "stage1.h"
 #include "vdl-log.h"
 #include "vdl-list.h"
+#include "vdl-context.h"
 
 typedef void (*LibcFreeRes) (void);
 

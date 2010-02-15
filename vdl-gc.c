@@ -4,6 +4,12 @@
 #include "vdl.h"
 #include "vdl-log.h"
 
+enum {
+  VDL_GC_BLACK = 0,
+  VDL_GC_GREY = 1,
+  VDL_GC_WHITE = 2
+};
+
 // return the white subset of the input set of files
 static struct VdlList *vdl_gc_white_list_new (struct VdlList *list)
 {

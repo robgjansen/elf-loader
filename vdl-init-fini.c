@@ -2,6 +2,7 @@
 #include "vdl-utils.h"
 #include "vdl-log.h"
 #include "vdl-sort.h"
+#include "vdl-context.h"
 
 
 typedef void (*fini_function) (void);

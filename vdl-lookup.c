@@ -2,6 +2,7 @@
 #include "vdl-log.h"
 #include "vdl-utils.h"
 #include "vdl-list.h"
+#include "vdl-context.h"
 #include <stdint.h>
 
 static uint32_t
