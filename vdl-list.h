@@ -82,6 +82,9 @@ void **vdl_list_rend (struct VdlList *list);
 void **vdl_list_rnext (void **i);
 void **vdl_list_rprev (void **i);
 
+void vdl_list_iterate (struct VdlList *list,
+		       void (*iterator) (void *data));
+
 
 #ifdef __cplusplus
 }

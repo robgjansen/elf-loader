@@ -203,6 +203,10 @@ void vdl_list_remove (struct VdlList *list, void *data)
 }
 void vdl_list_reverse (struct VdlList *list)
 {
+  if (vdl_list_empty (list))
+    {
+      return;
+    }
   struct VdlListItem *cur, *next, *prev;
   struct VdlListItem *begin, *end, *last;
   begin = list->head.next;
@@ -284,6 +288,19 @@ void vdl_list_unicize (struct VdlList *list)
 	  next = vdl_list_erase (list, next);
 	  next = vdl_list_find_from (list, next, *i);
 	}
+    }
+}
+
+void 
+vdl_list_iterate (struct VdlList *list,
+		  void (*iterator) (void *data))
+{
+  void **i;
+  for (i = vdl_list_begin (list);
+       i != vdl_list_end (list);
+       i = vdl_list_next (i))
+    {
+      (*iterator) (*i);
     }
 }
 
