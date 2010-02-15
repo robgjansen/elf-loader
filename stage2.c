@@ -14,7 +14,6 @@
 #include "vdl-tls.h"
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
-#include "vdl-array.h"
 
 
 static struct VdlList *

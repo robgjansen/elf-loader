@@ -50,7 +50,7 @@ vdl-gc.c vdl-lookup.c \
 futex.c vdl-tls.c \
 $(ARCH)/machine.c $(ARCH)/resolv.S \
 vdl-init-fini.c vdl-sort.c  \
-vdl-mem.c vdl-array.c \
+vdl-mem.c \
 vdl-list.c
 LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
 interp.c gdb.c glibc.c \
@@ -97,11 +97,9 @@ TEST_SOURCE = \
 internal-tests.cc \
 internal-test-alloc.cc \
 internal-test-futex.cc \
-internal-test-array.cc \
 internal-test-list.cc \
 alloc.c \
 futex.c \
-vdl-array.c \
 vdl-list.c
 TEST_OBJECT = $(addsuffix .o,$(basename $(TEST_SOURCE)))
 internal-tests: $(TEST_OBJECT)

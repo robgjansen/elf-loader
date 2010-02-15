@@ -6,7 +6,6 @@
 #include "vdl-log.h"
 #include "vdl-gc.h"
 #include "vdl-mem.h"
-#include "vdl-array.h"
 #include "vdl-list.h"
 #include "machine.h"
 #include <stdarg.h>
@@ -39,10 +38,10 @@ get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
 void vdl_context_add_lib_remap (struct VdlContext *context, 
 				const char *src, const char *dst)
 {
-  struct VdlContextLibRemapEntry entry;
-  entry.src = vdl_utils_strdup (src);
-  entry.dst = vdl_utils_strdup (dst);
-  vdl_array_push_back (context->lib_remaps, entry);
+  struct VdlContextLibRemapEntry *entry = vdl_utils_new (struct VdlContextLibRemapEntry);
+  entry->src = vdl_utils_strdup (src);
+  entry->dst = vdl_utils_strdup (dst);
+  vdl_list_push_back (context->lib_remaps, entry);
 }
 
 void vdl_context_add_symbol_remap (struct VdlContext *context, 
@@ -53,34 +52,35 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
 				   const char *dst_ver_name,
 				   const char *dst_ver_filename)
 {
-  struct VdlContextSymbolRemapEntry entry;
-  entry.src_name = vdl_utils_strdup (src_name);
-  entry.src_ver_name = vdl_utils_strdup (src_ver_name);
-  entry.src_ver_filename = vdl_utils_strdup (src_ver_filename);
-  entry.dst_name = vdl_utils_strdup (dst_name);
-  entry.dst_ver_name = vdl_utils_strdup (dst_ver_name);
-  entry.dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
-  vdl_array_push_back (context->symbol_remaps, entry);
+  struct VdlContextSymbolRemapEntry *entry = vdl_utils_new (struct VdlContextSymbolRemapEntry);
+  entry->src_name = vdl_utils_strdup (src_name);
+  entry->src_ver_name = vdl_utils_strdup (src_ver_name);
+  entry->src_ver_filename = vdl_utils_strdup (src_ver_filename);
+  entry->dst_name = vdl_utils_strdup (dst_name);
+  entry->dst_ver_name = vdl_utils_strdup (dst_ver_name);
+  entry->dst_ver_filename = vdl_utils_strdup (dst_ver_filename);
+  vdl_list_push_back (context->symbol_remaps, entry);
 }
 void vdl_context_add_callback (struct VdlContext *context,
 			       void (*cb) (void *handle, enum VdlEvent event, void *context),
 			       void *cb_context)
 {
-  struct VdlContextEventCallbackEntry entry;
-  entry.fn = cb;
-  entry.context = cb_context;
-  vdl_array_push_back (context->event_callbacks, entry);
+  struct VdlContextEventCallbackEntry *entry = vdl_utils_new (struct VdlContextEventCallbackEntry);
+  entry->fn = cb;
+  entry->context = cb_context;
+  vdl_list_push_back (context->event_callbacks, entry);
 }
 void vdl_context_notify (struct VdlContext *context,
 			 struct VdlFile *file,
 			 enum VdlEvent event)
 {
-  struct VdlContextEventCallbackEntry *i;
-  for (i = vdl_array_begin (context->event_callbacks);
-       i != vdl_array_end (context->event_callbacks);
-       i++)
+  void **i;
+  for (i = vdl_list_begin (context->event_callbacks);
+       i != vdl_list_end (context->event_callbacks);
+       i = vdl_list_next (i))
     {
-      i->fn (file, event, i->context);
+      struct VdlContextEventCallbackEntry *item = *i;
+      item->fn (file, event, item->context);
     }
 }
 
@@ -89,14 +89,15 @@ const char *
 vdl_context_lib_remap (const struct VdlContext *context, const char *name)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
-  struct VdlContextLibRemapEntry *i;
-  for (i = vdl_array_begin (context->lib_remaps);
-       i != vdl_array_end (context->lib_remaps);
-       i++)
+  void **i;
+  for (i = vdl_list_begin (context->lib_remaps);
+       i != vdl_list_end (context->lib_remaps);
+       i = vdl_list_next (i))
     {
-      if (vdl_utils_strisequal (i->src, name))
+      struct VdlContextLibRemapEntry *item = *i;
+      if (vdl_utils_strisequal (item->src, name))
 	{
-	  return i->dst;
+	  return item->dst;
 	}
     }
   return name;
@@ -108,14 +109,18 @@ vdl_context_symbol_remap (const struct VdlContext *context,
   VDL_LOG_FUNCTION ("name=%s, ver_name=%s, ver_filename=%s", *name, 
 		    (ver_name != 0 && *ver_name != 0)?*ver_name:"", 
 		    (ver_filename != 0 && *ver_filename != 0)?*ver_filename:"");
-  struct VdlContextSymbolRemapEntry *i;
-  for (i = vdl_array_begin (context->symbol_remaps); i != vdl_array_end (context->symbol_remaps); i++)
+  void **i;
+  struct VdlContextSymbolRemapEntry *item;
+  for (i = vdl_list_begin (context->symbol_remaps); 
+       i != vdl_list_end (context->symbol_remaps);
+       i = vdl_list_next (i))
     {
-      if (!vdl_utils_strisequal (i->src_name, *name))
+      item = *i;
+      if (!vdl_utils_strisequal (item->src_name, *name))
 	{
 	  continue;
 	}
-      else if (i->src_ver_name == 0)
+      else if (item->src_ver_name == 0)
 	{
 	  goto match;
 	}
@@ -123,11 +128,11 @@ vdl_context_symbol_remap (const struct VdlContext *context,
 	{
 	  continue;
 	}
-      else if (!vdl_utils_strisequal (i->src_ver_name, *ver_name))
+      else if (!vdl_utils_strisequal (item->src_ver_name, *ver_name))
 	{
 	  continue;
 	}
-      else if (i->src_ver_filename == 0)
+      else if (item->src_ver_filename == 0)
 	{
 	  goto match;
 	}
@@ -135,21 +140,21 @@ vdl_context_symbol_remap (const struct VdlContext *context,
 	{
 	  continue;
 	}
-      else if (vdl_utils_strisequal (i->src_ver_filename, *ver_filename))
+      else if (vdl_utils_strisequal (item->src_ver_filename, *ver_filename))
 	{
 	  goto match;
 	}
     }
   return;
  match:
-  *name = i->dst_name;
+  *name = item->dst_name;
   if (ver_name != 0)
     {
-      *ver_name = i->dst_ver_name;
+      *ver_name = item->dst_ver_name;
     }
   if (ver_filename != 0)
     {
-      *ver_filename = i->dst_ver_filename;
+      *ver_filename = item->dst_ver_filename;
     }
   return;
 }
@@ -163,9 +168,9 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
 
   vdl_list_push_back (g_vdl.contexts, context);
 
-  context->lib_remaps = vdl_array_new (struct VdlContextLibRemapEntry);
-  context->symbol_remaps = vdl_array_new (struct VdlContextSymbolRemapEntry);
-  context->event_callbacks = vdl_array_new (struct VdlContextEventCallbackEntry);
+  context->lib_remaps = vdl_list_new ();
+  context->symbol_remaps = vdl_list_new ();
+  context->event_callbacks = vdl_list_new ();
   // keep a reference to argc, argv and envp.
   context->argc = argc;
   context->argv = argv;
@@ -198,30 +203,48 @@ vdl_context_delete (struct VdlContext *context)
   context->envp = 0;
 
   {
-    struct VdlContextLibRemapEntry *i;
-    for (i = vdl_array_begin (context->lib_remaps); i != vdl_array_end (context->lib_remaps); i++)
+    void **i;
+    for (i = vdl_list_begin (context->lib_remaps); 
+	 i != vdl_list_end (context->lib_remaps);
+	 i = vdl_list_next (i))
       {
-	vdl_utils_free (i->src);
-	vdl_utils_free (i->dst);
+	struct VdlContextLibRemapEntry *item = *i;
+	vdl_utils_free (item->src);
+	vdl_utils_free (item->dst);
+	vdl_utils_free (item);
       }
-    vdl_array_delete (context->lib_remaps);
+    vdl_list_delete (context->lib_remaps);
   }
 
   {
-    struct VdlContextSymbolRemapEntry *i;
-    for (i = vdl_array_begin (context->symbol_remaps); i != vdl_array_end (context->symbol_remaps); i++)
+    void **i;
+    for (i = vdl_list_begin (context->symbol_remaps); 
+	 i != vdl_list_end (context->symbol_remaps); 
+	 i = vdl_list_next (i))
       {
-	vdl_utils_free (i->src_name);
-	vdl_utils_free (i->src_ver_name);
-	vdl_utils_free (i->src_ver_filename);
-	vdl_utils_free (i->dst_name);
-	vdl_utils_free (i->dst_ver_name);
-	vdl_utils_free (i->dst_ver_filename);	
+	struct VdlContextSymbolRemapEntry *item = *i;
+	vdl_utils_free (item->src_name);
+	vdl_utils_free (item->src_ver_name);
+	vdl_utils_free (item->src_ver_filename);
+	vdl_utils_free (item->dst_name);
+	vdl_utils_free (item->dst_ver_name);
+	vdl_utils_free (item->dst_ver_filename);
+	vdl_utils_free (item);
       }
-    vdl_array_delete (context->symbol_remaps);
+    vdl_list_delete (context->symbol_remaps);
   }
 
-  vdl_array_delete (context->event_callbacks);
+  {
+    void **i;
+    for (i = vdl_list_begin (context->event_callbacks); 
+	 i != vdl_list_end (context->event_callbacks); 
+	 i = vdl_list_next (i))
+      {
+	struct VdlContextEventCallbackEntry *item = *i;
+	vdl_utils_delete (item);
+      }
+    vdl_list_delete (context->event_callbacks);
+  }
 
   context->lib_remaps = 0;
   context->symbol_remaps = 0;

@@ -2,7 +2,6 @@
 
 bool test_alloc (void);
 bool test_futex (void);
-bool test_array (void);
 bool test_list (void);
 
 #define RUN_TEST(name)					\
@@ -18,7 +17,6 @@ int main (int argc, char *argv[])
   bool ok = true;
   RUN_TEST (alloc);
   RUN_TEST (futex);
-  RUN_TEST (array);
   RUN_TEST (list);
   return ok?0:1;
 }

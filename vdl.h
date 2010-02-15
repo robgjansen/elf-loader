@@ -24,8 +24,6 @@
 #define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
 #endif
 
-struct VdlArray;
-
 enum VdlLookupType
 {
   // indicates that lookups within this object should be performed
@@ -220,12 +218,12 @@ struct VdlContext
   struct VdlList *global_scope;
   // describe which symbols should be remapped to which 
   // other symbols during symbol resolution
-  struct VdlArray *symbol_remaps;
+  struct VdlList *symbol_remaps;
   // describe which libraries should be remapped to which 
   // other libraries during loading
-  struct VdlArray *lib_remaps;
+  struct VdlList *lib_remaps;
   // report events within this context
-  struct VdlArray *event_callbacks;
+  struct VdlList *event_callbacks;
   // These variables are used by all .init functions
   // _some_ libc .init functions make use of these
   // 3 arguments so, even though no one else uses them, 
