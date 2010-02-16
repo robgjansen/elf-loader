@@ -218,10 +218,10 @@ struct Vdl
 extern struct Vdl g_vdl;
 
 struct VdlFile *vdl_file_new (unsigned long load_base,
-				 const struct VdlFileInfo *info,
-				 const char *filename, 
-				 const char *name,
-				 struct VdlContext *context);
+			      const struct VdlFileInfo *info,
+			      const char *filename, 
+			      const char *name,
+			      struct VdlContext *context);
 void vdl_files_delete (struct VdlList *files, bool mapping);
 struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
 				    const char *filename, 
@@ -233,14 +233,6 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 					   struct VdlList *loaded);
 int vdl_file_map_deps (struct VdlFile *item, struct VdlList *loaded);
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
-
-struct VdlFile *vdl_file_new_main (unsigned long phnum,
-				   ElfW(Phdr)*phdr,
-				   int argc, 
-				   const char **argv, 
-				   const char **envp);
-
-ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 
 char *vdl_search_filename (const char *name, struct VdlList *rpath,
 			   struct VdlList *runpath);
