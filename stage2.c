@@ -48,21 +48,15 @@ interpreter_new (unsigned long load_base,
       goto error;
     }
   const char *full_filename;
-  if (pt_interp == 0)
-    {
-      full_filename = LDSO_SONAME;
-    }
-  else
-    {
-      // It's important to initialize the filename of the interpreter
-      // entry in the linkmap to the PT_INTERP of the main binary for
-      // gdb. gdb initializes its first linkmap with an entry which describes
-      // the loader with a filename equal to PT_INTERP so, if we don't use
-      // the same value, gdb will incorrectly believe that the loader entry
-      // has been removed which can lead to certain bad things to happen
-      // in the first call to r_debug_state.
-      full_filename = pt_interp;
-    }
+  // It's important to initialize the filename of the interpreter
+  // entry in the linkmap to the PT_INTERP of the main binary for
+  // gdb. gdb initializes its first linkmap with an entry which describes
+  // the loader with a filename equal to PT_INTERP so, if we don't use
+  // the same value, gdb will incorrectly believe that the loader entry
+  // has been removed which can lead to certain bad things to happen
+  // in the first call to r_debug_state.
+  full_filename = pt_interp;
+
   struct VdlFile *file = vdl_file_new (load_base, &info, 
 				       full_filename,
 				       LDSO_SONAME,
@@ -152,7 +146,7 @@ setup_env_vars (const char **envp)
 
 static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned long phnum)
 {
-  // XXX will not work when main exec is loader itself
+  // will not work when main exec is loader itself
   ElfW(Phdr) *pt_interp = vdl_utils_search_phdr (phdr, phnum, PT_INTERP);
   if (pt_interp == 0)
     {
