@@ -150,45 +150,6 @@ setup_env_vars (const char **envp)
     }
 }
 
-static int
-is_loader (unsigned long phnum, ElfW(Phdr)*phdr)
-{
-  // the file is already mapped in memory so, we reverse-engineer its setup
-  struct VdlFileInfo info;
-  VDL_LOG_ASSERT (vdl_get_file_info (phnum,phdr, &info),
-	      "Unable to obtain information about main program");
-
-  // we search the first PT_LOAD 
-  VDL_LOG_ASSERT (phdr->p_type == PT_PHDR,
-	      "The first program header is not a PT_PHDR");
-  // If we assume that the first program in the program header table is the PT_PHDR
-  // The load base of the main program is easy to calculate as the difference
-  // between the PT_PHDR vaddr and its real address in memory.
-  unsigned long load_base = ((unsigned long)phdr) - phdr->p_vaddr;
-  // Now, go to dynamic section and look at its DT_SONAME entry
-  ElfW(Dyn) *cur = (ElfW(Dyn) *) (load_base + info.dynamic);
-  unsigned long dt_strtab = 0;
-  unsigned long dt_soname = 0;
-  while (cur->d_tag != DT_NULL)
-    {
-      if (cur->d_tag == DT_SONAME)
-	{
-	  dt_soname = cur->d_un.d_val;
-	}
-      else if (cur->d_tag == DT_STRTAB)
-	{
-	  dt_strtab = cur->d_un.d_val + load_base;
-	}
-      cur++;
-    }
-  if (dt_soname == 0)
-    {
-      return 0;
-    }
-  VDL_LOG_ASSERT (dt_strtab != 0, "Could not find dt_strtab");
-  char *soname = (char *)(dt_strtab + dt_soname);
-  return vdl_utils_strisequal (soname, LDSO_SONAME);
-}
 static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned long phnum)
 {
   // XXX will not work when main exec is loader itself
@@ -214,53 +175,29 @@ stage2_initialize (struct Stage2Input input)
   struct VdlFile *main_file;
   struct VdlContext *context;
   const char *pt_interp;
-  if (is_loader (input.program_phnum, input.program_phdr))
-    {
-      // the interpreter is run as a normal program. We behave like the libc
-      // interpreter and assume that this means that the name of the program
-      // to run is the first argument in the argv.
-      VDL_LOG_ASSERT (input.program_argc >= 2, "Not enough arguments to run loader");
-
-      const char *program = input.program_argv[1];
-      // We need to do what the kernel usually does for us, that is,
-      // search the file, and map it in memory
-      char *filename = vdl_search_filename (program, 0, 0);
-      VDL_LOG_ASSERT (filename != 0, "Could not find main binary");
-      context = vdl_context_new (input.program_argc - 1,
-				 input.program_argv + 1,
-				 input.program_envp);
-
-      // the filename for the main exec is "" for gdb.
-      main_file = vdl_file_map_single (context, program, "");
-      output.n_argv_skipped = 1;
-      pt_interp = LDSO_SONAME;
-    }
-  else
-    {
-      // here, the file is already mapped so, we just create the 
-      // right data structure
-      struct VdlFileInfo info;
-      VDL_LOG_ASSERT (vdl_get_file_info (input.program_phnum, input.program_phdr, &info),
+  // here, the file is already mapped so, we just create the 
+  // right data structure
+  struct VdlFileInfo info;
+  VDL_LOG_ASSERT (vdl_get_file_info (input.program_phnum, input.program_phdr, &info),
 		  "Unable to obtain information about main program");
-
-      // The load base of the main program is easy to calculate as the difference
-      // between the PT_PHDR vaddr and its real address in memory.
-      unsigned long load_base = ((unsigned long)input.program_phdr) - input.program_phdr->p_vaddr;
-
-      context = vdl_context_new (input.program_argc,
-				 input.program_argv,
-				 input.program_envp);
-
-      // the filename for the main exec is "" for gdb.
-      main_file = vdl_file_new (load_base,
-				&info,
-				"",
-				input.program_argv[0],
-				context);
-      output.n_argv_skipped = 0;
-      pt_interp = get_pt_interp (main_file, input.program_phdr, 
-				 input.program_phnum);
-    }
+  
+  // The load base of the main program is easy to calculate as the difference
+  // between the PT_PHDR vaddr and its real address in memory.
+  unsigned long load_base = ((unsigned long)input.program_phdr) - input.program_phdr->p_vaddr;
+  
+  context = vdl_context_new (input.program_argc,
+			     input.program_argv,
+			     input.program_envp);
+  
+  // the filename for the main exec is "" for gdb.
+  main_file = vdl_file_new (load_base,
+			    &info,
+			    "",
+			    input.program_argv[0],
+			    context);
+  output.n_argv_skipped = 0;
+  pt_interp = get_pt_interp (main_file, input.program_phdr, 
+			     input.program_phnum);
   main_file->count++;
   main_file->is_executable = 1;
   gdb_initialize (main_file);
