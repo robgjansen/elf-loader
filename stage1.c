@@ -3,8 +3,8 @@
 #include "stage2.h"
 #include "system.h"
 #include "vdl.h"
-#include "alloc.h"
 #include "futex.h"
+#include "vdl-alloc.h"
 #include <elf.h>
 #include <link.h>
 
@@ -64,6 +64,10 @@ prepare_stage2 (unsigned long entry_point_struct)
 
 static void global_initialize (unsigned long interpreter_load_base)
 {
+  // after this call to vdl_alloc_initialize is completed,
+  // we are allowed to allocate heap memory.
+  vdl_alloc_initialize ();
+
   struct Vdl *vdl = &g_vdl;
   vdl->version = 1;
   vdl->link_map = 0;
@@ -82,10 +86,6 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->errors = 0;
   vdl->n_added = 0;
   vdl->n_removed = 0;
-
-  // after this call to alloc_initialize is completed,
-  // we are allowed to allocate heap memory.
-  alloc_initialize (&(vdl->alloc));
 }
 
 

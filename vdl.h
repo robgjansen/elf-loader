@@ -198,10 +198,6 @@ struct Vdl
   // The list of directories to search for binaries
   // in DT_NEEDED entries.
   struct VdlList *search_dirs;
-  // The data structure used by the memory allocator
-  // all heap memory allocations through vdl_alloc
-  // and vdl_utils_free end up here.
-  struct Alloc alloc;
   uint32_t bind_now : 1;
   uint32_t finalized : 1;
   struct VdlList *contexts;

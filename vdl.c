@@ -8,6 +8,7 @@
 #include "vdl-mem.h"
 #include "vdl-list.h"
 #include "vdl-context.h"
+#include "vdl-alloc.h"
 #include "machine.h"
 #include <stdarg.h>
 #include <unistd.h>
@@ -94,7 +95,7 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
 			      const char *name,
 			      struct VdlContext *context)
 {
-  struct VdlFile *file = vdl_utils_new (struct VdlFile);
+  struct VdlFile *file = vdl_alloc_new (struct VdlFile);
 
   file->load_base = load_base;
   file->filename = vdl_utils_strdup (filename);
@@ -153,8 +154,8 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
   vdl_list_delete (file->deps);
   vdl_list_delete (file->local_scope);
   vdl_list_delete (file->gc_symbols_resolved_in);
-  vdl_utils_free (file->name);
-  vdl_utils_free (file->filename);
+  vdl_alloc_free (file->name);
+  vdl_alloc_free (file->filename);
 
   file->deps = 0;
   file->local_scope = 0;
@@ -163,7 +164,7 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
   file->filename = 0;
   file->context = 0;
 
-  vdl_utils_delete (file);
+  vdl_alloc_delete (file);
 }
 
 void vdl_files_delete (struct VdlList *files, bool mapping)
@@ -247,7 +248,7 @@ replace_magic (char *filename)
 						machine_get_lib (),
 						lib+4, 0);
       lib[0] = saved;
-      vdl_utils_free (filename);
+      vdl_alloc_free (filename);
       VDL_LOG_DEBUG ("magic %s", new_filename);
       return new_filename;
     }
@@ -266,7 +267,7 @@ do_search (const char *name,
 	{
 	  return fullname;
 	}
-      vdl_utils_free (fullname);
+      vdl_alloc_free (fullname);
     }
   return 0;
 }
@@ -304,7 +305,7 @@ char *vdl_search_filename (const char *name,
     {
       return realname;
     }
-  vdl_utils_free (realname);
+  vdl_alloc_free (realname);
   return 0;
 }
 static void
@@ -400,7 +401,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  phdr = vdl_utils_malloc (header.e_phnum * header.e_phentsize);
+  phdr = vdl_alloc_malloc (header.e_phnum * header.e_phentsize);
   if (system_lseek (fd, header.e_phoff, SEEK_SET) == -1)
     {
       VDL_LOG_ERROR ("lseek failed to go to off=0x%x\n", header.e_phoff);
@@ -471,7 +472,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
-  vdl_utils_free (phdr);
+  vdl_alloc_free (phdr);
   system_close (fd);
 
   vdl_context_notify (context, file, VDL_EVENT_MAPPED);
@@ -482,7 +483,7 @@ error:
     {
       system_close (fd);
     }
-  vdl_utils_free (phdr);
+  vdl_alloc_free (phdr);
   if (mapping_start != 0)
     {
       system_munmap ((void*)mapping_start, mapping_size);
@@ -559,7 +560,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
   if (system_fstat (filename, &buf) == -1)
     {
       VDL_LOG_ERROR ("Cannot stat %s\n", filename);
-      vdl_utils_free (filename);
+      vdl_alloc_free (filename);
       return 0;
     }
   // If you create a symlink to a binary and link to the
@@ -573,7 +574,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
   file = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
   if (file != 0)
     {
-      vdl_utils_free (filename);
+      vdl_alloc_free (filename);
       return file;
     }
   // The file is really not yet mapped so, we have to map it
@@ -582,7 +583,7 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
 
   vdl_list_push_back (loaded, file);
 
-  vdl_utils_free (filename);
+  vdl_alloc_free (filename);
 
   return file;
 }

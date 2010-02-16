@@ -1,6 +1,7 @@
 #include "vdl-context.h"
 #include "vdl.h"
 #include "vdl-utils.h"
+#include "vdl-alloc.h"
 #include "vdl-log.h"
 
 uint32_t 
@@ -22,7 +23,7 @@ vdl_context_get_count (const struct VdlContext *context)
 void vdl_context_add_lib_remap (struct VdlContext *context, 
 				const char *src, const char *dst)
 {
-  struct VdlContextLibRemapEntry *entry = vdl_utils_new (struct VdlContextLibRemapEntry);
+  struct VdlContextLibRemapEntry *entry = vdl_alloc_new (struct VdlContextLibRemapEntry);
   entry->src = vdl_utils_strdup (src);
   entry->dst = vdl_utils_strdup (dst);
   vdl_list_push_back (context->lib_remaps, entry);
@@ -36,7 +37,7 @@ void vdl_context_add_symbol_remap (struct VdlContext *context,
 				   const char *dst_ver_name,
 				   const char *dst_ver_filename)
 {
-  struct VdlContextSymbolRemapEntry *entry = vdl_utils_new (struct VdlContextSymbolRemapEntry);
+  struct VdlContextSymbolRemapEntry *entry = vdl_alloc_new (struct VdlContextSymbolRemapEntry);
   entry->src_name = vdl_utils_strdup (src_name);
   entry->src_ver_name = vdl_utils_strdup (src_ver_name);
   entry->src_ver_filename = vdl_utils_strdup (src_ver_filename);
@@ -49,7 +50,7 @@ void vdl_context_add_callback (struct VdlContext *context,
 			       void (*cb) (void *handle, enum VdlEvent event, void *context),
 			       void *cb_context)
 {
-  struct VdlContextEventCallbackEntry *entry = vdl_utils_new (struct VdlContextEventCallbackEntry);
+  struct VdlContextEventCallbackEntry *entry = vdl_alloc_new (struct VdlContextEventCallbackEntry);
   entry->fn = cb;
   entry->context = cb_context;
   vdl_list_push_back (context->event_callbacks, entry);
@@ -147,7 +148,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
 {
   VDL_LOG_FUNCTION ("argc=%d", argc);
 
-  struct VdlContext *context = vdl_utils_new (struct VdlContext);
+  struct VdlContext *context = vdl_alloc_new (struct VdlContext);
   context->global_scope = vdl_list_new ();
 
   vdl_list_push_back (g_vdl.contexts, context);
@@ -193,9 +194,9 @@ vdl_context_delete (struct VdlContext *context)
 	 i = vdl_list_next (i))
       {
 	struct VdlContextLibRemapEntry *item = *i;
-	vdl_utils_free (item->src);
-	vdl_utils_free (item->dst);
-	vdl_utils_free (item);
+	vdl_alloc_free (item->src);
+	vdl_alloc_free (item->dst);
+	vdl_alloc_free (item);
       }
     vdl_list_delete (context->lib_remaps);
   }
@@ -207,13 +208,13 @@ vdl_context_delete (struct VdlContext *context)
 	 i = vdl_list_next (i))
       {
 	struct VdlContextSymbolRemapEntry *item = *i;
-	vdl_utils_free (item->src_name);
-	vdl_utils_free (item->src_ver_name);
-	vdl_utils_free (item->src_ver_filename);
-	vdl_utils_free (item->dst_name);
-	vdl_utils_free (item->dst_ver_name);
-	vdl_utils_free (item->dst_ver_filename);
-	vdl_utils_free (item);
+	vdl_alloc_free (item->src_name);
+	vdl_alloc_free (item->src_ver_name);
+	vdl_alloc_free (item->src_ver_filename);
+	vdl_alloc_free (item->dst_name);
+	vdl_alloc_free (item->dst_ver_name);
+	vdl_alloc_free (item->dst_ver_filename);
+	vdl_alloc_free (item);
       }
     vdl_list_delete (context->symbol_remaps);
   }
@@ -225,7 +226,7 @@ vdl_context_delete (struct VdlContext *context)
 	 i = vdl_list_next (i))
       {
 	struct VdlContextEventCallbackEntry *item = *i;
-	vdl_utils_delete (item);
+	vdl_alloc_delete (item);
       }
     vdl_list_delete (context->event_callbacks);
   }
@@ -235,5 +236,5 @@ vdl_context_delete (struct VdlContext *context)
   context->event_callbacks = 0;
 
   // finally, delete context itself
-  vdl_utils_delete (context);
+  vdl_alloc_delete (context);
 }

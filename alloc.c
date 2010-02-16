@@ -21,6 +21,18 @@
 # define MARK_UNDEFINED(buffer, size)
 #endif
 
+struct AllocMmapChunk
+{
+  uint8_t *buffer;
+  uint32_t size;
+  uint32_t brk;
+  struct AllocMmapChunk *next;
+};
+struct AllocAvailable
+{
+  struct AllocAvailable *next;
+};
+
 
 static uint32_t round_to (uint32_t v, uint32_t to)
 {

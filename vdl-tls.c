@@ -6,6 +6,7 @@
 #include "vdl-sort.h"
 #include "vdl-list.h"
 #include "vdl-mem.h"
+#include "vdl-alloc.h"
 #include "machine.h"
 
 static unsigned long
@@ -200,7 +201,7 @@ vdl_tls_tcb_allocate (void)
   // we allocate continuous memory for the set of tls blocks + libpthread TCB
   unsigned long tcb_size = g_vdl.tls_static_size;
   unsigned long total_size = tcb_size + CONFIG_TCB_SIZE; // specific to variant II
-  unsigned long buffer = (unsigned long) vdl_utils_malloc (total_size);
+  unsigned long buffer = (unsigned long) vdl_alloc_malloc (total_size);
   vdl_memset ((void*)buffer, 0, total_size);
   unsigned long tcb = buffer + tcb_size;
   // complete setup of TCB
@@ -235,7 +236,7 @@ vdl_tls_dtv_allocate (unsigned long tcb)
 {
   VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   // allocate a dtv for the set of tls blocks needed now
-  struct dtv_t *dtv = vdl_utils_malloc ((2+g_vdl.tls_n_dtv) * sizeof (struct dtv_t));
+  struct dtv_t *dtv = vdl_alloc_malloc ((2+g_vdl.tls_n_dtv) * sizeof (struct dtv_t));
   dtv[0].value = g_vdl.tls_n_dtv;
   dtv[0].gen = 0;
   dtv++;
@@ -317,9 +318,9 @@ vdl_tls_dtv_deallocate (unsigned long tcb)
 	}
       // this was not a static entry
       unsigned long *dtvi = (unsigned long *)dtv[module].value;
-      vdl_utils_free (&dtvi[-1]);
+      vdl_alloc_free (&dtvi[-1]);
     }
-  vdl_utils_free (&dtv[-1]);
+  vdl_alloc_free (&dtv[-1]);
 }
 
 void
@@ -327,7 +328,7 @@ vdl_tls_tcb_deallocate (unsigned long tcb)
 {
   VDL_LOG_FUNCTION ("tcb=%lu", tcb);
   unsigned long start = tcb - g_vdl.tls_static_size;
-  vdl_utils_free ((void*)start);
+  vdl_alloc_free ((void*)start);
 }
 static struct dtv_t *
 get_current_dtv (void)
@@ -370,7 +371,7 @@ update_dtv (void)
 	    {
 	      // and it was not static so, we free its memory
 	      unsigned long *dtvi = (unsigned long *)dtv[module].value;
-	      vdl_utils_free (&dtvi[-1]);
+	      vdl_alloc_free (&dtvi[-1]);
 	      dtv[module].value = 0;
 	    }
 	  if (file == 0)
@@ -426,7 +427,7 @@ update_dtv (void)
   // now that the dtv is updated, update the generation
   new_dtv[0].gen = g_vdl.tls_gen;
   // finally, clear the old dtv
-  vdl_utils_free (&dtv[-1]);
+  vdl_alloc_free (&dtv[-1]);
 }
 unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 {
@@ -457,7 +458,7 @@ unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
       struct VdlFile *file = find_file_by_module (module);
       // first, allocate a new tls block for this module
       unsigned long dtvi_size = sizeof(unsigned long) + file->tls_tmpl_size + file->tls_init_zero_size;
-      unsigned long *dtvi = vdl_utils_malloc (dtvi_size);
+      unsigned long *dtvi = vdl_alloc_malloc (dtvi_size);
       dtvi[0] = dtvi_size;
       dtvi++;
       // copy the template in the module tls block

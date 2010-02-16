@@ -1,12 +1,12 @@
 #include "vdl-list.h"
-#include "vdl-utils.h"
+#include "vdl-alloc.h"
 
 
 
 struct VdlList *
 vdl_list_new (void)
 {
-  struct VdlList *list = vdl_utils_new (struct VdlList);
+  struct VdlList *list = vdl_alloc_new (struct VdlList);
   vdl_list_construct (list);
   return list;
 }
@@ -22,7 +22,7 @@ struct VdlList *vdl_list_copy (struct VdlList *list)
 void vdl_list_delete (struct VdlList *list)
 {
   vdl_list_destruct (list);
-  vdl_utils_delete (list);
+  vdl_alloc_delete (list);
 }
 void vdl_list_construct (struct VdlList *list)
 {
@@ -88,7 +88,7 @@ void **vdl_list_rprev (void **i)
 void **vdl_list_insert (struct VdlList *list, void **at, void *value)
 {
   struct VdlListItem *after = (struct VdlListItem *)at;
-  struct VdlListItem *item = vdl_utils_new (struct VdlListItem);
+  struct VdlListItem *item = vdl_alloc_new (struct VdlListItem);
   item->data = value;
   item->next = after;
   item->prev = after->prev;
@@ -157,7 +157,7 @@ void vdl_list_clear (struct VdlList *list)
 void **vdl_list_erase (struct VdlList *list, void **i)
 {
   // Note: it's a programming error to call _erase if i = _end () or i = _rend ()
-  // this will trigger a crash in vdl_utils_delete (i)
+  // this will trigger a crash in vdl_alloc_delete (i)
   list->size--;
   struct VdlListItem *item = (struct VdlListItem *)i;
   item->prev->next = item->next;
@@ -166,7 +166,7 @@ void **vdl_list_erase (struct VdlList *list, void **i)
   item->next = 0;
   item->prev = 0;
   item->data = 0;
-  vdl_utils_delete (item);
+  vdl_alloc_delete (item);
   return (void**)next;
 }
 void **vdl_list_erase_range (struct VdlList *list, 
@@ -174,7 +174,7 @@ void **vdl_list_erase_range (struct VdlList *list,
 			     void **e)
 {
   // Note: it's a programming error to call _erase if s = _end () or s = _rend ()
-  // this will trigger a crash in vdl_utils_delete (s)
+  // this will trigger a crash in vdl_alloc_delete (s)
   struct VdlListItem *start = (struct VdlListItem *)s;
   struct VdlListItem *end = (struct VdlListItem *)e;
   start->prev->next = end;
@@ -186,7 +186,7 @@ void **vdl_list_erase_range (struct VdlList *list,
     {
       next = item->next;
       deleted++;
-      vdl_utils_delete (item);
+      vdl_alloc_delete (item);
     }
   list->size -= deleted;
   return (void**)end;

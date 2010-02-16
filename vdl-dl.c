@@ -14,6 +14,7 @@
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
 #include "vdl-context.h"
+#include "vdl-alloc.h"
 
 static struct VdlError *find_error (void)
 {
@@ -29,7 +30,7 @@ static struct VdlError *find_error (void)
 	  return error;
 	}
     }
-  struct VdlError * error = vdl_utils_new (struct VdlError);
+  struct VdlError * error = vdl_alloc_new (struct VdlError);
   error->thread_pointer = thread_pointer;
   error->error = 0;
   error->prev_error = 0;
@@ -44,8 +45,8 @@ static void set_error (const char *str, ...)
   char *error_string = vdl_utils_vprintf (str, list);
   va_end (list);
   struct VdlError *error = find_error ();
-  vdl_utils_free (error->prev_error);
-  vdl_utils_free (error->error);
+  vdl_alloc_free (error->prev_error);
+  vdl_alloc_free (error->error);
   error->prev_error = 0;
   error->error = error_string;
 }
@@ -363,7 +364,7 @@ char *vdl_dlerror (void)
   futex_lock (&g_vdl.futex);
   struct VdlError *error = find_error ();
   char *error_string = error->error;
-  vdl_utils_free (error->prev_error);
+  vdl_alloc_free (error->prev_error);
   error->prev_error = error->error;
   // clear the error we are about to report to the user
   error->error = 0;

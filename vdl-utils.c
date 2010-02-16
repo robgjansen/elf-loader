@@ -3,6 +3,7 @@
 #include "vdl.h"
 #include "vdl-log.h"
 #include "vdl-mem.h"
+#include "vdl-alloc.h"
 #include "avprintf-cb.h"
 
 
@@ -41,22 +42,6 @@ struct VdlList *vdl_utils_list_global_linkmap_new (void)
     }
   return list;
 }
-
-
-void *vdl_utils_malloc (size_t size)
-{
-  VDL_LOG_FUNCTION ("size=%d", size);
-  return (void*)alloc_malloc (&g_vdl.alloc, size);
-}
-void vdl_utils_free (void *buffer)
-{
-  VDL_LOG_FUNCTION ("buffer=%p", buffer);
-  if (buffer == 0)
-    {
-      return;
-    }
-  alloc_free (&g_vdl.alloc, (uint8_t *)buffer);
-}
 int vdl_utils_strisequal (const char *a, const char *b)
 {
   //VDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
@@ -89,7 +74,7 @@ char *vdl_utils_strdup (const char *str)
     }
   //VDL_LOG_FUNCTION ("str=%s", str);
   int len = vdl_utils_strlen (str);
-  char *retval = vdl_utils_malloc (len+1);
+  char *retval = vdl_alloc_malloc (len+1);
   vdl_memcpy (retval, str, len+1);
   return retval;
 }
@@ -130,7 +115,7 @@ char *vdl_utils_strconcat (const char *str, ...)
       cur = va_arg (l1, char *);
     }
   va_end (l1);
-  retval = vdl_utils_malloc (size + 1);
+  retval = vdl_alloc_malloc (size + 1);
   // copy first string
   tmp = retval;
   vdl_memcpy (tmp, str, vdl_utils_strlen (str));
@@ -190,7 +175,7 @@ vdl_utils_str_list_delete (struct VdlList *list)
        i != vdl_list_end (list);
        i = vdl_list_next (i))
     {
-      vdl_utils_free (*i);
+      vdl_alloc_free (*i);
     }
   vdl_list_delete (list);
 }
@@ -214,7 +199,7 @@ struct VdlList *vdl_utils_strsplit (const char *value, char separator)
 	  cur++;
 	}
       prev_len = cur-prev;
-      str = vdl_utils_malloc (prev_len+1);
+      str = vdl_alloc_malloc (prev_len+1);
       vdl_memcpy (str, prev, prev_len);
       str[prev_len] = 0;
       vdl_list_push_back (list, str);
@@ -239,7 +224,7 @@ struct VdlList *vdl_utils_splitpath (const char *value)
       if (vdl_utils_strisequal (*i, ""))
 	{
 	  // the empty string is interpreted as '.'
-	  vdl_utils_free (*i);
+	  vdl_alloc_free (*i);
 	  i = vdl_list_erase (list, i);
 	  i = vdl_list_insert (list, i, vdl_utils_strdup ("."));
 	}
@@ -294,7 +279,7 @@ static void avprintf_callback (char c, void *context)
       char **pstr = (char**)context;
       char new_char[] = {c, 0};
       char *new_str = vdl_utils_strconcat (*pstr, new_char, 0);
-      vdl_utils_free (*pstr);
+      vdl_alloc_free (*pstr);
       *pstr = new_str;
     }
 }

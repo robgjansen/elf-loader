@@ -11,14 +11,6 @@ void vdl_utils_linkmap_print (void);
 struct VdlList * vdl_utils_list_global_linkmap_new (void);
 
 
-// allocate/free memory
-void *vdl_utils_malloc (size_t size);
-void vdl_utils_free (void *buffer);
-#define vdl_utils_new(type) \
-  (type *) vdl_utils_malloc (sizeof (type))
-#define vdl_utils_delete(v) \
-  vdl_utils_free (v)
-
 // string manipulation functions
 int vdl_utils_strisequal (const char *a, const char *b);
 int vdl_utils_strlen (const char *str);

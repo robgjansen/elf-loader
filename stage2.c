@@ -1,6 +1,7 @@
 #include "system.h"
 #include "vdl.h"
 #include "vdl-utils.h"
+#include "vdl-alloc.h"
 #include "vdl-log.h"
 #include "vdl-list.h"
 #include "vdl-reloc.h"
@@ -113,10 +114,10 @@ ld_preload_list_new (struct VdlContext *context, const char **envp)
       if (ld_preload_file == 0)
 	{
 	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
-	  vdl_utils_free (ld_preload_filename);
+	  vdl_alloc_free (ld_preload_filename);
 	  goto error;
 	}
-      vdl_utils_free (ld_preload_filename);
+      vdl_alloc_free (ld_preload_filename);
       ld_preload_file->count++;
       vdl_list_push_back (retval, ld_preload_file);
     }
@@ -389,9 +390,9 @@ void stage2_freeres (void)
 	 i = vdl_list_next (i))
       {
 	struct VdlError *error = *i;
-	vdl_utils_free (error->prev_error);
-	vdl_utils_free (error->error);
-	vdl_utils_delete (error);
+	vdl_alloc_free (error->prev_error);
+	vdl_alloc_free (error->error);
+	vdl_alloc_delete (error);
       }
     vdl_list_delete (g_vdl.errors);
   }

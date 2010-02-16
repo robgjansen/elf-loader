@@ -7,17 +7,8 @@
 extern "C" {
 #endif
 
-struct AllocMmapChunk
-{
-  uint8_t *buffer;
-  uint32_t size;
-  uint32_t brk;
-  struct AllocMmapChunk *next;
-};
-struct AllocAvailable
-{
-  struct AllocAvailable *next;
-};
+struct AllocMmapChunk;
+struct AllocAvailable;
 
 struct Alloc
 {

@@ -54,11 +54,11 @@ extern "C" uint32_t machine_atomic_dec (uint32_t *val)
 {
   return __sync_fetch_and_sub (val, 1);
 }
-extern "C" void *vdl_utils_malloc (size_t size)
+extern "C" void *vdl_alloc_malloc (size_t size)
 {
   return malloc (size);
 }
-extern "C" void vdl_utils_free (void *buffer)
+extern "C" void vdl_alloc_free (void *buffer)
 {
   return free (buffer);
 }
