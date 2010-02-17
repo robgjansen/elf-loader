@@ -1,13 +1,29 @@
 #include "futex.h"
 #include "machine.h"
 #include "system.h"
+#include "vdl-alloc.h"
 
-void futex_init (struct futex *futex)
+struct Futex *futex_new (void)
+{
+  struct Futex *futex = vdl_alloc_new (struct Futex);
+  futex_construct (futex);
+  return futex;
+}
+void futex_delete (struct Futex *futex)
+{
+  futex_destruct (futex);
+  vdl_alloc_delete (futex);
+}
+
+void futex_construct (struct Futex *futex)
 {
   futex->state = 0;
 }
+void futex_destruct (struct Futex *futex)
+{}
 
-void futex_lock (struct futex *futex)
+
+void futex_lock (struct Futex *futex)
 {
   uint32_t c;
   if ((c = machine_atomic_compare_and_exchange (&futex->state, 0, 1)) != 0)
@@ -21,7 +37,7 @@ void futex_lock (struct futex *futex)
     }
 }
 
-void futex_unlock (struct futex *futex)
+void futex_unlock (struct Futex *futex)
 {
   if (machine_atomic_dec (&futex->state) != 1) 
     {

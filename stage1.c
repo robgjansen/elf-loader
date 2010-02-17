@@ -5,6 +5,9 @@
 #include "vdl.h"
 #include "futex.h"
 #include "vdl-alloc.h"
+#include "vdl-list.h"
+#include "vdl-utils.h"
+#include "machine.h"
 #include <elf.h>
 #include <link.h>
 
@@ -76,14 +79,15 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->interpreter_load_base = interpreter_load_base;
   vdl->bind_now = 0; // by default, do lazy binding
   vdl->finalized = 0;
-  vdl->contexts = 0;
-  vdl->search_dirs = 0;
+  vdl->ldso = 0;
+  vdl->contexts = vdl_list_new ();
+  vdl->search_dirs = vdl_utils_splitpath (machine_get_system_search_dirs ());
   vdl->tls_gen = 1;
   vdl->tls_static_size = 0;
   vdl->tls_static_align = 0;
   vdl->tls_n_dtv = 0;
-  futex_init (&vdl->futex);
-  vdl->errors = 0;
+  vdl->futex = futex_new ();
+  vdl->errors = vdl_list_new ();
   vdl->n_added = 0;
   vdl->n_removed = 0;
 }
@@ -173,7 +177,43 @@ void stage1_finalize (void)
 
 void stage1_freeres (void)
 {
+  // We are called by libc_freeres_interceptor which is our wrapper
+  // around __libc_freeres.
+  // If stage1_freeres is called while g_vdl.finalized is set to 1, it
+  // means that stage1_finalize has already run which means that
+  // we are called by valgrind. If this is so, we do perform final shutdown
+  // of everything here. We are allowed to do so because 
+  // this function will return to vgpreload_core and the process
+  // will terminate immediately after.
+  if (!g_vdl.finalized)
+    {
+      return;
+    }
   stage2_freeres ();
+  vdl_utils_str_list_delete (g_vdl.search_dirs);
+  vdl_list_delete (g_vdl.contexts);
+  futex_delete (g_vdl.futex);
+  {
+    void **i;
+    for (i = vdl_list_begin (g_vdl.errors);
+	 i != vdl_list_end (g_vdl.errors);
+	 i = vdl_list_next (i))
+      {
+	struct VdlError *error = *i;
+	vdl_alloc_free (error->prev_error);
+	vdl_alloc_free (error->error);
+	vdl_alloc_delete (error);
+      }
+    vdl_list_delete (g_vdl.errors);
+  }
+
+  // After this call, we can't do any malloc/free anymore.
+  vdl_alloc_destroy ();
+
+  g_vdl.search_dirs = 0;
+  g_vdl.contexts = 0;
+  g_vdl.futex = 0;
+  g_vdl.errors = 0;
 }
 
 // Called from stage0 entry point asm code.
@@ -202,13 +242,5 @@ void stage1 (struct Stage1InputOutput *input_output)
   // jump in the program's entry point.
   input_output->entry_point = stage2_output.entry_point;
   input_output->dl_fini = 0;
-  // adjust the entry point structure to get rid of skipped 
-  // command-line arguments
-  int *pargc = ((int*)input_output->entry_point_struct);
-  *pargc -= stage2_output.n_argv_skipped;
-  int *new_pargc = (int*)(input_output->entry_point_struct+
-			  stage2_output.n_argv_skipped*sizeof(char*));
-  *new_pargc = *pargc;
-  input_output->entry_point_struct = (unsigned long)new_pargc;
   input_output->dl_fini = (unsigned long) stage1_finalize;
 }

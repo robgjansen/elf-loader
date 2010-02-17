@@ -6,9 +6,6 @@
 #include <stdbool.h>
 #include <elf.h>
 #include <link.h>
-#include "alloc.h"
-#include "system.h"
-#include "futex.h"
 
 #if __ELF_NATIVE_CLASS == 32
 #define ELFW_R_SYM ELF32_R_SYM
@@ -23,6 +20,8 @@
 #define ELFW_ST_TYPE(val) ELF64_ST_TYPE(val)
 #define ELFW_ST_INFO(bind, type) ELF64_ST_INFO(bind,type)
 #endif
+
+struct Futex;
 
 enum VdlLookupType
 {
@@ -200,12 +199,13 @@ struct Vdl
   struct VdlList *search_dirs;
   uint32_t bind_now : 1;
   uint32_t finalized : 1;
+  struct VdlFile *ldso;
   struct VdlList *contexts;
   unsigned long tls_gen;
   unsigned long tls_static_size;
   unsigned long tls_static_align;
   unsigned long tls_n_dtv;
-  struct futex futex;
+  struct Futex *futex;
   // holds an entry for each thread which calls one a function
   // which potentially sets the dlerror state.
   struct VdlList *errors;
@@ -214,31 +214,44 @@ struct Vdl
   unsigned long n_removed;
 };
 
+struct VdlMapResult
+{
+  // should be non-null if success, null otherwise.
+  struct VdlFile *requested;
+  // the list of files which were brought into memory
+  // by this map request.
+  struct VdlList *newly_mapped;
+  // if the mapping fails, a human-readable string
+  // which indicates what went wrong.
+  char *error_string;
+};
 
 extern struct Vdl g_vdl;
 
-struct VdlFile *vdl_file_new (unsigned long load_base,
-			      const struct VdlFileInfo *info,
-			      const char *filename, 
-			      const char *name,
-			      struct VdlContext *context);
-void vdl_files_delete (struct VdlList *files, bool mapping);
-struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
-				    const char *filename, 
-				    const char *name);
-struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
-					   const char *requested_filename,
-					   struct VdlList *rpath,
-					   struct VdlList *runpath,
-					   struct VdlList *loaded);
-int vdl_file_map_deps (struct VdlFile *item, struct VdlList *loaded);
+void vdl_linkmap_append (struct VdlFile *file);
+void vdl_linkmap_append_range (void **begin, void **end);
+void vdl_linkmap_remove (struct VdlFile *file);
+void vdl_linkmap_remove_range (void **begin, void **end);
+struct VdlList *vdl_linkmap_copy (void);
+void vdl_linkmap_print (void);
+
+struct VdlMapResult vdl_map_from_memory (unsigned long load_base,
+					 uint32_t phnum,
+					 ElfW(Phdr) *phdr,
+					 // a fully-qualified path to the file
+					 // represented by the phdr
+					 const char *path, 
+					 // a non-fully-qualified filename
+					 const char *filename,
+					 struct VdlContext *context);
+struct VdlMapResult vdl_map_from_filename (struct VdlContext *context, 
+					   const char *filename);
+
+void vdl_unmap (struct VdlList *files, bool mapping);
+
+
 unsigned long vdl_file_get_entry_point (struct VdlFile *file);
 
-char *vdl_search_filename (const char *name, struct VdlList *rpath,
-			   struct VdlList *runpath);
-int vdl_get_file_info (uint32_t phnum,
-		       ElfW(Phdr) *phdr,
-		       struct VdlFileInfo *info);
 ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
 unsigned long vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag);
 unsigned long vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag);

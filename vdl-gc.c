@@ -92,7 +92,7 @@ static struct VdlList *vdl_gc_white_list_new (struct VdlList *list)
 struct VdlGcResult
 vdl_gc_run (void)
 {
-  struct VdlList *global = vdl_utils_list_global_linkmap_new ();
+  struct VdlList *global = vdl_linkmap_copy ();
   struct VdlList *unload = vdl_list_new ();
   struct VdlList *white = vdl_gc_white_list_new (global);
   while (!vdl_list_empty (white))

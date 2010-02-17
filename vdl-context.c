@@ -4,20 +4,10 @@
 #include "vdl-alloc.h"
 #include "vdl-log.h"
 
-uint32_t 
-vdl_context_get_count (const struct VdlContext *context)
+bool
+vdl_context_empty (const struct VdlContext *context)
 {
-  // and count number of files in this context
-  uint32_t context_count = 0;
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      if (cur->context == context)
-	{
-	  context_count++;
-	}
-    }
-  return context_count;
+  return vdl_list_empty (context->loaded);
 }
 
 void vdl_context_add_lib_remap (struct VdlContext *context, 
@@ -153,6 +143,7 @@ struct VdlContext *vdl_context_new (int argc, char **argv, char **envp)
 
   vdl_list_push_back (g_vdl.contexts, context);
 
+  context->loaded = vdl_list_new ();
   context->lib_remaps = vdl_list_new ();
   context->symbol_remaps = vdl_list_new ();
   context->event_callbacks = vdl_list_new ();
@@ -181,6 +172,11 @@ vdl_context_delete (struct VdlContext *context)
   // get rid of associated global scope
   vdl_list_delete (context->global_scope);
   context->global_scope = 0;
+
+  // force the unmapping of any file left in here.
+  vdl_unmap (context->loaded, false);
+  vdl_list_delete (context->loaded);
+  context->loaded = 0;
 
   vdl_list_remove (g_vdl.contexts, context);
   context->argc = 0;
@@ -237,4 +233,15 @@ vdl_context_delete (struct VdlContext *context)
 
   // finally, delete context itself
   vdl_alloc_delete (context);
+}
+
+void vdl_context_add_file (struct VdlContext *context,
+			   struct VdlFile *file)
+{
+  vdl_list_push_back (context->loaded, file);
+}
+void vdl_context_remove_file (struct VdlContext *context,
+			      struct VdlFile *file)
+{
+  vdl_list_remove (context->loaded, file);
 }

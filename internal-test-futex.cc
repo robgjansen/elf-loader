@@ -1,6 +1,6 @@
 #include "futex.h"
 #include <pthread.h>
-struct futex g_futex;
+struct Futex g_futex;
 unsigned int g_shared_var;
 
 void *
@@ -44,7 +44,7 @@ futex_thread_b (void*)
 bool
 test_futex(void)
 {
-  futex_init (&g_futex);
+  futex_construct (&g_futex);
   pthread_t tha;
   pthread_t thb;
   pthread_create (&tha, 0, &futex_thread_a, 0);
@@ -53,5 +53,6 @@ test_futex(void)
   void *retb;
   pthread_join (tha, &reta);
   pthread_join (thb, &retb);
+  futex_destruct (&g_futex);
   return reta == 0 && retb == 0;
 }

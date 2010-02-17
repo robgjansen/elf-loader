@@ -1,5 +1,7 @@
 #include "vdl-utils.h"
 #include <stdarg.h>
+#include <sys/stat.h>
+#include "system.h"
 #include "vdl.h"
 #include "vdl-log.h"
 #include "vdl-mem.h"
@@ -7,41 +9,6 @@
 #include "avprintf-cb.h"
 
 
-void vdl_utils_linkmap_print (void)
-{
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      vdl_log_printf (VDL_LOG_PRINT, 
-		      "load_base=0x%x , file=%s\n"
-		      "\tro_start=0x%x , ro_end=0x%x\n"
-		      "\tro_zero_start=0x%x , ro_zero_end=0x%x\n"
-		      "\tro_anon_start=0x%x , ro_anon_end=0x%x\n"
-		      "\trw_start=0x%x , rw_end=0x%x\n", 
-		      
-		      cur->load_base, 
-		      cur->filename,
-		      cur->ro_map.mem_start_align, 
-		      cur->ro_map.mem_start_align + cur->ro_map.mem_size_align, 
-		      cur->ro_map.mem_zero_start,
-		      cur->ro_map.mem_zero_start + cur->ro_map.mem_zero_size,
-		      cur->ro_map.mem_anon_start_align,
-		      cur->ro_map.mem_anon_start_align + cur->ro_map.mem_anon_size_align,
-		      cur->rw_map.mem_start_align, 
-		      cur->rw_map.mem_start_align + cur->rw_map.mem_size_align);
-    }
-}
-
-struct VdlList *vdl_utils_list_global_linkmap_new (void)
-{
-  struct VdlList *list = vdl_list_new ();
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
-    {
-      vdl_list_push_back (list, cur);
-    }
-  return list;
-}
 int vdl_utils_strisequal (const char *a, const char *b)
 {
   //VDL_LOG_FUNCTION ("a=%s, b=%s", a, b);
@@ -294,4 +261,14 @@ char *vdl_utils_vprintf (const char *str, va_list args)
       return 0;
     }
   return retval;
+}
+
+
+char *vdl_utils_sprintf (const char *str, ...)
+{
+  va_list list;
+  va_start (list, str);
+  char *string = vdl_utils_vprintf (str, list);
+  va_end (list);
+  return string;
 }

@@ -2,6 +2,7 @@
 #define VDL_CONTEXT_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 struct VdlList;
 struct VdlFile;
@@ -34,6 +35,10 @@ struct VdlContextEventCallbackEntry
 
 struct VdlContext
 {
+  // the list of files loaded in this context
+  struct VdlList *loaded;
+  // the list of files which are part of the global scope of this context
+  // this set is necessarily a subset of the set of loaded files
   struct VdlList *global_scope;
   // describe which symbols should be remapped to which 
   // other symbols during symbol resolution
@@ -54,6 +59,10 @@ struct VdlContext
 
 struct VdlContext *vdl_context_new (int argc, char **argv, char **envp);
 void vdl_context_delete (struct VdlContext *context);
+void vdl_context_add_file (struct VdlContext *context,
+			   struct VdlFile *file);
+void vdl_context_remove_file (struct VdlContext *context,
+			      struct VdlFile *file);
 void vdl_context_add_lib_remap (struct VdlContext *context, const char *src, const char *dst);
 void vdl_context_add_symbol_remap (struct VdlContext *context, 
 				   const char *src_name, 
@@ -74,6 +83,6 @@ void vdl_context_symbol_remap (const struct VdlContext *context,
 			       const char **ver_name,
 			       const char **ver_filename);
 
-uint32_t vdl_context_get_count (const struct VdlContext *context);
+bool vdl_context_empty (const struct VdlContext *context);
 
 #endif /* VDL_CONTEXT_H */

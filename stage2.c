@@ -18,14 +18,8 @@
 #include "vdl-context.h"
 
 
-static struct VdlList *
-system_search_dirs_new (void)
-{
-  return vdl_utils_splitpath (machine_get_system_search_dirs ());
-}
-
-static struct VdlFile *
-interpreter_new (unsigned long load_base, 
+static struct VdlMapResult
+interpreter_map (unsigned long load_base, 
 		 const char *pt_interp,
 		 struct VdlContext *context)
 {
@@ -41,13 +35,7 @@ interpreter_new (unsigned long load_base,
    */
   ElfW(Ehdr) *header = (ElfW(Ehdr) *)load_base;
   ElfW(Phdr) *phdr = (ElfW(Phdr) *) (header->e_phoff + load_base);
-  struct VdlFileInfo info;
-  if (!vdl_get_file_info (header->e_phnum, phdr, &info))
-    {
-      VDL_LOG_ERROR ("Could not obtain file info for interpreter\n", 1);
-      goto error;
-    }
-  const char *full_filename;
+  struct VdlMapResult result;
   // It's important to initialize the filename of the interpreter
   // entry in the linkmap to the PT_INTERP of the main binary for
   // gdb. gdb initializes its first linkmap with an entry which describes
@@ -55,26 +43,17 @@ interpreter_new (unsigned long load_base,
   // the same value, gdb will incorrectly believe that the loader entry
   // has been removed which can lead to certain bad things to happen
   // in the first call to r_debug_state.
-  full_filename = pt_interp;
-
-  struct VdlFile *file = vdl_file_new (load_base, &info, 
-				       full_filename,
-				       LDSO_SONAME,
-				       context);
-  // the interpreter has already been reloced during stage1, so, 
-  // we must be careful to not relocate it twice.
-  file->reloced = 1;
-
-  // XXX: theoretically, there is no need to map deps for this
-  if (!vdl_file_map_deps (file, 0))
+  result = vdl_map_from_memory (load_base, header->e_phnum, phdr,
+				pt_interp, LDSO_SONAME, context);
+  if (result.requested == 0)
     {
       goto error;
     }
-
-  file->count++;
-  return file;
+  // the interpreter has already been reloced during stage1, so, 
+  // we must be careful to not relocate it twice.
+  result.requested->reloced = 1;
  error:
-  return 0;
+  return result;
 }
 
 struct VdlList *
@@ -95,25 +74,17 @@ ld_preload_list_new (struct VdlContext *context, const char **envp)
        cur = vdl_list_next (cur))
     {
       char *filename = *cur;
-      // search the requested program
-      char *ld_preload_filename = vdl_search_filename (filename, 0, 0);
-      if (ld_preload_filename == 0)
+      struct VdlMapResult result = vdl_map_from_filename (context, filename);
+      if (result.requested == 0)
 	{
-	  VDL_LOG_ERROR ("Could not find LD_PRELOAD: %s\n", filename);
+	  VDL_LOG_ERROR ("Could not map LD_PRELOAD %s: %s\n", filename, result.error_string);
 	  goto error;
 	}
-      // map it in memory.
-      struct VdlFile *ld_preload_file = vdl_file_map_single (context, ld_preload_filename, 
-							     ld_preload);
-      if (ld_preload_file == 0)
-	{
-	  VDL_LOG_ERROR ("Unable to load LD_PRELOAD: %s\n", ld_preload_filename);
-	  vdl_alloc_free (ld_preload_filename);
-	  goto error;
-	}
-      vdl_alloc_free (ld_preload_filename);
-      ld_preload_file->count++;
-      vdl_list_push_back (retval, ld_preload_file);
+      result.requested->count++;
+      vdl_list_insert_range (retval, vdl_list_end (retval),
+			     vdl_list_begin (result.newly_mapped),
+			     vdl_list_end (result.newly_mapped));
+      vdl_list_delete (result.newly_mapped);
     }
  error:
   vdl_utils_str_list_delete (list);
@@ -144,7 +115,9 @@ setup_env_vars (const char **envp)
     }
 }
 
-static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned long phnum)
+static char *get_pt_interp (unsigned long main_load_base,
+			    unsigned long phnum,
+			    ElfW(Phdr) *phdr)
 {
   // will not work when main exec is loader itself
   ElfW(Phdr) *pt_interp = vdl_utils_search_phdr (phdr, phnum, PT_INTERP);
@@ -152,7 +125,7 @@ static char *get_pt_interp (struct VdlFile *main, ElfW(Phdr) *phdr, unsigned lon
     {
       return 0;
     }
-  return (char*)(main->load_base + pt_interp->p_vaddr);
+  return (char*)(main_load_base + pt_interp->p_vaddr);
 }
 
 struct Stage2Output
@@ -160,65 +133,72 @@ stage2_initialize (struct Stage2Input input)
 {
   struct Stage2Output output;
 
-  g_vdl.search_dirs = system_search_dirs_new ();
-  g_vdl.contexts = vdl_list_new ();
-  g_vdl.errors = vdl_list_new ();
-
   setup_env_vars ((const char**)input.program_envp);
 
-  struct VdlFile *main_file;
-  struct VdlContext *context;
-  const char *pt_interp;
-  // here, the file is already mapped so, we just create the 
-  // right data structure
-  struct VdlFileInfo info;
-  VDL_LOG_ASSERT (vdl_get_file_info (input.program_phnum, input.program_phdr, &info),
-		  "Unable to obtain information about main program");
-  
   // The load base of the main program is easy to calculate as the difference
   // between the PT_PHDR vaddr and its real address in memory.
-  unsigned long load_base = ((unsigned long)input.program_phdr) - input.program_phdr->p_vaddr;
-  
-  context = vdl_context_new (input.program_argc,
-			     input.program_argv,
-			     input.program_envp);
-  
-  // the filename for the main exec is "" for gdb.
-  main_file = vdl_file_new (load_base,
-			    &info,
-			    "",
-			    input.program_argv[0],
-			    context);
-  output.n_argv_skipped = 0;
-  pt_interp = get_pt_interp (main_file, input.program_phdr, 
-			     input.program_phnum);
+  unsigned long main_load_base = ((unsigned long)input.program_phdr) - input.program_phdr->p_vaddr;
+
+  struct VdlContext *context = vdl_context_new (input.program_argc,
+						input.program_argv,
+						input.program_envp);
+
+  // First, let's make sure we have an entry for the loader
+  const char *pt_interp = get_pt_interp (main_load_base, 
+					 input.program_phnum,
+					 input.program_phdr);
+  struct VdlMapResult interp_result;
+  interp_result = interpreter_map (input.interpreter_load_base,
+				   pt_interp,
+				   context);
+  struct VdlFile *interp = interp_result.requested;
+  VDL_LOG_ASSERT (interp != 0,
+		  "Could not map loader %s: %s", pt_interp, 
+		  interp_result.error_string);
+  vdl_list_delete (interp_result.newly_mapped); // there are no deps
+  interp->count++;
+  g_vdl.ldso = interp;
+
+  // let's make sure that LD_PRELOAD binaries and their dependencies are loaded.
+  struct VdlList *ld_preload;
+  ld_preload = ld_preload_list_new (context, (const char **)input.program_envp);
+
+  // Now, Let's do the main binary.
+  struct VdlMapResult main_result;
+  main_result = vdl_map_from_memory (main_load_base, 
+				     input.program_phnum, 
+				     input.program_phdr,
+				     // the filename for the main exec is "" for gdb.
+				     "",
+				     input.program_argv[0],
+				     context);
+  VDL_LOG_ASSERT (main_result.requested != 0,
+		  "unable to map main binary (%s) and dependencies: %s\n",
+		  input.program_argv[0],
+		  main_result.error_string);
+  struct VdlFile *main_file = main_result.requested;
   main_file->count++;
   main_file->is_executable = 1;
-  gdb_initialize (main_file);
-  struct VdlList *loaded = vdl_list_new ();
-  vdl_list_push_back (loaded, main_file);
 
-  // add the interpreter itself to the link map to ensure that it is
-  // recorded somewhere. We must add it to the link map only after
-  // the main binary because gdb assumes that the first entry in the
-  // link map is the main binary itself. We don't add it to the global 
-  // scope.
-  struct VdlFile *interpreter;
-  interpreter = interpreter_new (input.interpreter_load_base,
-				 pt_interp,
-				 context);
-  vdl_list_push_back (loaded, interpreter);
 
-  struct VdlList *ld_preload = ld_preload_list_new (context, (const char **)input.program_envp);
-  vdl_list_insert_range (loaded, vdl_list_end (loaded),
-			 vdl_list_begin (ld_preload),
-			 vdl_list_end (ld_preload));
+  // Now, we setup our public linkmap.
+  // We need to be careful to insert first the main file,
+  // then, the interpreter, then, the ld preload entries,
+  // then, the dependencies from the main file
+  vdl_linkmap_append (main_file);
+  vdl_linkmap_append (interp);
+  vdl_linkmap_append_range (vdl_list_begin (ld_preload),
+			    vdl_list_end (ld_preload));
+  vdl_linkmap_append_range (vdl_list_begin (main_result.newly_mapped),
+			    vdl_list_end (main_result.newly_mapped));
+  vdl_list_delete (main_result.newly_mapped);
+  main_result.newly_mapped = 0;
 
-  VDL_LOG_ASSERT (vdl_file_map_deps (main_file, loaded), 
-		  "Unable to map dependencies of main file");
-
-  // The global scope is defined as being made of the main binary
-  // and all its dependencies, breadth-first, with duplicate items removed.
+  // Now, prepare the global scope of the main context
+  // The global scope is the same as the public linkmap except that
+  // it does not contain the interpreter (unless, of course, it
+  // is a dependency of the main binary or one of the ld_preloaded
+  // binaries.
   vdl_list_push_back (context->global_scope, main_file);
   // of course, the ld_preload binaries must be in there if needed.
   vdl_list_insert_range (context->global_scope,
@@ -235,13 +215,16 @@ stage2_initialize (struct Stage2Input input)
 
   vdl_list_delete (ld_preload);
 
+
+  gdb_initialize (main_file);
+
   // We need to do this before relocation because the TLS-type relocations 
   // need tls information.
-  vdl_tls_file_initialize_static (loaded);
+  vdl_tls_file_initialize_static (context->loaded);
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set
-  vdl_reloc (loaded, g_vdl.bind_now);
+  vdl_reloc (context->loaded, g_vdl.bind_now);
 
   // Once relocations are done, we can initialize the tls blocks
   // and the dtv. We need to wait post-reloc because the tls
@@ -262,7 +245,7 @@ stage2_initialize (struct Stage2Input input)
 
   // patch glibc functions which need to be overriden.
   // This is really a hack I am not very proud of.
-  glibc_patch (loaded);
+  glibc_patch (context->loaded);
 
   // glibc-specific crap to avoid segfault in initializer
   glibc_initialize ();
@@ -270,11 +253,9 @@ stage2_initialize (struct Stage2Input input)
   valgrind_initialize ();
 
   // Finally, call init functions
-  struct VdlList *call_init = vdl_sort_call_init (loaded);
+  struct VdlList *call_init = vdl_sort_call_init (context->loaded);
   vdl_init_fini_call_init (call_init);
   vdl_list_delete (call_init);
-
-  vdl_list_delete (loaded);
 
   unsigned long entry = vdl_file_get_entry_point (main_file);
   if (entry == 0)
@@ -301,34 +282,13 @@ void stage2_freeres (void)
   // from this function. When we return, the caller is going to call
   // the exit_group syscall.
 
-  struct VdlList *link_map = vdl_utils_list_global_linkmap_new ();
-      
-  vdl_files_delete (link_map, false);
-      
-  vdl_utils_str_list_delete (g_vdl.search_dirs);
-  g_vdl.search_dirs = 0;
-
+  struct VdlList *link_map = vdl_linkmap_copy ();      
+  vdl_unmap (link_map, false);
   vdl_list_delete (link_map);
 
   unsigned long tcb = machine_thread_pointer_get ();
   vdl_tls_dtv_deallocate (tcb);
   vdl_tls_tcb_deallocate (tcb);
-
-  {
-    void **i;
-    for (i = vdl_list_begin (g_vdl.errors);
-	 i != vdl_list_end (g_vdl.errors);
-	 i = vdl_list_next (i))
-      {
-	struct VdlError *error = *i;
-	vdl_alloc_free (error->prev_error);
-	vdl_alloc_free (error->error);
-	vdl_alloc_delete (error);
-      }
-    vdl_list_delete (g_vdl.errors);
-  }
-  vdl_list_delete (g_vdl.contexts);
-  g_vdl.contexts = 0;
 }
 
 void
@@ -336,7 +296,7 @@ stage2_finalize (void)
 {
   // The only thing we need to do here is to invoke the destructors
   // in the correct order.
-  struct VdlList *link_map = vdl_utils_list_global_linkmap_new ();
+  struct VdlList *link_map = vdl_linkmap_copy ();
   struct VdlList *call_fini = vdl_sort_call_fini (link_map);
   vdl_init_fini_call_fini (call_fini);
   vdl_list_delete (call_fini);

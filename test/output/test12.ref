@@ -2,5 +2,5 @@ libtest12 constructor
 dlopen failed
 dlopen failed: Unable to load: "libl.so"
 error cleared
-main error: "Unable to map dependencies of "libj.so""
+main error: "Unable to load: "libj.so""
 libtest12 destructor

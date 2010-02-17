@@ -18,7 +18,6 @@ struct Stage2Input
 struct Stage2Output
 {
   unsigned long entry_point;
-  int n_argv_skipped;
 };
 
 struct Stage2Output stage2_initialize (struct Stage2Input input);

@@ -22,18 +22,7 @@ libc_freeres_interceptor (void)
     {
       libc_freeres ();
     }
-
-  if (g_vdl.finalized)
-    {
-      // if __libc_freeres is called while g_vdl.finalized is set to 1, it
-      // means that stage2_finalize has already run which means that
-      // we are called from within exit_group so, we are running under 
-      // valgrind. If this is so, we do perform final shutdown
-      // of everything here. We are allowed to do so because 
-      // this function will return to vgpreload_core and the process
-      // will terminate immediately after.
-      stage1_freeres ();
-    }
+  stage1_freeres ();
 }
 
 void

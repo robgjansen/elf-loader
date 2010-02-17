@@ -6,11 +6,6 @@
 #include "vdl.h"
 #include "vdl-list.h"
 
-void vdl_utils_linkmap_print (void);
-
-struct VdlList * vdl_utils_list_global_linkmap_new (void);
-
-
 // string manipulation functions
 int vdl_utils_strisequal (const char *a, const char *b);
 int vdl_utils_strlen (const char *str);
@@ -36,5 +31,6 @@ unsigned long vdl_utils_align_up (unsigned long v, unsigned long align);
 ElfW(Phdr) *vdl_utils_search_phdr (ElfW(Phdr) *phdr, int phnum, int type);
 
 char *vdl_utils_vprintf (const char *str, va_list args);
+char *vdl_utils_sprintf (const char *str, ...);
 
 #endif /* VDL_UTILS_H */

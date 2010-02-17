@@ -16,6 +16,10 @@
 
 struct Vdl g_vdl;
 
+static int get_file_info (uint32_t phnum,
+			  ElfW(Phdr) *phdr,
+			  struct VdlFileInfo *info);
+
 static void
 print_debug_map (const char *filename, const char *type,
 		 struct VdlFileMap map)
@@ -35,51 +39,6 @@ get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
   unsigned long mapping_size = end - ro_map.mem_start_align;
   return mapping_size;
 }
-
-static void
-file_append (struct VdlFile *item)
-{
-  VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
-  if (g_vdl.link_map == 0)
-    {
-      g_vdl.link_map = item;
-      return;
-    }
-  struct VdlFile *cur = g_vdl.link_map;
-  while (cur->next != 0)
-    {
-      cur = cur->next;
-    }
-  cur->next = item;
-  item->prev = cur;
-  item->next = 0;
-  g_vdl.n_added++;
-}
-void
-file_remove (struct VdlFile *item)
-{
-  VDL_LOG_FUNCTION ("item=\"%s\"", item->name);
-
-  // first, remove them from the global link_map
-  struct VdlFile *next = item->next;
-  struct VdlFile *prev = item->prev;
-  item->next = 0;
-  item->prev = 0;
-  if (prev == 0)
-    {
-      g_vdl.link_map = next;
-    }
-  else
-    {
-      prev->next = next;
-    }
-  if (next != 0)
-    {
-      next->prev = prev;
-    }
-  g_vdl.n_removed++;
-}
-
 static struct VdlFileMap
 file_map_add_load_base (struct VdlFileMap map, unsigned long load_base)
 {
@@ -89,13 +48,16 @@ file_map_add_load_base (struct VdlFileMap map, unsigned long load_base)
   result.mem_anon_start_align += load_base;
   return result;
 }
-struct VdlFile *vdl_file_new (unsigned long load_base,
-			      const struct VdlFileInfo *info,
-			      const char *filename, 
-			      const char *name,
-			      struct VdlContext *context)
+static struct VdlFile *
+file_new (unsigned long load_base,
+	  const struct VdlFileInfo *info,
+	  const char *filename, 
+	  const char *name,
+	  struct VdlContext *context)
 {
   struct VdlFile *file = vdl_alloc_new (struct VdlFile);
+
+  vdl_context_add_file (context, file);
 
   file->load_base = load_base;
   file->filename = vdl_utils_strdup (filename);
@@ -125,14 +87,14 @@ struct VdlFile *vdl_file_new (unsigned long load_base,
   file->name = vdl_utils_strdup (name);
   file->depth = 0;
 
-  file_append (file);
-
   return file;
 }
 
 static void
-vdl_file_delete (struct VdlFile *file, bool mapping)
+file_delete (struct VdlFile *file, bool mapping)
 {
+  vdl_context_remove_file (file->context, file);
+
   if (mapping)
     {
       unsigned long mapping_size = get_total_mapping_size (file->ro_map, file->rw_map);
@@ -143,10 +105,7 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
 	}
     }
 
-  // remove from global linkmap
-  file_remove (file);
-
-  if (vdl_context_get_count (file->context) == 0)
+  if (vdl_context_empty (file->context))
     {
       vdl_context_delete (file->context);
     }
@@ -167,54 +126,9 @@ vdl_file_delete (struct VdlFile *file, bool mapping)
   vdl_alloc_delete (file);
 }
 
-void vdl_files_delete (struct VdlList *files, bool mapping)
-{
-  void **i;
-  for (i = vdl_list_begin (files); i != vdl_list_end (files); i = vdl_list_next (i))
-    {
-      vdl_file_delete (*i, mapping);
-    }
-}
 
-
-ElfW(Dyn) *
-vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag)
-{
-  ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
-  while (cur->d_tag != DT_NULL)
-    {
-      if (cur->d_tag == tag)
-	{
-	  return cur;
-	}
-      cur++;
-    }
-  return 0;
-}
-
-unsigned long
-vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag)
-{
-  ElfW(Dyn) *dyn = vdl_file_get_dynamic (file, tag);
-  if (dyn == 0)
-    {
-      return 0;
-    }
-  return dyn->d_un.d_val;
-}
-
-unsigned long
-vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
-{
-  ElfW(Dyn) *dyn = vdl_file_get_dynamic (file, tag);
-  if (dyn == 0)
-    {
-      return 0;
-    }
-  return file->load_base + dyn->d_un.d_ptr;
-}
-
-static struct VdlList *vdl_file_get_dt_needed (struct VdlFile *file)
+static struct VdlList *
+vdl_file_get_dt_needed (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   struct VdlList *list = vdl_list_new ();
@@ -271,9 +185,10 @@ do_search (const char *name,
     }
   return 0;
 }
-char *vdl_search_filename (const char *name, 
-			   struct VdlList *rpath,
-			   struct VdlList *runpath)
+static char *
+search_filename (const char *name, 
+		 struct VdlList *rpath,
+		 struct VdlList *runpath)
 {
   VDL_LOG_FUNCTION ("name=%s", name);
   if (name[0] != '/')
@@ -362,9 +277,10 @@ file_map_do (struct VdlFileMap map,
       VDL_LOG_ASSERT (address != -1, "Unable to map zero pages\n");
     }
 }
-struct VdlFile *vdl_file_map_single (struct VdlContext *context, 
-				     const char *filename, 
-				     const char *name)
+static struct VdlFile *
+vdl_file_map_single (struct VdlContext *context, 
+		     const char *filename, 
+		     const char *name)
 {
   VDL_LOG_FUNCTION ("context=%p, filename=%s, name=%s", context, filename, name);
   ElfW(Ehdr) header;
@@ -414,7 +330,7 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  if (!vdl_get_file_info (header.e_phnum, phdr, &info))
+  if (!get_file_info (header.e_phnum, phdr, &info))
     {
       VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
@@ -466,9 +382,9 @@ struct VdlFile *vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  struct VdlFile *file = vdl_file_new (load_base, &info, 
-				       filename, name,
-				       context);
+  struct VdlFile *file = file_new (load_base, &info, 
+				   filename, name,
+				   context);
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
@@ -496,21 +412,20 @@ static struct VdlFile *
 find_by_name (struct VdlContext *context,
 	      const char *name)
 {
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+  if (vdl_utils_strisequal (name, "ldso"))
     {
-      if (!vdl_utils_strisequal (cur->name, name))
+      // we want to make sure that all contexts
+      // reuse the same ldso.
+      return g_vdl.ldso;
+    }
+  void **i;
+  for (i = vdl_list_begin (context->loaded);
+       i != vdl_list_end (context->loaded);
+       i = vdl_list_next (i))
+    {
+      struct VdlFile *cur = *i;
+      if (vdl_utils_strisequal (cur->name, name))
 	{
-	  continue;
-	}
-      if (cur->context == context)
-	{
-	  return cur;
-	}
-      if (vdl_utils_strisequal (name, "ldso"))
-	{
-	  // we want to make sure that all contexts
-	  // reuse the same ldso.
 	  return cur;
 	}
     }
@@ -520,11 +435,13 @@ static struct VdlFile *
 find_by_dev_ino (struct VdlContext *context, 
 		 dev_t dev, ino_t ino)
 {
-  struct VdlFile *cur;
-  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+  void **i;
+  for (i = vdl_list_begin (context->loaded);
+       i != vdl_list_end (context->loaded);
+       i = vdl_list_next (i))
     {
-      if (cur->context == context &&
-	  cur->st_dev == dev &&
+      struct VdlFile *cur = *i;
+      if (cur->st_dev == dev &&
 	  cur->st_ino == ino)
 	{
 	  return cur;
@@ -533,35 +450,49 @@ find_by_dev_ino (struct VdlContext *context,
   return 0;
 }
 
-struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
-					   const char *requested_filename,
-					   struct VdlList *rpath,
-					   struct VdlList *runpath,
-					   struct VdlList *loaded)
+struct SingleMapResult
 {
+  struct VdlFile *file;
+  char *error_string;
+  bool newly_mapped;
+};
+
+
+static struct SingleMapResult
+vdl_file_map_single_maybe (struct VdlContext *context,
+			   const char *requested_filename,
+			   struct VdlList *rpath,
+			   struct VdlList *runpath)
+{
+  struct SingleMapResult result;
+  result.error_string = 0;
+  result.newly_mapped = false;
+  result.file = 0;
   // Try to see if we don't have a hardcoded name conversion
   const char *name = vdl_context_lib_remap (context, requested_filename);
   // if the file is already mapped within this context,
   // get it and add it to deps
-  struct VdlFile *file = find_by_name (context, name);
-  if (file != 0)
+  result.file = find_by_name (context, name);
+  if (result.file != 0)
     {
-      return file;
+      return result;
     }
   // Search the file in the filesystem
-  char *filename = vdl_search_filename (name, rpath, runpath);
+  char *filename = search_filename (name, rpath, runpath);
   if (filename == 0)
     {
-      VDL_LOG_ERROR ("Could not find %s\n", name);
-      return 0;
+      result.error_string = vdl_utils_sprintf ("Could not find %s\n", 
+					       name);
+      return result;
     }
   // get information about file.
   struct stat buf;
   if (system_fstat (filename, &buf) == -1)
     {
-      VDL_LOG_ERROR ("Cannot stat %s\n", filename);
+      result.error_string = vdl_utils_sprintf ("Could not stat %s as %s\n", 
+					       name, filename);
       vdl_alloc_free (filename);
-      return 0;
+      return result;
     }
   // If you create a symlink to a binary and link to the
   // symlinks rather than the underlying binary, the DT_NEEDED
@@ -571,21 +502,20 @@ struct VdlFile *vdl_file_map_single_maybe (struct VdlContext *context,
   // already mapped in the same context have the same ino/dev
   // pair. If they do, we don't need to re-map the file
   // and can re-use the previous map.
-  file = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
-  if (file != 0)
+  result.file = find_by_dev_ino (context, buf.st_dev, buf.st_ino);
+  if (result.file != 0)
     {
       vdl_alloc_free (filename);
-      return file;
+      return result;
     }
   // The file is really not yet mapped so, we have to map it
-  file = vdl_file_map_single (context, filename, name);
-  VDL_LOG_ASSERT (file != 0, "The file should be there so this should not fail.");
-
-  vdl_list_push_back (loaded, file);
+  result.file = vdl_file_map_single (context, filename, name);
+  VDL_LOG_ASSERT (result.file != 0, "The file should be there so this should not fail.");
+  result.newly_mapped = true;
 
   vdl_alloc_free (filename);
 
-  return file;
+  return result;
 }
 
 static struct VdlList *
@@ -602,22 +532,25 @@ get_path (struct VdlFile *file, int type)
   return list;
 }
 
-int vdl_file_map_deps_recursive (struct VdlFile *item, 
-				 struct VdlList *caller_rpath,
-				 struct VdlList *loaded)
+char *
+vdl_file_map_deps_recursive (struct VdlFile *item, 
+			     struct VdlList *caller_rpath,
+			     struct VdlList *newly_mapped)
 {
   VDL_LOG_FUNCTION ("file=%s", item->name);
+  char *error = 0;
 
   if (item->deps_initialized)
     {
-      return 1;
+      return error;
     }
   item->deps_initialized = 1;
 
   struct VdlList *rpath = get_path (item, DT_RPATH);
   struct VdlList *runpath = get_path (item, DT_RUNPATH);
   struct VdlList *current_rpath = vdl_list_copy (rpath);
-  vdl_list_insert_range (current_rpath, vdl_list_end (current_rpath),
+  vdl_list_insert_range (current_rpath,
+			 vdl_list_end (current_rpath),
 			 vdl_list_begin (caller_rpath),
 			 vdl_list_end (caller_rpath));
 
@@ -630,16 +563,22 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
        cur != vdl_list_end (dt_needed);
        cur = vdl_list_next (cur))
     {
-      struct VdlFile *dep = vdl_file_map_single_maybe (item->context, *cur,
-						       current_rpath, runpath, loaded);
-      if (dep == 0)
+      struct SingleMapResult tmp_result;
+      tmp_result = vdl_file_map_single_maybe (item->context, *cur,
+					      current_rpath, runpath);
+      if (tmp_result.file == 0)
 	{
 	  // oops, failed to find the requested dt_needed
-	  goto error;
+	  error = tmp_result.error_string;
+	  goto out;
 	}
-      dep->depth = vdl_utils_max (dep->depth, item->depth + 1);
+      if (tmp_result.newly_mapped)
+	{
+	  vdl_list_push_back (newly_mapped, tmp_result.file);
+	}
+      tmp_result.file->depth = vdl_utils_max (tmp_result.file->depth, item->depth + 1);
       // add the new file to the list of dependencies
-      vdl_list_push_back (item->deps, dep);
+      vdl_list_push_back (item->deps, tmp_result.file);
     }
 
   // then, recursively map the deps of each dep.
@@ -647,33 +586,19 @@ int vdl_file_map_deps_recursive (struct VdlFile *item,
        cur != vdl_list_end (item->deps); 
        cur = vdl_list_next (cur))
     {
-      if (!vdl_file_map_deps_recursive (*cur, rpath, loaded))
+      error = vdl_file_map_deps_recursive (*cur, rpath, newly_mapped);
+      if (error != 0)
 	{
-	  goto error;
+	  goto out;
 	}
     }
 
+ out:
   vdl_utils_str_list_delete (rpath);
   vdl_list_delete (current_rpath);
   vdl_utils_str_list_delete (runpath);
   vdl_utils_str_list_delete (dt_needed);
-
-  return 1;
- error:
-  vdl_utils_str_list_delete (dt_needed);
-  vdl_utils_str_list_delete (rpath);
-  vdl_list_delete (current_rpath);
-  vdl_utils_str_list_delete (runpath);
-  vdl_list_clear (loaded);
-  return 0;
-}
-int vdl_file_map_deps (struct VdlFile *item, 
-		       struct VdlList *loaded)
-{
-  struct VdlList *rpath = vdl_list_new ();
-  int status = vdl_file_map_deps_recursive (item, rpath, loaded);
-  vdl_list_delete (rpath);
-  return status;
+  return error;
 }
 static struct VdlFileMap 
 pt_load_to_file_map (const ElfW(Phdr) *phdr)
@@ -702,9 +627,10 @@ pt_load_to_file_map (const ElfW(Phdr) *phdr)
     }
   return map;
 }
-int vdl_get_file_info (uint32_t phnum,
-		       ElfW(Phdr) *phdr,
-		       struct VdlFileInfo *info)
+static int 
+get_file_info (uint32_t phnum,
+	       ElfW(Phdr) *phdr,
+	       struct VdlFileInfo *info)
 {
   VDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
   ElfW(Phdr) *ro = 0, *rw = 0, *dynamic = 0, *cur;
@@ -783,4 +709,222 @@ unsigned long vdl_file_get_entry_point (struct VdlFile *file)
   // so we are safe with this assumption.
   ElfW(Ehdr) *header = (ElfW(Ehdr)*) file->ro_map.mem_start_align;
   return header->e_entry + file->load_base;
+}
+
+void vdl_linkmap_append (struct VdlFile *file)
+{
+  if (g_vdl.link_map == 0)
+    {
+      g_vdl.link_map = file;
+      return;
+    }
+  struct VdlFile *cur = g_vdl.link_map;
+  while (cur->next != 0 && cur != file)
+    {
+      cur = cur->next;
+    }
+  if (cur == file)
+    {
+      return;
+    }
+  cur->next = file;
+  file->prev = cur;
+  file->next = 0;
+  g_vdl.n_added++;
+}
+void vdl_linkmap_append_range (void **begin, void **end)
+{
+  void **i;
+  for (i = begin; i != end; i = vdl_list_next (i))
+    {
+      vdl_linkmap_append (*i);
+    }
+}
+void vdl_linkmap_remove (struct VdlFile *file)
+{
+  // first, remove them from the global link_map
+  struct VdlFile *next = file->next;
+  struct VdlFile *prev = file->prev;
+  file->next = 0;
+  file->prev = 0;
+  if (prev == 0)
+    {
+      g_vdl.link_map = next;
+    }
+  else
+    {
+      prev->next = next;
+    }
+  if (next != 0)
+    {
+      next->prev = prev;
+    }
+  g_vdl.n_removed++;
+}
+void vdl_linkmap_remove_range (void **begin, void **end)
+{
+  void **i;
+  for (i = begin; i != end; i = vdl_list_next (i))
+    {
+      vdl_linkmap_remove (*i);
+    }
+}
+
+struct VdlList *vdl_linkmap_copy (void)
+{
+  struct VdlList *list = vdl_list_new ();
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      vdl_list_push_back (list, cur);
+    }
+  return list;
+}
+
+void vdl_linkmap_print (void)
+{
+  struct VdlFile *cur;
+  for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+    {
+      vdl_log_printf (VDL_LOG_PRINT, 
+		      "load_base=0x%x , file=%s\n"
+		      "\tro_start=0x%x , ro_end=0x%x\n"
+		      "\tro_zero_start=0x%x , ro_zero_end=0x%x\n"
+		      "\tro_anon_start=0x%x , ro_anon_end=0x%x\n"
+		      "\trw_start=0x%x , rw_end=0x%x\n", 
+		      
+		      cur->load_base, 
+		      cur->filename,
+		      cur->ro_map.mem_start_align, 
+		      cur->ro_map.mem_start_align + cur->ro_map.mem_size_align, 
+		      cur->ro_map.mem_zero_start,
+		      cur->ro_map.mem_zero_start + cur->ro_map.mem_zero_size,
+		      cur->ro_map.mem_anon_start_align,
+		      cur->ro_map.mem_anon_start_align + cur->ro_map.mem_anon_size_align,
+		      cur->rw_map.mem_start_align, 
+		      cur->rw_map.mem_start_align + cur->rw_map.mem_size_align);
+    }
+}
+
+struct VdlMapResult 
+vdl_map_from_memory (unsigned long load_base,
+		     uint32_t phnum,
+		     ElfW(Phdr) *phdr,
+		     // a fully-qualified path to the file
+		     // represented by the phdr
+		     const char *path, 
+		     // a non-fully-qualified filename
+		     const char *filename,
+		     struct VdlContext *context)
+{
+  struct VdlMapResult result;
+  struct VdlFileInfo info;
+  int status;
+
+  result.requested = 0;
+  result.newly_mapped = vdl_list_new ();
+  result.error_string = 0;
+  status = get_file_info (phnum, phdr, &info);
+  if (status == 0)
+    {
+      result.error_string = vdl_utils_sprintf ("Unable to obtain mapping information for %s/%s",
+					       path, filename);
+      goto out;
+    }
+  struct VdlFile *file = file_new (load_base, &info,
+				   path, filename, context);
+  vdl_list_push_back (result.newly_mapped, file);  
+
+  struct VdlList *empty = vdl_list_new ();
+  result.error_string = vdl_file_map_deps_recursive (file, empty, 
+						     result.newly_mapped);
+  if (result.error_string == 0)
+    {
+      result.requested = file;
+    }
+  vdl_list_delete (empty);
+
+ out:
+  return result;
+}
+
+struct VdlMapResult 
+vdl_map_from_filename (struct VdlContext *context, 
+		       const char *filename)
+{
+  struct VdlMapResult result;
+  struct SingleMapResult single;
+  struct VdlList *empty = vdl_list_new ();
+  result.requested = 0;
+  result.error_string = 0;
+  result.newly_mapped = vdl_list_new ();
+  single = vdl_file_map_single_maybe (context,
+				      filename,
+				      empty,
+				      empty);
+  if (single.file == 0)
+    {
+      result.error_string = single.error_string;
+      vdl_list_delete (empty);
+      return result;
+    }
+  if (single.newly_mapped)
+    {
+      vdl_list_push_back (result.newly_mapped, single.file);
+    }
+  result.error_string = vdl_file_map_deps_recursive (single.file, empty, 
+						     result.newly_mapped);
+  if (result.error_string == 0)
+    {
+      result.requested = single.file;
+    }
+      vdl_list_delete (empty);
+  return result;
+}
+
+
+void vdl_unmap (struct VdlList *files, bool mapping)
+{
+  void **i;
+  for (i = vdl_list_begin (files); i != vdl_list_end (files); i = vdl_list_next (i))
+    {
+      file_delete (*i, mapping);
+    }
+}
+
+ElfW(Dyn) *
+vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag)
+{
+  ElfW(Dyn) *cur = (ElfW(Dyn)*)file->dynamic;
+  while (cur->d_tag != DT_NULL)
+    {
+      if (cur->d_tag == tag)
+	{
+	  return cur;
+	}
+      cur++;
+    }
+  return 0;
+}
+
+unsigned long
+vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag)
+{
+  ElfW(Dyn) *dyn = vdl_file_get_dynamic (file, tag);
+  if (dyn == 0)
+    {
+      return 0;
+    }
+  return dyn->d_un.d_val;
+}
+
+unsigned long
+vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag)
+{
+  ElfW(Dyn) *dyn = vdl_file_get_dynamic (file, tag);
+  if (dyn == 0)
+    {
+      return 0;
+    }
+  return file->load_base + dyn->d_un.d_ptr;
 }

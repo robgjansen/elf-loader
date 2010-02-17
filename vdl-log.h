@@ -1,6 +1,9 @@
 #ifndef VDL_LOG_H
 #define VDL_LOG_H
 
+// for system_exit in VDL_LOG_ASSERT
+#include "system.h"
+
 enum VdlLog {
   VDL_LOG_FUNC     = (1<<0),
   VDL_LOG_DBG      = (1<<1),

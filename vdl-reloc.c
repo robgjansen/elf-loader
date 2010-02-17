@@ -5,6 +5,7 @@
 #include "vdl-list.h"
 #include "vdl-lookup.h"
 #include "vdl-utils.h"
+#include "futex.h"
 #include "vdl-mem.h"
 #include <stdbool.h>
 
@@ -214,7 +215,7 @@ unsigned long
 vdl_reloc_offset_jmprel (struct VdlFile *file, 
 			 unsigned long offset)
 {
-  futex_lock (&g_vdl.futex);
+  futex_lock (g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
   unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
   unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
@@ -223,7 +224,7 @@ vdl_reloc_offset_jmprel (struct VdlFile *file,
       dt_pltrelsz == 0 || 
       dt_jmprel == 0)
     {
-      futex_unlock (&g_vdl.futex);
+      futex_unlock (g_vdl.futex);
       return 0;
     }
   VDL_LOG_ASSERT (offset < dt_pltrelsz, 
@@ -240,7 +241,7 @@ vdl_reloc_offset_jmprel (struct VdlFile *file,
       ElfW(Rela) *rela = (ElfW(Rela)*)(dt_jmprel+offset);
       symbol = process_rela (file, rela);
     }
-  futex_unlock (&g_vdl.futex);
+  futex_unlock (g_vdl.futex);
   return symbol;
 }
 
@@ -249,7 +250,7 @@ vdl_reloc_index_jmprel (struct VdlFile *file,
 			unsigned long index)
 {
   VDL_LOG_FUNCTION ("file=%s, index=%lu", file->name, index);
-  futex_lock (&g_vdl.futex);
+  futex_lock (g_vdl.futex);
   unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
   unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
   unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
@@ -258,7 +259,7 @@ vdl_reloc_index_jmprel (struct VdlFile *file,
       dt_pltrelsz == 0 || 
       dt_jmprel == 0)
     {
-      futex_unlock (&g_vdl.futex);
+      futex_unlock (g_vdl.futex);
       return 0;
     }
   unsigned long symbol;
@@ -276,7 +277,7 @@ vdl_reloc_index_jmprel (struct VdlFile *file,
       ElfW(Rela) *rela = &((ElfW(Rela)*)dt_jmprel)[index];
       symbol = process_rela (file, rela);
     }
-  futex_unlock (&g_vdl.futex);
+  futex_unlock (g_vdl.futex);
   return symbol;
 }
 
