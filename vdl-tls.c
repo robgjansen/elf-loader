@@ -38,6 +38,7 @@ allocate_tls_index (void)
 	}
       if (cur == vdl_list_end (linkmap))
 	{
+	  vdl_list_delete (linkmap);
 	  return i;
 	}
     }
