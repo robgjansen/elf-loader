@@ -12,7 +12,6 @@
 #include "machine.h"
 #include "futex.h"
 #include "macros.h"
-#include "vdl-init-fini.h"
 #include "vdl-sort.h"
 #include "vdl-context.h"
 #include "vdl-alloc.h"
@@ -20,6 +19,8 @@
 #include "vdl-file.h"
 #include "vdl-map.h"
 #include "vdl-unmap.h"
+#include "vdl-init.h"
+#include "vdl-fini.h"
 
 static struct VdlError *find_error (void)
 {
@@ -244,7 +245,7 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
   // to avoid a deadlock if one of them calls dlopen or
   // a symbol resolution function
   futex_unlock (g_vdl.futex);
-  vdl_init_fini_call_init (call_init);
+  vdl_init_call (call_init);
   futex_lock (g_vdl.futex);
 
   // must hold the lock to call free
@@ -340,7 +341,7 @@ int vdl_dlclose (void *handle)
 
   // must not hold the lock to call fini
   futex_unlock (g_vdl.futex);
-  vdl_init_fini_call_fini (call_fini);
+  vdl_fini_call (call_fini);
   futex_lock (g_vdl.futex);
 
   vdl_list_delete (call_fini);

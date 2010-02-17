@@ -13,13 +13,14 @@
 #include "stage2.h"
 #include "vdl-gc.h"
 #include "vdl-tls.h"
-#include "vdl-init-fini.h"
 #include "vdl-sort.h"
 #include "vdl-context.h"
 #include "vdl-linkmap.h"
 #include "vdl-map.h"
 #include "vdl-file.h"
 #include "vdl-unmap.h"
+#include "vdl-init.h"
+#include "vdl-fini.h"
 
 
 static unsigned long 
@@ -281,7 +282,7 @@ stage2_initialize (struct Stage2Input input)
 
   // Finally, call init functions
   struct VdlList *call_init = vdl_sort_call_init (context->loaded);
-  vdl_init_fini_call_init (call_init);
+  vdl_init_call (call_init);
   vdl_list_delete (call_init);
 
   unsigned long entry = get_entry_point (main_load_base,
@@ -327,7 +328,7 @@ stage2_finalize (void)
   // in the correct order.
   struct VdlList *link_map = vdl_linkmap_copy ();
   struct VdlList *call_fini = vdl_sort_call_fini (link_map);
-  vdl_init_fini_call_fini (call_fini);
+  vdl_fini_call (call_fini);
   vdl_list_delete (call_fini);
   vdl_list_delete (link_map);
 }
