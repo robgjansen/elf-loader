@@ -1,5 +1,6 @@
 #include "gdb.h"
 #include "vdl.h"
+#include "vdl-file.h"
 #include <elf.h>
 #include <link.h>
 

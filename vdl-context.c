@@ -3,6 +3,7 @@
 #include "vdl-utils.h"
 #include "vdl-alloc.h"
 #include "vdl-log.h"
+#include "vdl-unmap.h"
 
 bool
 vdl_context_empty (const struct VdlContext *context)

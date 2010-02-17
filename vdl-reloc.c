@@ -7,6 +7,7 @@
 #include "vdl-utils.h"
 #include "futex.h"
 #include "vdl-mem.h"
+#include "vdl-file.h"
 #include <stdbool.h>
 
 static bool

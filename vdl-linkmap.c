@@ -1,6 +1,7 @@
 #include "vdl-linkmap.h"
 #include "vdl-list.h"
 #include "vdl.h"
+#include "vdl-file.h"
 #include "vdl-log.h"
 
 void vdl_linkmap_append (struct VdlFile *file)

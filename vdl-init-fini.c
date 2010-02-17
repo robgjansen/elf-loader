@@ -3,6 +3,7 @@
 #include "vdl-log.h"
 #include "vdl-sort.h"
 #include "vdl-context.h"
+#include "vdl-file.h"
 
 
 typedef void (*fini_function) (void);

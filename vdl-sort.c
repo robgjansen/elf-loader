@@ -1,6 +1,7 @@
 #include "vdl-sort.h"
 #include "vdl-list.h"
 #include "vdl-utils.h"
+#include "vdl-file.h"
 #include <stdint.h>
 
 static uint32_t

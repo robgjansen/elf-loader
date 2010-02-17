@@ -10,6 +10,7 @@
 #include "vdl-sort.h"
 #include "vdl-config.h"
 #include "vdl-mem.h"
+#include "vdl-file.h"
 #include "futex.h"
 #include "macros.h"
 #include <elf.h>

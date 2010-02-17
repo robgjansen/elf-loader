@@ -1,10 +1,13 @@
 #ifndef VDL_LOOKUP_H
 #define VDL_LOOKUP_H
 
-#include "vdl.h"
 #include <elf.h>
 #include <link.h>
 #include <stdbool.h>
+
+struct VdlContext;
+struct VdlFile;
+struct VdlList;
 
 struct VdlLookupResult
 {

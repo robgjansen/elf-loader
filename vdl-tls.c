@@ -8,6 +8,8 @@
 #include "vdl-mem.h"
 #include "vdl-alloc.h"
 #include "machine.h"
+#include "vdl-linkmap.h"
+#include "vdl-file.h"
 
 static unsigned long
 allocate_tls_index (void)
@@ -20,19 +22,21 @@ allocate_tls_index (void)
   unsigned long i;
   unsigned long ul_max = 0;
   ul_max = ~ul_max;
+  struct VdlList *linkmap = vdl_linkmap_copy ();
   for (i = 1; i < ul_max; i++)
     {
-      struct VdlFile *cur;
-      for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
+      void **cur;
+      for (cur = vdl_list_begin (linkmap); cur != vdl_list_end (linkmap); cur = vdl_list_next (cur))
 	{
-	  if (cur->tls_initialized &&
-	      cur->has_tls && 
-	      cur->tls_index == i)
+	  struct VdlFile *item = *cur;
+	  if (item->tls_initialized &&
+	      item->has_tls && 
+	      item->tls_index == i)
 	    {
 	      break;
 	    }
 	}
-      if (cur == 0)
+      if (cur == vdl_list_end (linkmap))
 	{
 	  return i;
 	}

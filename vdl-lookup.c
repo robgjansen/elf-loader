@@ -3,6 +3,7 @@
 #include "vdl-utils.h"
 #include "vdl-list.h"
 #include "vdl-context.h"
+#include "vdl-file.h"
 #include <stdint.h>
 
 static uint32_t
@@ -65,7 +66,8 @@ vdl_lookup_file_begin (const struct VdlFile *file,
 		       unsigned long elf_hash,
 		       uint32_t gnu_hash)
 {
-  VDL_LOG_FUNCTION ("name=%s, elf_hash=0x%lx, gnu_hash=0x%x, file=%s", name, elf_hash, gnu_hash, file->filename);
+  VDL_LOG_FUNCTION ("name=%s, elf_hash=0x%lx, gnu_hash=0x%x, file=%s", 
+		    name, elf_hash, gnu_hash, file->filename);
   struct VdlFileLookupIterator i;
   i.name = name;
   // first, gather information needed to look into the hash table
@@ -518,19 +520,19 @@ vdl_lookup (struct VdlFile *file,
   struct VdlList *second = 0;
   switch (file->lookup_type)
     {
-    case LOOKUP_LOCAL_GLOBAL:
+    case FILE_LOOKUP_LOCAL_GLOBAL:
       first = file->local_scope;
       second = file->context->global_scope;
       break;
-    case LOOKUP_GLOBAL_LOCAL:
+    case FILE_LOOKUP_GLOBAL_LOCAL:
       first = file->context->global_scope;
       second = file->local_scope;
       break;
-    case LOOKUP_GLOBAL_ONLY:
+    case FILE_LOOKUP_GLOBAL_ONLY:
       first = file->context->global_scope;
       second = 0;
       break;
-    case LOOKUP_LOCAL_ONLY:
+    case FILE_LOOKUP_LOCAL_ONLY:
       first = file->local_scope;
       second = 0;
       break;

@@ -52,7 +52,9 @@ $(ARCH)/machine.c $(ARCH)/resolv.S \
 vdl-init-fini.c vdl-sort.c  \
 vdl-mem.c \
 vdl-list.c vdl-context.c \
-vdl-alloc.c vdl-linkmap.c
+vdl-alloc.c vdl-linkmap.c \
+vdl-map.c vdl-unmap.c \
+vdl-file.c
 LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
 interp.c gdb.c glibc.c \
 stage1.c stage2.c  \

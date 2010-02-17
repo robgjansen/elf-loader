@@ -17,6 +17,9 @@
 #include "vdl-context.h"
 #include "vdl-alloc.h"
 #include "vdl-linkmap.h"
+#include "vdl-file.h"
+#include "vdl-map.h"
+#include "vdl-unmap.h"
 
 static struct VdlError *find_error (void)
 {
@@ -216,11 +219,11 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
 			     vdl_list_end (scope));
       if (flags & RTLD_DEEPBIND)
 	{
-	  item->lookup_type = LOOKUP_LOCAL_GLOBAL;
+	  item->lookup_type = FILE_LOOKUP_LOCAL_GLOBAL;
 	}
       else
 	{
-	  item->lookup_type = LOOKUP_GLOBAL_LOCAL;
+	  item->lookup_type = FILE_LOOKUP_GLOBAL_LOCAL;
 	}
     }
   vdl_list_delete (scope);

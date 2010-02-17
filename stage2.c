@@ -17,6 +17,45 @@
 #include "vdl-sort.h"
 #include "vdl-context.h"
 #include "vdl-linkmap.h"
+#include "vdl-map.h"
+#include "vdl-file.h"
+#include "vdl-unmap.h"
+
+
+static unsigned long 
+get_entry_point (unsigned long load_base,
+		 unsigned long phnum,
+		 ElfW(Phdr) *phdr)
+{
+  ElfW(Phdr) *pt_load = vdl_utils_search_phdr (phdr, phnum, PT_LOAD);
+  if (pt_load == 0)
+    {
+      // should never happen: there should always be a PT_LOAD entry
+      return 0;
+    }
+  if (pt_load->p_offset > 0 || pt_load->p_filesz < sizeof(ElfW(Ehdr)))
+    {
+      // should never happen: the elf header should always be mapped
+      // within the first PT_LOAD entry.
+      return 0;
+    }
+  ElfW(Ehdr) *header = (ElfW(Ehdr)*)(pt_load->p_vaddr + load_base);
+  return header->e_entry + load_base;
+}
+
+static char *
+get_pt_interp (unsigned long main_load_base,
+	       unsigned long phnum,
+	       ElfW(Phdr) *phdr)
+{
+  // will not work when main exec is loader itself
+  ElfW(Phdr) *pt_interp = vdl_utils_search_phdr (phdr, phnum, PT_INTERP);
+  if (pt_interp == 0)
+    {
+      return 0;
+    }
+  return (char*)(main_load_base + pt_interp->p_vaddr);
+}
 
 
 static struct VdlMapResult
@@ -114,19 +153,6 @@ setup_env_vars (const char **envp)
     {
       g_vdl.bind_now = 1;
     }
-}
-
-static char *get_pt_interp (unsigned long main_load_base,
-			    unsigned long phnum,
-			    ElfW(Phdr) *phdr)
-{
-  // will not work when main exec is loader itself
-  ElfW(Phdr) *pt_interp = vdl_utils_search_phdr (phdr, phnum, PT_INTERP);
-  if (pt_interp == 0)
-    {
-      return 0;
-    }
-  return (char*)(main_load_base + pt_interp->p_vaddr);
 }
 
 struct Stage2Output
@@ -258,7 +284,9 @@ stage2_initialize (struct Stage2Input input)
   vdl_init_fini_call_init (call_init);
   vdl_list_delete (call_init);
 
-  unsigned long entry = vdl_file_get_entry_point (main_file);
+  unsigned long entry = get_entry_point (main_load_base,
+					 input.program_phnum, 
+					 input.program_phdr);
   if (entry == 0)
     {
       VDL_LOG_ERROR ("Zero entry point: nothing to do in %s\n", main_file->name);
