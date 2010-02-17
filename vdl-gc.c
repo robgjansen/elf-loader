@@ -3,6 +3,7 @@
 #include "vdl-list.h"
 #include "vdl.h"
 #include "vdl-log.h"
+#include "vdl-linkmap.h"
 
 enum {
   VDL_GC_BLACK = 0,

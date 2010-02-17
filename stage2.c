@@ -16,6 +16,7 @@
 #include "vdl-init-fini.h"
 #include "vdl-sort.h"
 #include "vdl-context.h"
+#include "vdl-linkmap.h"
 
 
 static struct VdlMapResult

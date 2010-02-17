@@ -16,6 +16,7 @@
 #include "vdl-sort.h"
 #include "vdl-context.h"
 #include "vdl-alloc.h"
+#include "vdl-linkmap.h"
 
 static struct VdlError *find_error (void)
 {

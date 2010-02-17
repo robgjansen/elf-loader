@@ -228,13 +228,6 @@ struct VdlMapResult
 
 extern struct Vdl g_vdl;
 
-void vdl_linkmap_append (struct VdlFile *file);
-void vdl_linkmap_append_range (void **begin, void **end);
-void vdl_linkmap_remove (struct VdlFile *file);
-void vdl_linkmap_remove_range (void **begin, void **end);
-struct VdlList *vdl_linkmap_copy (void);
-void vdl_linkmap_print (void);
-
 struct VdlMapResult vdl_map_from_memory (unsigned long load_base,
 					 uint32_t phnum,
 					 ElfW(Phdr) *phdr,
