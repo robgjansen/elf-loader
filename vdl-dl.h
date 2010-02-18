@@ -24,6 +24,7 @@ int vdl_dlinfo (void *handle, int request, void *p);
 void *vdl_dlmopen (Lmid_t lmid, const char *filename, int flag);
 // create a new linkmap
 Lmid_t vdl_dl_lmid_new (int argc, char **argv, char **envp);
+void vdl_dl_lmid_delete (Lmid_t lmid);
 int vdl_dl_add_callback (Lmid_t lmid, 
 			 void (*cb) (void *handle, int event, void *context),
 			 void *cb_context);

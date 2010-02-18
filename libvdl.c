@@ -49,6 +49,10 @@ EXPORT Lmid_t dl_lmid_new (int argc, char **argv, char **envp)
 {
   return vdl_dl_lmid_new_public (argc, argv, envp);
 }
+EXPORT void dl_lmid_delete (Lmid_t lmid)
+{
+  return vdl_dl_lmid_delete_public (lmid);
+}
 EXPORT int dl_add_callback (Lmid_t lmid, 
 			    void (*cb) (void *handle, int event, void *context),
 			    void *cb_context)

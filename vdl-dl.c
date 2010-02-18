@@ -701,6 +701,27 @@ Lmid_t vdl_dl_lmid_new (int argc, char **argv, char **envp)
   futex_unlock (g_vdl.futex);
   return lmid;
 }
+void vdl_dl_lmid_delete (Lmid_t lmid)
+{
+  futex_lock (g_vdl.futex);
+  struct VdlContext *context = (struct VdlContext *) lmid;
+  if (search_context (context) == 0)
+    {
+      goto out;
+    }
+  vdl_tls_file_deinitialize (context->loaded);
+
+  // update the linkmap before unmapping
+  vdl_linkmap_remove_range (vdl_list_begin (context->loaded),
+			    vdl_list_end (context->loaded));
+  vdl_unmap (context->loaded, true);
+
+  vdl_context_delete (context);
+
+  gdb_notify ();
+ out:
+  futex_unlock (g_vdl.futex);
+}
 int vdl_dl_add_callback (Lmid_t lmid, 
 			 void (*cb) (void *handle, int event, void *context),
 			 void *cb_context)

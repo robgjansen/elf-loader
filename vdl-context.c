@@ -174,8 +174,6 @@ vdl_context_delete (struct VdlContext *context)
   vdl_list_delete (context->global_scope);
   context->global_scope = 0;
 
-  // force the unmapping of any file left in here.
-  vdl_unmap (context->loaded, false);
   vdl_list_delete (context->loaded);
   context->loaded = 0;
 
