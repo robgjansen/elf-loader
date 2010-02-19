@@ -7,7 +7,6 @@ CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-M
 CXXFLAGS=$(CFLAGS)
 LDFLAGS=$(OPT)
 
-#we need libgcc for 64bit arithmetic functions
 PWD=$(shell pwd)
 ARCH=$(shell uname -m)
 ifeq ($(ARCH),i586)
@@ -73,7 +72,7 @@ ldso: $(LDSO_OBJECTS) ldso.version
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso:
-	$(CC) $(LDFLAGS) -static-libgcc -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS)
+	$(CC) $(LDFLAGS) -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) -Wl,-Bstatic,-lgcc
 
 # we have two generated files and need to build them.
 ldso.version: readversiondef vdl-dl.version
