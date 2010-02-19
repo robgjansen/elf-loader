@@ -427,7 +427,10 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 				enum VdlLookupFlag flags,
 				struct VdlList *scope)
 {
-  VDL_LOG_FUNCTION ("name=%s, elf_hash=0x%lx, gnu_hash=0x%x, scope=%p", name, elf_hash, gnu_hash, scope);
+  VDL_LOG_FUNCTION ("name=%s, ver_name=%s, ver_filename=%s, elf_hash=0x%lx, gnu_hash=0x%x, "
+		    "ver_hash=0x%x, flags=0x%x, scope=%p", 
+		    name, (ver_name!=0)?ver_name:"",(ver_filename!=0)?ver_filename:"",
+		    elf_hash, gnu_hash, ver_hash, flags, scope);
 
   // then, iterate scope until we find the requested symbol.
   void **cur;
