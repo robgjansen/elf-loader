@@ -39,30 +39,28 @@ FORCE:
 
 LDSO_ARCH_SRC=\
 
-LDSO_COMMON_SOURCE=\
+LDSO_SOURCE=\
 avprintf-cb.c \
 dprintf.c vdl-utils.c vdl-log.c \
 vdl.c system.c alloc.c \
 vdl-reloc.c \
 vdl-gc.c vdl-lookup.c \
 futex.c vdl-tls.c \
+$(ARCH)/stage0.S \
 $(ARCH)/machine.c $(ARCH)/resolv.S \
 vdl-sort.c vdl-mem.c \
 vdl-list.c vdl-context.c \
 vdl-alloc.c vdl-linkmap.c \
 vdl-map.c vdl-unmap.c \
 vdl-file.c vdl-init.c \
-vdl-fini.c
-LDSO_SOURCE=$(LDSO_COMMON_SOURCE) \
+vdl-fini.c \
 interp.c gdb.c glibc.c \
 stage1.c stage2.c  \
-$(ARCH)/stage0.S vdl-dl.c \
+vdl-dl.c \
 vdl-dl-public.c valgrind.c
 SOURCE=$(LDSO_FULL_SOURCE) libvdl.c elfedit.c readversiondef.c
 
 LDSO_OBJECTS=$(addsuffix .o,$(basename $(LDSO_SOURCE)))
-LDSO_COMMON_OBJECTS=$(addsuffix .o,$(basename $(LDSO_COMMON_SOURCE)))
-
 
 
 ldso: $(LDSO_OBJECTS) ldso.version
