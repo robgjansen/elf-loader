@@ -17,11 +17,9 @@ endif
 ifeq ($(ARCH),i386)
 LDSO_FILE=/lib/ld-linux.so.2
 LIBDL_FILE=/lib/libdl.so.2
-LDSO_DEBUG_FILE=/usr/lib/debug/ld-linux.so.2
 else ifeq ($(ARCH),x86_64)
 LDSO_FILE=/lib64/ld-linux-x86-64.so.2
 LIBDL_FILE=/lib64/libdl.so.2
-LDSO_DEBUG_FILE=/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug
 endif
 
 all: ldso libvdl.so elfedit internal-tests display-relocs
@@ -76,7 +74,7 @@ ldso:
 ldso.version: readversiondef vdl-dl.version
 	./readversiondef $(LDSO_FILE) | cat vdl-dl.version - > $@
 vdl-config.h:
-	./extract-system-config.py --debug=$(LDSO_DEBUG_FILE) >$@
+	./extract-system-config.py >$@
 # build the program used to generate ldso.version
 readversiondef.o: readversiondef.c
 	$(CC) $(CFLAGS) -c -o $@ $^
