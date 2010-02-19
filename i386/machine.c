@@ -6,6 +6,7 @@
 #include "vdl-lookup.h"
 #include "vdl-config.h"
 #include "vdl-file.h"
+#include "vdl-mem.h"
 #include "syscall.h"
 #include <sys/mman.h>
 #include <asm/ldt.h>
@@ -225,7 +226,7 @@ bool machine_insert_trampoline (unsigned long from, unsigned long to,
 void machine_thread_pointer_set (unsigned long tp)
 {
   struct user_desc desc;
-  vdl_utils_memset (&desc, 0, sizeof (desc));
+  vdl_memset (&desc, 0, sizeof (desc));
   desc.entry_number = -1; // ask kernel to allocate an entry number
   desc.base_addr = tp;
   desc.limit = 0xfffff; // maximum memory address in number of pages (4K) -> 4GB
@@ -333,7 +334,7 @@ long int machine_syscall1 (int name,
 			"int $0x80\n\t"
 			"popl %%ebx\n\t"
 			: "=a" (resultvar)
-			: "i" (name) , "acdSD" (a1) : "memory", "cc");
+			: "0" (name) , "acdSD" (a1) : "memory", "cc");
   return resultvar;
 }
 long int machine_syscall2 (int name,
@@ -349,7 +350,7 @@ long int machine_syscall2 (int name,
 			"popl %%ecx\n\t"
 			"popl %%ebx\n\t"
 			: "=a" (resultvar)
-			: "i" (name) , "acSD" (a1),
+			: "0" (name) , "acSD" (a1),
 			  "c" (a2) : "memory", "cc");
   return resultvar;
 }
@@ -370,7 +371,7 @@ long int machine_syscall3 (int name,
 			"popl %%ecx\n\t"
 			"popl %%ebx\n\t"
 			: "=a" (resultvar)
-			: "i" (name) , "aSD" (a1),
+			: "0" (name) , "aSD" (a1),
 			  "c" (a2), "d" (a3) : "memory", "cc");
   return resultvar;
 }
@@ -402,7 +403,7 @@ long int machine_syscall6 (int name,
 			"popl %%ecx\n\t"
 			"popl %%ebx\n\t"
 			: "=a" (resultvar)
-			: "i" (name) , "a" (arg1),
+			: "0" (name) , "a" (arg1),
 			  "c" (arg2), "d" (arg3), "S" (arg4),
 			  "D" (arg5), "m" (a6)
 			: "memory", "cc");
