@@ -1,4 +1,5 @@
 CFLAGS=-g3 -Wall -Werror
+CXXFLAGS=$(CFLAGS)
 LDFLAGS=-Wl,--warn-unresolved-symbols -L.
 LINKER=$(CC)
 
