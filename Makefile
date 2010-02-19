@@ -8,7 +8,6 @@ CXXFLAGS=$(CFLAGS)
 LDFLAGS=$(OPT)
 
 #we need libgcc for 64bit arithmetic functions
-LIBGCC=$(shell gcc --print-libgcc-file-name)
 PWD=$(shell pwd)
 ARCH=$(shell uname -m)
 ifeq ($(ARCH),i586)
@@ -74,7 +73,7 @@ ldso: $(LDSO_OBJECTS) ldso.version
 %.o:%.S
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso:
-	$(CC) $(LDFLAGS) -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) $(LIBGCC)
+	$(CC) $(LDFLAGS) -static-libgcc -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS)
 
 # we have two generated files and need to build them.
 ldso.version: readversiondef vdl-dl.version
