@@ -5,6 +5,7 @@
 #include "vdl-reloc.h"
 #include "vdl-lookup.h"
 #include "vdl-config.h"
+#include "vdl-file.h"
 #include "syscall.h"
 #include <sys/mman.h>
 #include <asm/ldt.h>
