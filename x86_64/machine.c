@@ -113,9 +113,11 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
     ITEM(X86_64_DTPOFF32);
     ITEM(X86_64_GOTTPOFF);
     ITEM(X86_64_TPOFF32);
+#ifdef R_X86_64_PC64
     ITEM(X86_64_PC64);
     ITEM(X86_64_GOTOFF64);
     ITEM(X86_64_GOTPC32);
+#endif /* unsupported on ubuntu 64 */
   default:
     return "XXX";
   }
