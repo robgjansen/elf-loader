@@ -403,9 +403,9 @@ long int machine_syscall6 (int name,
 			"popl %%ecx\n\t"
 			"popl %%ebx\n\t"
 			: "=a" (resultvar)
-			: "0" (name) , "a" (arg1),
-			  "c" (arg2), "d" (arg3), "S" (arg4),
-			  "D" (arg5), "m" (a6)
+			: "a" (name) , "c" (arg1),
+			  "d" (arg2), "S" (arg3), "D" (arg4),
+			  "m" (arg5), "m" (a6)
 			: "memory", "cc");
   return resultvar;
 }
