@@ -94,6 +94,10 @@ int main (int argc, char *argv[])
 	      local_passthru_printed = 1;
 	      printf ("local:*;\n};\n");
 	    }
+	  else
+	    {
+	      printf ("};\n");
+	    }
 	}
       else
 	{
