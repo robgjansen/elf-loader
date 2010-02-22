@@ -74,8 +74,8 @@ by:
   c. run your-binary
 
 LD_LOG=function is a nice debugging tool.
-LD_LOG=symbols-ok shows the list of symbols successfully resolved
-LD_LOG=symbols-fail shows the list of symbols unsuccessfully resolved
+LD_LOG=symbol-ok shows the list of symbols successfully resolved
+LD_LOG=symbol-fail shows the list of symbols unsuccessfully resolved
 
 5) What is this thing doing extra over the glibc loader ?
 ---------------------------------------------------------
