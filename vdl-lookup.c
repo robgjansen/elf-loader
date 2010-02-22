@@ -71,10 +71,10 @@ vdl_lookup_file_begin (const struct VdlFile *file,
   struct VdlFileLookupIterator i;
   i.name = name;
   // first, gather information needed to look into the hash table
-  i.dt_strtab = (const char *) vdl_file_get_dynamic_p (file, DT_STRTAB);
-  i.dt_symtab = (ElfW(Sym)*) vdl_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_HASH);
-  uint32_t *dt_gnu_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_GNU_HASH);
+  i.dt_strtab = file->dt_strtab;
+  i.dt_symtab = file->dt_symtab;
+  ElfW(Word) *dt_hash = file->dt_hash;
+  uint32_t *dt_gnu_hash = file->dt_gnu_hash;
 
   if (i.dt_strtab == 0 || i.dt_symtab == 0)
     {
@@ -284,7 +284,7 @@ symbol_version_matches (const struct VdlFile *in,
 			unsigned long from_ver_hash,
 			unsigned long in_index)
 {
-  ElfW(Half) *in_dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (in, DT_VERSYM);
+  ElfW(Half) *in_dt_versym = in->dt_versym;
   if (from_ver_name == 0 || from_ver_filename == 0)
     {
       // we have no version requirement.
@@ -313,8 +313,8 @@ symbol_version_matches (const struct VdlFile *in,
   else
     {
       // ok, so, now, we have version requirements information.
-      ElfW(Verdef) *in_dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (in, DT_VERDEF);
-      ElfW(Verneed) *in_dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (in, DT_VERNEED);
+      ElfW(Verdef) *in_dt_verdef = in->dt_verdef;
+      ElfW(Verneed) *in_dt_verneed = in->dt_verneed;
 
       if (in_dt_versym == 0)
 	{
@@ -360,7 +360,7 @@ symbol_version_matches (const struct VdlFile *in,
 	      return VERSION_MATCH_BAD;
 	    }
 	}
-      const char *in_dt_strtab = (const char *)vdl_file_get_dynamic_p (in, DT_STRTAB);
+      const char *in_dt_strtab = in->dt_strtab;
       // try to lookup a matching version in the verdef array
       {
 	ElfW(Verdef) *cur, *prev;

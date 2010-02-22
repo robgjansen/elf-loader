@@ -9,7 +9,11 @@
 
 struct VdlLookupResult;
 
+// returns whether the type of reloc is a R_XXX_RELATIVE relocation
+// entry. The input to this function is the output of the ELFXX_TYPE macro.
 bool machine_reloc_is_relative (unsigned long reloc_type);
+// returns whether the type of reloc is a R_XXX_COPY relocation entry
+// the input to this function is the output of the ELFXX_TYPE macro.
 bool machine_reloc_is_copy (unsigned long reloc_type);
 void machine_reloc_without_match (struct VdlFile *file,
 				  unsigned long *reloc_addr,
@@ -21,6 +25,7 @@ void machine_reloc_with_match (unsigned long *reloc_addr,
 			       unsigned long reloc_addend,
 			       const struct VdlLookupResult *match);
 const char *machine_reloc_type_to_str (unsigned long reloc_type);
+void machine_reloc_dynamic (ElfW(Dyn) *dyn);
 bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size);
 void machine_lazy_reloc (struct VdlFile *file);
 // return old value

@@ -132,10 +132,10 @@ void machine_lazy_reloc (struct VdlFile *file)
   // as the i386 ABI here.
   // Entry 2 is set to a pointer to the associated VdlFile
   // Entry 3 is set to the asm trampoline machine_resolve_trampoline
-  unsigned long dt_pltgot = vdl_file_get_dynamic_p (file, DT_PLTGOT);
-  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  unsigned long dt_pltgot = file->dt_pltgot;
+  unsigned long dt_jmprel = file->dt_jmprel;
+  unsigned long dt_pltrel = file->dt_pltrel;
+  unsigned long dt_pltrelsz = file->dt_pltrelsz;
 
   if (dt_pltgot == 0 || 
       (dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 

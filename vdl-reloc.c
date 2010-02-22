@@ -16,12 +16,12 @@ sym_to_ver_req (struct VdlFile *file,
 		const char **ver_name,
 		const char **ver_filename)
 {
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Half) *dt_versym = (ElfW(Half)*)vdl_file_get_dynamic_p (file, DT_VERSYM);
-  ElfW(Verneed) *dt_verneed = (ElfW(Verneed)*)vdl_file_get_dynamic_p (file, DT_VERNEED);
-  unsigned long dt_verneednum = vdl_file_get_dynamic_v (file, DT_VERNEEDNUM);
-  ElfW(Verdef) *dt_verdef = (ElfW(Verdef)*)vdl_file_get_dynamic_p (file, DT_VERDEF);
-  unsigned long dt_verdefnum = vdl_file_get_dynamic_v (file, DT_VERDEFNUM);
+  const char *dt_strtab = file->dt_strtab;
+  ElfW(Half) *dt_versym = file->dt_versym;
+  ElfW(Verneed) *dt_verneed = file->dt_verneed;
+  unsigned long dt_verneednum = file->dt_verneednum;
+  ElfW(Verdef) *dt_verdef = file->dt_verdef;
+  unsigned long dt_verdefnum = file->dt_verdefnum;
 
   if (dt_strtab != 0 && dt_versym != 0)
     {
@@ -91,8 +91,8 @@ do_process_reloc (struct VdlFile *file,
 		  unsigned long reloc_type, unsigned long *reloc_addr,
 		  unsigned long reloc_addend, unsigned long reloc_sym)
 {
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
+  const char *dt_strtab = file->dt_strtab;
+  ElfW(Sym) *dt_symtab = file->dt_symtab;
   if (dt_strtab == 0 || dt_symtab == 0)
     {
       return 0;
@@ -184,9 +184,9 @@ static void
 reloc_jmprel (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);  
+  unsigned long dt_jmprel = file->dt_jmprel;
+  unsigned long dt_pltrel = file->dt_pltrel;
+  unsigned long dt_pltrelsz = file->dt_pltrelsz;
   if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) ||
       dt_pltrelsz == 0 || 
       dt_jmprel == 0)
@@ -217,9 +217,9 @@ vdl_reloc_offset_jmprel (struct VdlFile *file,
 			 unsigned long offset)
 {
   futex_lock (g_vdl.futex);
-  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  unsigned long dt_jmprel = file->dt_jmprel;
+  unsigned long dt_pltrel = file->dt_pltrel;
+  unsigned long dt_pltrelsz = file->dt_pltrelsz;
   
   if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
       dt_pltrelsz == 0 || 
@@ -252,9 +252,9 @@ vdl_reloc_index_jmprel (struct VdlFile *file,
 {
   VDL_LOG_FUNCTION ("file=%s, index=%lu", file->name, index);
   futex_lock (g_vdl.futex);
-  unsigned long dt_jmprel = vdl_file_get_dynamic_p (file, DT_JMPREL);
-  unsigned long dt_pltrel = vdl_file_get_dynamic_v (file, DT_PLTREL);
-  unsigned long dt_pltrelsz = vdl_file_get_dynamic_v (file, DT_PLTRELSZ);
+  unsigned long dt_jmprel = file->dt_jmprel;
+  unsigned long dt_pltrel = file->dt_pltrel;
+  unsigned long dt_pltrelsz = file->dt_pltrelsz;
   
   if ((dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
       dt_pltrelsz == 0 || 
@@ -287,9 +287,9 @@ static void
 reloc_dtrel (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rel) *dt_rel = (ElfW(Rel)*)vdl_file_get_dynamic_p (file, DT_REL);
-  unsigned long dt_relsz = vdl_file_get_dynamic_v (file, DT_RELSZ);
-  unsigned long dt_relent = vdl_file_get_dynamic_v (file, DT_RELENT);
+  ElfW(Rel) *dt_rel = file->dt_rel;
+  unsigned long dt_relsz = file->dt_relsz;
+  unsigned long dt_relent = file->dt_relent;
   if (dt_rel == 0 || dt_relsz == 0 || dt_relent == 0)
     {
       return;
@@ -306,9 +306,9 @@ static void
 reloc_dtrela (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  ElfW(Rela) *dt_rela = (ElfW(Rela)*)vdl_file_get_dynamic_p (file, DT_RELA);
-  unsigned long dt_relasz = vdl_file_get_dynamic_v (file, DT_RELASZ);
-  unsigned long dt_relaent = vdl_file_get_dynamic_v (file, DT_RELAENT);
+  ElfW(Rela) *dt_rela = file->dt_rela;
+  unsigned long dt_relasz = file->dt_relasz;
+  unsigned long dt_relaent = file->dt_relaent;
   if (dt_rela == 0 || dt_relasz == 0 || dt_relaent == 0)
     {
       return;

@@ -22,20 +22,19 @@ call_fini (struct VdlFile *file)
   file->fini_called = 1;
 
   // Gather information from the .dynamic section
-  unsigned long dt_fini = vdl_file_get_dynamic_p (file, DT_FINI);
-  unsigned long dt_fini_array = vdl_file_get_dynamic_p (file, DT_FINI_ARRAY);
-  unsigned long dt_fini_arraysz = vdl_file_get_dynamic_v (file, DT_FINI_ARRAYSZ);
+  DtFini dt_fini = file->dt_fini;
+  DtFini *dt_fini_array = file->dt_fini_array;
+  unsigned long dt_fini_arraysz = file->dt_fini_arraysz;
 
   // First, invoke the newer DT_FINI_ARRAY functions.
   // The address of the functions to call is stored as
   // an array of pointers pointed to by DT_FINI_ARRAY
   if (dt_fini_array != 0)
     {
-      fini_function *fini = (fini_function *) dt_fini_array;
       int i;
-      for (i = 0; i < dt_fini_arraysz / sizeof (fini_function); i++, fini++)
+      for (i = 0; i < dt_fini_arraysz / sizeof (DtFini); i++)
 	{
-	  (*(fini[i])) ();
+	  (dt_fini_array[i]) ();
 	}
     }
 
@@ -44,8 +43,7 @@ call_fini (struct VdlFile *file)
   // the DT_FINI tag, here: dt_fini.
   if (dt_fini != 0)
     {
-      fini_function fini = (fini_function) dt_fini;
-      fini ();
+      dt_fini ();
     }
 
   vdl_context_notify (file->context, file, VDL_EVENT_DESTROYED);

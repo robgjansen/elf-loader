@@ -80,7 +80,7 @@ vdl_file_get_dt_needed (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
   struct VdlList *list = vdl_list_new ();
-  unsigned long dt_strtab = vdl_file_get_dynamic_p (file, DT_STRTAB);
+  const char *dt_strtab = file->dt_strtab;
   if (dt_strtab == 0)
     {
       return list;
@@ -215,22 +215,6 @@ find_by_dev_ino (struct VdlContext *context,
   return 0;
 }
 
-
-static struct VdlList *
-get_path (struct VdlFile *file, int type)
-{
-  unsigned long dt_path = vdl_file_get_dynamic_v (file, type);
-  unsigned long dt_strtab = vdl_file_get_dynamic_p (file, DT_STRTAB);
-  if (dt_path == 0 || dt_strtab == 0)
-    {
-      return vdl_list_new ();
-    }
-  const char *path = (const char *)(dt_strtab + dt_path);
-  struct VdlList *list = vdl_utils_splitpath (path);
-  return list;
-}
-
-
 static int 
 get_file_info (uint32_t phnum,
 	       ElfW(Phdr) *phdr,
@@ -345,6 +329,164 @@ file_new (unsigned long load_base,
   file->name = vdl_utils_strdup (name);
   file->depth = 0;
 
+  // Note: we could theoretically access the content of the DYNAMIC section
+  // through the file->dynamic field. However, some platforms (say, i386)
+  // are totally braindead: despite the fact that they have no explicit
+  // relocation entries to mark the content of the DYNAMIC section as needing
+  // relocations, they do perform relocations on some of the entries of this
+  // section and _some_ glibc/gcc code relies on the fact that these entries
+  // which are mapped rw in the address space of each process are relocated.
+  // This is pure madness so, to avoid having to always remember which entries
+  // are potentially relocated and when they are relocated (on which platform),
+  // we make a copy of all the entries we need here and let machine_reloc_dynamic
+  // do its crazy work.
+  file->dt_relent = 0;
+  file->dt_relsz = 0;
+  file->dt_rel = 0;
+
+  file->dt_relaent = 0;
+  file->dt_relasz = 0;
+  file->dt_rela = 0;
+
+  file->dt_pltgot = 0;
+  file->dt_jmprel = 0;
+  file->dt_pltrel = 0;
+  file->dt_pltrelsz = 0;
+
+  file->dt_strtab = 0;
+  file->dt_symtab = 0;
+  file->dt_flags = 0;
+
+  file->dt_hash = 0;
+  file->dt_gnu_hash = 0;
+
+  file->dt_fini = 0;
+  file->dt_fini_array = 0;
+  file->dt_fini_arraysz = 0;
+
+  file->dt_init = 0;
+  file->dt_init_array = 0;
+  file->dt_init_arraysz = 0;
+
+  file->dt_versym = 0;
+  file->dt_verdef = 0;
+  file->dt_verdefnum = 0;
+  file->dt_verneed = 0;
+  file->dt_verneednum = 0;
+
+  file->dt_rpath = 0;
+  file->dt_runpath = 0;
+
+  ElfW(Dyn) *dyn = (ElfW(Dyn)*)file->dynamic;
+  // do a first pass to get dt_strtab
+  while (dyn->d_tag != DT_NULL)
+    {
+      switch (dyn->d_tag)
+	{
+	case DT_STRTAB:
+	  file->dt_strtab = (const char *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	}
+      dyn++;
+    }
+  dyn = (ElfW(Dyn)*)file->dynamic;
+  while (dyn->d_tag != DT_NULL)
+    {
+      switch (dyn->d_tag)
+	{
+	case DT_RELENT:
+	  file->dt_relent = dyn->d_un.d_val;
+	  break;
+	case DT_RELSZ:
+	  file->dt_relsz = dyn->d_un.d_val;
+	  break;
+	case DT_REL:
+	  file->dt_rel = (ElfW(Rel)*)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+
+	case DT_RELAENT:
+	  file->dt_relaent = dyn->d_un.d_val;
+	  break;
+	case DT_RELASZ:
+	  file->dt_relasz = dyn->d_un.d_val;
+	  break;
+	case DT_RELA:
+	  file->dt_rela = (ElfW(Rela)*)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+
+	case DT_PLTGOT:
+	  file->dt_pltgot = file->load_base + dyn->d_un.d_ptr;
+	  break;
+	case DT_JMPREL:
+	  file->dt_jmprel = file->load_base + dyn->d_un.d_ptr;
+	  break;
+	case DT_PLTREL:
+	  file->dt_pltrel = dyn->d_un.d_val;
+	  break;
+	case DT_PLTRELSZ:
+	  file->dt_pltrelsz = dyn->d_un.d_val;
+	  break;
+
+	case DT_SYMTAB:
+	  file->dt_symtab = (ElfW(Sym) *) (file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_FLAGS:
+	  file->dt_flags = dyn->d_un.d_val;
+	  break;
+
+	case DT_HASH:
+	  file->dt_hash = (ElfW(Word) *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_GNU_HASH:
+	  file->dt_gnu_hash = (uint32_t *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+
+	case DT_FINI:
+	  file->dt_fini = (DtFini)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_FINI_ARRAY:
+	  file->dt_fini_array = (DtFini *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_FINI_ARRAYSZ:
+	  file->dt_fini_arraysz = dyn->d_un.d_val;
+	  break;
+
+	case DT_INIT:
+	  file->dt_init = (DtInit)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_INIT_ARRAY:
+	  file->dt_init_array = (DtInit *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_INIT_ARRAYSZ:
+	  file->dt_init_arraysz = dyn->d_un.d_val;
+	  break;
+
+	case DT_VERSYM:
+	  file->dt_versym = (ElfW(Half) *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_VERDEF:
+	  file->dt_verdef = (ElfW(Verdef) *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_VERDEFNUM:
+	  file->dt_verdefnum = dyn->d_un.d_val;
+	  break;
+	case DT_VERNEED:
+	  file->dt_verneed = (ElfW(Verneed) *)(file->load_base + dyn->d_un.d_ptr);
+	  break;
+	case DT_VERNEEDNUM:
+	  file->dt_verneednum = dyn->d_un.d_val;
+	  break;
+	case DT_RPATH:
+	  VDL_LOG_ASSERT (file->dt_strtab != 0, "no strtab for RPATH");
+	  file->dt_rpath = file->dt_strtab + dyn->d_un.d_val;
+	  break;
+	case DT_RUNPATH:
+	  VDL_LOG_ASSERT (file->dt_strtab != 0, "no strtab for RUNPATH");
+	  file->dt_runpath = file->dt_strtab + dyn->d_un.d_val;
+	  break;
+	}      
+      dyn++;
+    }
   return file;
 }
 
@@ -615,8 +757,8 @@ vdl_file_map_deps_recursive (struct VdlFile *item,
     }
   item->deps_initialized = 1;
 
-  struct VdlList *rpath = get_path (item, DT_RPATH);
-  struct VdlList *runpath = get_path (item, DT_RUNPATH);
+  struct VdlList *rpath = vdl_utils_splitpath (item->dt_rpath);
+  struct VdlList *runpath = vdl_utils_splitpath (item->dt_runpath);
   struct VdlList *current_rpath = vdl_list_copy (rpath);
   vdl_list_insert_range (current_rpath,
 			 vdl_list_end (current_rpath),

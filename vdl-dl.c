@@ -415,10 +415,10 @@ int vdl_dladdr1 (const void *addr, Dl_info *info,
   // now, we try to find the closest symbol
   // For this, we simply iterate over the symbol table of the file.
   ElfW(Sym) *match = 0;
-  const char *dt_strtab = (const char *)vdl_file_get_dynamic_p (file, DT_STRTAB);
-  ElfW(Sym) *dt_symtab = (ElfW(Sym)*)vdl_file_get_dynamic_p (file, DT_SYMTAB);
-  ElfW(Word) *dt_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_HASH);
-  uint32_t *dt_gnu_hash = (ElfW(Word)*) vdl_file_get_dynamic_p (file, DT_GNU_HASH);
+  const char *dt_strtab = file->dt_strtab;
+  ElfW(Sym) *dt_symtab = file->dt_symtab;
+  ElfW(Word) *dt_hash = file->dt_hash;
+  uint32_t *dt_gnu_hash = file->dt_gnu_hash;
   if (dt_symtab != 0 && dt_strtab != 0)
     {
       if (dt_hash != 0)

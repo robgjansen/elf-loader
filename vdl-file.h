@@ -18,6 +18,9 @@ enum VdlFileLookupType
   FILE_LOOKUP_LOCAL_ONLY,
 };
 
+typedef void (*DtInit) (int, char **, char **);
+typedef void (*DtFini) (void);
+
 
 // the file_ prefix indicates that this variable identifies
 // a file offset from the start of the file.
@@ -148,10 +151,47 @@ struct VdlFile
   // equivalent to the content of DT_NEEDED.
   struct VdlList *deps;
   uint32_t depth;
-};
 
-ElfW(Dyn) *vdl_file_get_dynamic (const struct VdlFile *file, unsigned long tag);
-unsigned long vdl_file_get_dynamic_v (const struct VdlFile *file, unsigned long tag);
-unsigned long vdl_file_get_dynamic_p (const struct VdlFile *file, unsigned long tag);
+  unsigned long dt_relent;
+  unsigned long dt_relsz;
+  ElfW(Rel) *dt_rel;
+
+  unsigned long dt_relaent;
+  unsigned long dt_relasz;
+  ElfW(Rela) *dt_rela;
+
+  // pointer to first got entry.
+  unsigned long dt_pltgot;
+  // points either to ElfW(Rel) or ElfW(Rela)
+  unsigned long dt_jmprel;
+  // type of dt_jmprel: DT_REL or DT_RELA
+  unsigned long dt_pltrel;
+  // size in number of bytes of array pointed to by dt_jmprel.
+  unsigned long dt_pltrelsz;
+
+  const char *dt_strtab;
+  ElfW(Sym) *dt_symtab;
+  unsigned long dt_flags;
+
+  ElfW(Word) *dt_hash;
+  uint32_t *dt_gnu_hash;
+
+  DtFini dt_fini;
+  DtFini *dt_fini_array;
+  unsigned long dt_fini_arraysz;
+
+  DtInit dt_init;
+  DtInit *dt_init_array;
+  unsigned long dt_init_arraysz;
+
+  ElfW(Half) *dt_versym;
+  ElfW(Verdef) *dt_verdef;
+  unsigned long dt_verdefnum;
+  ElfW(Verneed) *dt_verneed;
+  unsigned long dt_verneednum;
+
+  const char *dt_rpath;
+  const char *dt_runpath;
+};
 
 #endif /* VDL_FILE_H */
