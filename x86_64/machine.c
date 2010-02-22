@@ -30,7 +30,7 @@ void machine_reloc_without_match (struct VdlFile *file,
     }
   else if (reloc_type == R_X86_64_TPOFF64)
     {
-      *reloc_addr += file->tls_offset + sym->st_value + reloc_addend;
+      *reloc_addr = file->tls_offset + sym->st_value + reloc_addend;
     }
   else if (reloc_type == R_X86_64_DTPMOD64)
     {
@@ -63,7 +63,7 @@ machine_reloc_with_match (unsigned long *reloc_addr,
 		      "Module which contains target symbol does not have a TLS block ??");
       VDL_LOG_ASSERT (ELFW_ST_TYPE (match->symbol->st_info) == STT_TLS,
 		      "Target symbol is not a tls symbol ??");
-      *reloc_addr += match->file->tls_offset + match->symbol->st_value + reloc_addend;
+      *reloc_addr = match->file->tls_offset + match->symbol->st_value + reloc_addend;
     }
   else if (reloc_type == R_X86_64_DTPMOD64)
     {
