@@ -123,6 +123,10 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
   }
 #undef ITEM
 }
+void machine_reloc_dynamic (ElfW(Dyn) *dyn, unsigned long load_base)
+{
+  // this is a no-op on x86-64
+}
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
 void machine_lazy_reloc (struct VdlFile *file)
 {

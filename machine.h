@@ -25,7 +25,7 @@ void machine_reloc_with_match (unsigned long *reloc_addr,
 			       unsigned long reloc_addend,
 			       const struct VdlLookupResult *match);
 const char *machine_reloc_type_to_str (unsigned long reloc_type);
-void machine_reloc_dynamic (ElfW(Dyn) *dyn);
+void machine_reloc_dynamic (ElfW(Dyn) *dyn, unsigned long load_base);
 bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size);
 void machine_lazy_reloc (struct VdlFile *file);
 // return old value

@@ -487,6 +487,10 @@ file_new (unsigned long load_base,
 	}      
       dyn++;
     }
+
+  // Now, relocate the dynamic section
+  machine_reloc_dynamic ((ElfW(Dyn)*)file->dynamic, file->load_base);
+
   return file;
 }
 

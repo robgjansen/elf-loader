@@ -148,6 +148,26 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
   }
 #undef ITEM
 }
+void machine_reloc_dynamic (ElfW(Dyn) *dyn, unsigned long load_base)
+{
+  ElfW(Dyn) *cur = dyn;
+  while (cur->d_tag != DT_NULL)
+    {
+      switch (cur->d_tag)
+	{
+	case DT_HASH:
+	case DT_PLTGOT:
+	case DT_STRTAB:
+	case DT_SYMTAB:
+	case DT_REL:
+	case DT_RELA:
+	case DT_JMPREL:
+	  cur->d_un.d_ptr += load_base;
+	  break;
+	}
+      cur++;
+    }
+}
 
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
 void machine_lazy_reloc (struct VdlFile *file)
