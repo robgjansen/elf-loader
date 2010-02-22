@@ -24,6 +24,7 @@ struct VdlContextLibRemapEntry
 
 enum VdlEvent {
   VDL_EVENT_MAPPED,
+  VDL_EVENT_UNMAPPED,
   VDL_EVENT_CONSTRUCTED,
   VDL_EVENT_DESTROYED
 };
