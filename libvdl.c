@@ -53,26 +53,26 @@ EXPORT void dl_lmid_delete (Lmid_t lmid)
 {
   return vdl_dl_lmid_delete_public (lmid);
 }
-EXPORT int dl_add_callback (Lmid_t lmid, 
-			    void (*cb) (void *handle, int event, void *context),
-			    void *cb_context)
+EXPORT int dl_lmid_add_callback (Lmid_t lmid, 
+				 void (*cb) (void *handle, int event, void *context),
+				 void *cb_context)
 {
-  return vdl_dl_add_callback_public (lmid, cb, cb_context);
+  return vdl_dl_lmid_add_callback_public (lmid, cb, cb_context);
 }
-EXPORT int dl_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
+EXPORT int dl_lmid_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
 {
-  return vdl_dl_add_lib_remap_public (lmid, src, dst);
+  return vdl_dl_lmid_add_lib_remap_public (lmid, src, dst);
 }
-EXPORT int dl_add_symbol_remap (Lmid_t lmid,
-				const char *src_name, 
-				const char *src_ver_name, 
-				const char *src_ver_filename, 
-				const char *dst_name,
-				const char *dst_ver_name,
-				const char *dst_ver_filename)
+EXPORT int dl_lmid_add_symbol_remap (Lmid_t lmid,
+				     const char *src_name, 
+				     const char *src_ver_name, 
+				     const char *src_ver_filename, 
+				     const char *dst_name,
+				     const char *dst_ver_name,
+				     const char *dst_ver_filename)
 {
-  return vdl_dl_add_symbol_remap_public (lmid, 
-					 src_name, src_ver_name, src_ver_filename,
-					 dst_name, dst_ver_name, dst_ver_filename);
+  return vdl_dl_lmid_add_symbol_remap_public (lmid, 
+					      src_name, src_ver_name, src_ver_filename,
+					      dst_name, dst_ver_name, dst_ver_filename);
 }
 
