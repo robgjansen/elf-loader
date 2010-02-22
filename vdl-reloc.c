@@ -163,7 +163,7 @@ process_rel (struct VdlFile *file, ElfW(Rel) *rel)
 {
   unsigned long reloc_type = ELFW_R_TYPE (rel->r_info);
   unsigned long *reloc_addr = (unsigned long*) (file->load_base + rel->r_offset);
-  unsigned long reloc_addend = 0;
+  unsigned long reloc_addend = *reloc_addr;
   unsigned long reloc_sym = ELFW_R_SYM (rel->r_info);
 
   return do_process_reloc (file, reloc_type, reloc_addr, reloc_addend, reloc_sym);

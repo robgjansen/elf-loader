@@ -25,22 +25,23 @@ void machine_reloc_without_match (struct VdlFile *file,
 				  unsigned long reloc_addend,
 				  const ElfW(Sym) *sym)
 {
-  VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends");
   if (reloc_type == R_386_RELATIVE)
     {
-      *reloc_addr += file->load_base;
+      // i386 ABI: B + A
+      *reloc_addr = file->load_base + reloc_addend;
     }
   else if (reloc_type == R_386_TLS_TPOFF)
     {
-      *reloc_addr += file->tls_offset + sym->st_value;
+      *reloc_addr = file->tls_offset + sym->st_value + reloc_addend;
     }
   else if (reloc_type == R_386_TLS_DTPMOD32)
     {
+      VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends for this reloc type");
       *reloc_addr = file->tls_index;
     }
   else if (reloc_type == R_386_TLS_DTPOFF32)
     {
-      *reloc_addr = sym->st_value;
+      *reloc_addr = sym->st_value + reloc_addend;
     }
   else
     {
@@ -55,13 +56,16 @@ machine_reloc_with_match (unsigned long *reloc_addr,
 			  unsigned long reloc_addend,
 			  const struct VdlLookupResult *match)
 {
-  VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends");
-
   if (reloc_type == R_386_GLOB_DAT ||
-      reloc_type == R_386_JMP_SLOT ||
-      reloc_type == R_386_32)
+      reloc_type == R_386_JMP_SLOT)
     {
+      // i386 ABI formula: S
       *reloc_addr = match->file->load_base + match->symbol->st_value;
+    }
+  else if (reloc_type == R_386_32)
+    {
+      // i386 ABI formula: S + A
+      *reloc_addr = match->file->load_base + match->symbol->st_value + reloc_addend;
     }
   else if (reloc_type == R_386_TLS_TPOFF)
     {
@@ -70,13 +74,14 @@ machine_reloc_with_match (unsigned long *reloc_addr,
 		      "not have a TLS block ??");
       VDL_LOG_ASSERT (ELFW_ST_TYPE (match->symbol->st_info) == STT_TLS,
 		      "Target symbol is not a tls symbol ??");
-      *reloc_addr += match->file->tls_offset + match->symbol->st_value;
+      *reloc_addr = match->file->tls_offset + match->symbol->st_value + reloc_addend;
     }
   else if (reloc_type == R_386_TLS_DTPMOD32)
     {
       VDL_LOG_ASSERT (match->file->has_tls,
 		      "Module which contains target symbol does "
 		      "not have a TLS block ??");
+      VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends for this reloc");
       *reloc_addr = match->file->tls_index;
     }
   else if (reloc_type == R_386_TLS_DTPOFF32)
@@ -84,7 +89,8 @@ machine_reloc_with_match (unsigned long *reloc_addr,
       VDL_LOG_ASSERT (match->file->has_tls,
 		      "Module which contains target symbol does "
 		      "not have a TLS block ??");
-      *reloc_addr = match->symbol->st_value;
+      *reloc_addr = match->symbol->st_value + reloc_addend;
+      //*reloc_addr = match->symbol->st_value;
     }
   else
     {

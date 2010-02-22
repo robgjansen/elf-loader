@@ -140,33 +140,40 @@ relocate_dt_rel (ElfW(Dyn) *dynamic, unsigned long load_base)
   DPRINTF ("dt_rel=0x%x, dt_relsz=%d, dt_relent=%d, dt_rela=0x%x, dt_relasz=%d, dt_relaent=%d\n", 
 	   dt_rel, dt_relsz, dt_relent, dt_rela, dt_relasz, dt_relaent);
 
-  // relocate entries in dt_rel. We could check the type below
-  // but since we are relocating the dynamic loader itself here,
+  // relocate entries in dt_rel and dt_rela. 
+  // since we are relocating the dynamic loader itself here,
   // the entries will always be of type R_XXX_RELATIVE.
-  // i.e., we work under the assumption that they will be. If 
-  // they are not, BAD things will happen.
-  // these entries appear to be used on i386
   uint32_t i;
   for (i = 0; i < dt_relsz; i+=dt_relent)
     {
       ElfW(Rel) *tmp = (ElfW(Rel)*)(((uint8_t*)dt_rel) + i);
       ElfW(Addr) *reloc_addr = (void *)(load_base + tmp->r_offset);
+      if (!machine_reloc_is_relative (ELFW_R_TYPE (tmp->r_info)))
+	{
+	  DPRINTF ("Invalid reloc entry type: %s\n",
+		   machine_reloc_type_to_str (ELFW_R_TYPE (tmp->r_info)));
+	  goto error;
+	}
       *reloc_addr += (ElfW(Addr))load_base;
     }
-
-  // relocate entries in dt_rela. Same as above, slightly different
-  // I have seen these used on x86_64. Theoretically, i386 could
-  // use them with prelinking in some (rare) cases.
   for (i = 0; i < dt_relasz; i+=dt_relaent)
     {
       ElfW(Rela) *tmp = (ElfW(Rela)*)(((uint8_t*)dt_rela) + i);
       ElfW(Addr) *reloc_addr = (void *)(load_base + tmp->r_offset);
+      if (!machine_reloc_is_relative (ELFW_R_TYPE (tmp->r_info)))
+	{
+	  DPRINTF ("Invalid reloc entry type: %s\n",
+		   machine_reloc_type_to_str (ELFW_R_TYPE (tmp->r_info)));
+	  goto error;
+	}
       *reloc_addr = (ElfW(Addr))load_base + tmp->r_addend;
     }
 
   // Note that, technically, we could also relocate DT_JMPREL entries but
   // this would be fairly complex so, it's easier to just make sure that
   // our generated ldso binary does not contain any.
+error:
+  return;
 }
 
 void stage1_finalize (void)

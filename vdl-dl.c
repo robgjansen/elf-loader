@@ -89,7 +89,7 @@ static struct VdlContext *search_context (struct VdlContext *context)
 	  return context;
 	}
     }
-  set_error ("Can't find requested lmid 0x%x", context);
+  set_error ("Can't find requested lmid %p", context);
   return 0;
 }
 
@@ -722,9 +722,9 @@ void vdl_dl_lmid_delete (Lmid_t lmid)
  out:
   futex_unlock (g_vdl.futex);
 }
-int vdl_dl_add_callback (Lmid_t lmid, 
-			 void (*cb) (void *handle, int event, void *context),
-			 void *cb_context)
+int vdl_dl_lmid_add_callback (Lmid_t lmid, 
+			      void (*cb) (void *handle, int event, void *context),
+			      void *cb_context)
 {
   futex_lock (g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
@@ -742,7 +742,7 @@ int vdl_dl_add_callback (Lmid_t lmid,
   return -1;
 }
 int
-vdl_dl_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
+vdl_dl_lmid_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
 {
   futex_lock (g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;
@@ -757,13 +757,13 @@ vdl_dl_add_lib_remap (Lmid_t lmid, const char *src, const char *dst)
   futex_unlock (g_vdl.futex);
   return -1;
 }
-int vdl_dl_add_symbol_remap (Lmid_t lmid,
-				     const char *src_name, 
-				     const char *src_ver_name, 
-				     const char *src_ver_filename, 
-				     const char *dst_name,
-				     const char *dst_ver_name,
-				     const char *dst_ver_filename)
+int vdl_dl_lmid_add_symbol_remap (Lmid_t lmid,
+				  const char *src_name, 
+				  const char *src_ver_name, 
+				  const char *src_ver_filename, 
+				  const char *dst_name,
+				  const char *dst_ver_name,
+				  const char *dst_ver_filename)
 {
   futex_lock (g_vdl.futex);
   struct VdlContext *context = (struct VdlContext *)lmid;

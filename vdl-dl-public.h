@@ -17,17 +17,17 @@ EXPORT void *vdl_dlmopen_public (Lmid_t lmid, const char *filename, int flag);
 // create a new linkmap
 EXPORT Lmid_t vdl_dl_lmid_new_public (int argc, char **argv, char **envp);
 EXPORT void vdl_dl_lmid_delete_public (Lmid_t lmid);
-EXPORT int vdl_dl_add_callback_public (Lmid_t lmid, 
-				       void (*cb) (void *handle, int event, void *context),
-				       void *cb_context);
-EXPORT int vdl_dl_add_lib_remap_public (Lmid_t lmid, const char *src, const char *dst);
-EXPORT int vdl_dl_add_symbol_remap_public (Lmid_t lmid,
-					   const char *src_name, 
-					   const char *src_ver_name, 
-					   const char *src_ver_filename, 
-					   const char *dst_name,
-					   const char *dst_ver_name,
-					   const char *dst_ver_filename);
+EXPORT int vdl_dl_lmid_add_callback_public (Lmid_t lmid, 
+					    void (*cb) (void *handle, int event, void *context),
+					    void *cb_context);
+EXPORT int vdl_dl_lmid_add_lib_remap_public (Lmid_t lmid, const char *src, const char *dst);
+EXPORT int vdl_dl_lmid_add_symbol_remap_public (Lmid_t lmid,
+						const char *src_name, 
+						const char *src_ver_name, 
+						const char *src_ver_filename, 
+						const char *dst_name,
+						const char *dst_ver_name,
+						const char *dst_ver_filename);
 
 // This function is special: it is not called from ldso: it is
 // used by vdl itself as the target of a redirection from every call to 
