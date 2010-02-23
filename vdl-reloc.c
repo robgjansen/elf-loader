@@ -10,6 +10,11 @@
 #include "vdl-file.h"
 #include <stdbool.h>
 
+#ifndef STT_GNU_IFUNC
+// magic value decided by our glibc maintainer friends.
+#define STT_GNU_IFUNC 10
+#endif
+
 static bool
 sym_to_ver_req (struct VdlFile *file,
 		unsigned long index,
@@ -102,7 +107,10 @@ do_process_reloc (struct VdlFile *file,
   VDL_LOG_FUNCTION ("file=%s, type=%s, addr=0x%lx, addend=0x%lx, sym=%s", 
 		    file->filename, machine_reloc_type_to_str (reloc_type), 
 		    reloc_addr, reloc_addend, reloc_sym == 0?"0":dt_strtab + sym->st_name);
-
+  
+  const struct VdlFile *symbol_file = 0;
+  unsigned long symbol_value = 0;
+  unsigned long symbol_type = 0;
   if (!machine_reloc_is_relative (reloc_type) &&
       sym->st_name != 0)
     {
@@ -145,20 +153,33 @@ do_process_reloc (struct VdlFile *file,
 	  vdl_memcpy (reloc_addr, 
 		      (void*)(result.file->load_base + result.symbol->st_value),
 		      result.symbol->st_size);
+	  return *reloc_addr;
 	}
       else
 	{
-	  machine_reloc (result.file, reloc_addr, reloc_type, reloc_addend,
-			 result.symbol->st_value, 
-			 ELFW_ST_TYPE (result.symbol->st_info));
+	  symbol_file = result.file;
+	  symbol_value = result.symbol->st_value;
+	  symbol_type = ELFW_ST_TYPE (result.symbol->st_info);
 	}
     }
   else
     {
-      machine_reloc (file, reloc_addr, reloc_type, reloc_addend,
-		     sym->st_value,
-		     ELFW_ST_TYPE (sym->st_info));
+      symbol_file = file;
+      symbol_value = sym->st_value;
+      symbol_type = ELFW_ST_TYPE (sym->st_info);
     }
+
+  if (symbol_type == STT_GNU_IFUNC)
+    {
+      // we must call the symbol to get the symbol value.
+      unsigned long (*fn) (void) = (unsigned long (*) (void)) 
+	(symbol_value + symbol_file->load_base);
+      symbol_value = fn ();
+    }
+
+  machine_reloc (symbol_file, reloc_addr, reloc_type, reloc_addend,
+		 symbol_value, symbol_type);
+
   return *reloc_addr;
 }
 
