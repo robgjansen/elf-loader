@@ -132,10 +132,13 @@ def search_debug_file():
     files_to_try = ['/usr/lib/debug/lib64/ld-linux-x86-64.so.2.debug',
                     '/usr/lib/debug/ld-linux-x86-64.so.2',
                     '/usr/lib/debug/lib/ld-linux.so.2.debug',
-                    '/usr/lib/debug/ld-linux.so.2']
+                    '/usr/lib/debug/ld-linux.so.2',
+                    # for ubuntu 0910. braindead
+                    '/usr/lib/debug/lib/ld-2.10.1.so']
     for file in files_to_try:
         if os.path.isfile (file):
             return file
+    
     raise CouldNotFindFile ()
         
 def usage():
