@@ -33,20 +33,20 @@ void machine_reloc (const struct VdlFile *file,
 	*reloc_addr = file->load_base + reloc_addend;
 	break;
     case R_386_TLS_TPOFF:
-      VDL_LOG_ASSERT (match->file->has_tls,
+      VDL_LOG_ASSERT (file->has_tls,
 		      "Module which contains target symbol does "
 		      "not have a TLS block ??");
       *reloc_addr = file->tls_offset + symbol_value + reloc_addend;
       break;
     case R_386_TLS_DTPMOD32:
-      VDL_LOG_ASSERT (match->file->has_tls,
+      VDL_LOG_ASSERT (file->has_tls,
 		      "Module which contains target symbol does "
 		      "not have a TLS block ??");
       VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends for this reloc");
       *reloc_addr = file->tls_index;
       break;
     case R_386_TLS_DTPOFF32:
-      VDL_LOG_ASSERT (match->file->has_tls,
+      VDL_LOG_ASSERT (file->has_tls,
 		      "Module which contains target symbol does "
 		      "not have a TLS block ??");
       *reloc_addr = symbol_value + reloc_addend;
