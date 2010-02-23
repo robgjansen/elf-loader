@@ -173,8 +173,8 @@ do_process_reloc (struct VdlFile *file,
     {
       // We must call the symbol to get the symbol value.
       // This is a glibc extension which appeared in fc12 for
-      // the first time. It is used to delegate to runtime the
-      // decision of which function to run. Typically, it is
+      // the first time. It is used to delegate at runtime
+      // the decision of which function to run. Typically, it is
       // used to detect automatically the hardware type and
       // use optimized versions of specified functions such
       // as strlen, etc.
