@@ -171,10 +171,16 @@ do_process_reloc (struct VdlFile *file,
 
   if (symbol_type == STT_GNU_IFUNC)
     {
-      // we must call the symbol to get the symbol value.
-      unsigned long (*fn) (void) = (unsigned long (*) (void)) 
+      // We must call the symbol to get the symbol value.
+      // This is a glibc extension which appeared in fc12 for
+      // the first time. It is used to delegate to runtime the
+      // decision of which function to run. Typically, it is
+      // used to detect automatically the hardware type and
+      // use optimized versions of specified functions such
+      // as strlen, etc.
+      unsigned long (*ifunc) (void) = (unsigned long (*) (void)) 
 	(symbol_value + symbol_file->load_base);
-      symbol_value = fn ();
+      symbol_value = ifunc ();
     }
 
   machine_reloc (symbol_file, reloc_addr, reloc_type, reloc_addend,
