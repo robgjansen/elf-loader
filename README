@@ -54,8 +54,8 @@ try to make it work.
 
 Obviously, you need to build it first. To do this, you need
 some standard devel packages. 
-On fedora: yum install gcc gcc-c++ make mercurial glibc-debugingo
-On ubuntu:
+On fedora: yum install gcc gcc-c++ make mercurial glibc-debuginfo
+On ubuntu: apt-get install gcc g++ make mercurial libc6-dbg
 
 If you have selinux enabled, you will most likely have to run a 
 command such as this:
