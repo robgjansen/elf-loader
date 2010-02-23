@@ -181,6 +181,10 @@ do_process_reloc (struct VdlFile *file,
       unsigned long (*ifunc) (void) = (unsigned long (*) (void)) 
 	(symbol_value + symbol_file->load_base);
       symbol_value = ifunc ();
+      // we need to remove the load base such that the relocation
+      // code which adds the load_base again generates a valid
+      // address
+      symbol_value -= symbol_file->load_base;
     }
 
   machine_reloc (symbol_file, reloc_addr, reloc_type, reloc_addend,
