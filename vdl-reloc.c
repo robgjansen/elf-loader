@@ -148,12 +148,16 @@ do_process_reloc (struct VdlFile *file,
 	}
       else
 	{
-	  machine_reloc_with_match (reloc_addr, reloc_type, reloc_addend, &result);
+	  machine_reloc (result.file, reloc_addr, reloc_type, reloc_addend,
+			 result.symbol->st_value, 
+			 ELFW_ST_TYPE (result.symbol->st_info));
 	}
     }
   else
     {
-      machine_reloc_without_match (file, reloc_addr, reloc_type, reloc_addend, sym);
+      machine_reloc (file, reloc_addr, reloc_type, reloc_addend,
+		     sym->st_value,
+		     ELFW_ST_TYPE (sym->st_info));
     }
   return *reloc_addr;
 }

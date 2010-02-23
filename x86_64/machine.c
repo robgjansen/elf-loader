@@ -18,70 +18,45 @@ bool machine_reloc_is_copy (unsigned long reloc_type)
 {
   return reloc_type == R_X86_64_COPY;
 }
-void machine_reloc_without_match (struct VdlFile *file,
-				  unsigned long *reloc_addr,
-				  unsigned long reloc_type,
-				  unsigned long reloc_addend,
-				  const ElfW(Sym) *sym)
+void machine_reloc (const struct VdlFile *file,
+		    unsigned long *reloc_addr,
+		    unsigned long reloc_type,
+		    unsigned long reloc_addend,
+		    unsigned long symbol_value,
+		    unsigned long symbol_type)
 {
-  if (reloc_type == R_X86_64_RELATIVE)
+  switch (reloc_type)
     {
+    case R_X86_64_RELATIVE:
       *reloc_addr = file->load_base + reloc_addend;
-    }
-  else if (reloc_type == R_X86_64_TPOFF64)
-    {
-      *reloc_addr = file->tls_offset + sym->st_value + reloc_addend;
-    }
-  else if (reloc_type == R_X86_64_DTPMOD64)
-    {
+      break;
+    case R_X86_64_TPOFF64:
+      VDL_LOG_ASSERT (file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+      *reloc_addr = file->tls_offset + symbol_value + reloc_addend;
+      break;
+    case R_X86_64_DTPMOD64:
+      VDL_LOG_ASSERT (file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
       *reloc_addr = file->tls_index;
-    }
-  else if (reloc_type == R_X86_64_DTPOFF64)
-    {
-      *reloc_addr = sym->st_value + reloc_addend;
-    }
-  else
-    {
-      VDL_LOG_ASSERT (0, "unhandled reloc type");
+      break;
+    case R_X86_64_DTPOFF64:
+      VDL_LOG_ASSERT (file->has_tls,
+		      "Module which contains target symbol does not have a TLS block ??");
+      *reloc_addr = symbol_value + reloc_addend;
+      break;
+    case R_X86_64_GLOB_DAT:
+    case R_X86_64_JUMP_SLOT:
+    case R_X86_64_64:
+      *reloc_addr = file->load_base + symbol_value + reloc_addend;
+      break;
+    default:
+      VDL_LOG_ASSERT (0, "unhandled reloc type %s", 
+		      machine_reloc_type_to_str (reloc_type));
+      break;
     }
 }
-void
-machine_reloc_with_match (unsigned long *reloc_addr,
-			  unsigned long reloc_type,
-			  unsigned long reloc_addend,
-			  const struct VdlLookupResult *match)
-{
-  if (reloc_type == R_X86_64_GLOB_DAT ||
-      reloc_type == R_X86_64_JUMP_SLOT ||
-      reloc_type == R_X86_64_64)
-    {
-      *reloc_addr = match->file->load_base + match->symbol->st_value + reloc_addend;
-    }
-  else if (reloc_type == R_X86_64_TPOFF64)
-    {
-      VDL_LOG_ASSERT (match->file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-      VDL_LOG_ASSERT (ELFW_ST_TYPE (match->symbol->st_info) == STT_TLS,
-		      "Target symbol is not a tls symbol ??");
-      *reloc_addr = match->file->tls_offset + match->symbol->st_value + reloc_addend;
-    }
-  else if (reloc_type == R_X86_64_DTPMOD64)
-    {
-      VDL_LOG_ASSERT (match->file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-      *reloc_addr = match->file->tls_index;
-    }
-  else if (reloc_type == R_X86_64_DTPOFF64)
-    {
-      VDL_LOG_ASSERT (match->file->has_tls,
-		      "Module which contains target symbol does not have a TLS block ??");
-      *reloc_addr = match->symbol->st_value + reloc_addend;
-    }
-  else
-    {
-      VDL_LOG_ASSERT (0, "unhandled reloc type");
-    }
-}
+
 const char *machine_reloc_type_to_str (unsigned long reloc_type)
 {
 #define ITEM(x)					\

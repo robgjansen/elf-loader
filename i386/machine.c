@@ -19,34 +19,51 @@ bool machine_reloc_is_copy (unsigned long reloc_type)
 {
   return reloc_type == R_386_COPY;
 }
-void machine_reloc_without_match (struct VdlFile *file,
-				  unsigned long *reloc_addr,
-				  unsigned long reloc_type,
-				  unsigned long reloc_addend,
-				  const ElfW(Sym) *sym)
+void machine_reloc (const struct VdlFile *file,
+		    unsigned long *reloc_addr,
+		    unsigned long reloc_type,
+		    unsigned long reloc_addend,
+		    unsigned long symbol_value,
+		    unsigned long symbol_type)
 {
-  if (reloc_type == R_386_RELATIVE)
+  switch (reloc_type)
     {
-      // i386 ABI: B + A
-      *reloc_addr = file->load_base + reloc_addend;
-    }
-  else if (reloc_type == R_386_TLS_TPOFF)
-    {
-      *reloc_addr = file->tls_offset + sym->st_value + reloc_addend;
-    }
-  else if (reloc_type == R_386_TLS_DTPMOD32)
-    {
-      VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends for this reloc type");
+    case R_386_RELATIVE:
+	// i386 ABI: B + A
+	*reloc_addr = file->load_base + reloc_addend;
+	break;
+    case R_386_TLS_TPOFF:
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does "
+		      "not have a TLS block ??");
+      *reloc_addr = file->tls_offset + symbol_value + reloc_addend;
+      break;
+    case R_386_TLS_DTPMOD32:
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does "
+		      "not have a TLS block ??");
+      VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends for this reloc");
       *reloc_addr = file->tls_index;
-    }
-  else if (reloc_type == R_386_TLS_DTPOFF32)
-    {
-      *reloc_addr = sym->st_value + reloc_addend;
-    }
-  else
-    {
+      break;
+    case R_386_TLS_DTPOFF32:
+      VDL_LOG_ASSERT (match->file->has_tls,
+		      "Module which contains target symbol does "
+		      "not have a TLS block ??");
+      *reloc_addr = symbol_value + reloc_addend;
+      break;
+    case R_386_GLOB_DAT:
+    case R_386_JMP_SLOT:
+      // i386 ABI formula: S
+      *reloc_addr = file->load_base + symbol_value;
+      break;
+    case R_386_32:
+      // i386 ABI formula: S + A
+      *reloc_addr = file->load_base + symbol_value + reloc_addend;
+      break;
+    default:
       VDL_LOG_ASSERT (0, "unhandled reloc type: %s", 
 		      machine_reloc_type_to_str (reloc_type));
+      break;
     }
 }
 

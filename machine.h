@@ -15,6 +15,12 @@ bool machine_reloc_is_relative (unsigned long reloc_type);
 // returns whether the type of reloc is a R_XXX_COPY relocation entry
 // the input to this function is the output of the ELFXX_TYPE macro.
 bool machine_reloc_is_copy (unsigned long reloc_type);
+void machine_reloc (const struct VdlFile *file,
+		    unsigned long *reloc_addr,
+		    unsigned long reloc_type,
+		    unsigned long reloc_addend,
+		    unsigned long symbol_value,
+		    unsigned long symbol_type);
 void machine_reloc_without_match (struct VdlFile *file,
 				  unsigned long *reloc_addr,
 				  unsigned long reloc_type,
