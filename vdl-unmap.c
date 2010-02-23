@@ -6,14 +6,6 @@
 #include "vdl-alloc.h"
 #include "system.h"
 
-static unsigned long 
-get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
-{
-  unsigned long end = ro_map.mem_start_align + ro_map.mem_size_align;
-  end = vdl_utils_max (end, rw_map.mem_start_align + rw_map.mem_size_align);
-  unsigned long mapping_size = end - ro_map.mem_start_align;
-  return mapping_size;
-}
 
 static void
 file_delete (struct VdlFile *file, bool mapping)
@@ -22,11 +14,17 @@ file_delete (struct VdlFile *file, bool mapping)
 
   if (mapping)
     {
-      unsigned long mapping_size = get_total_mapping_size (file->ro_map, file->rw_map);
-      int status = system_munmap ((void*)file->ro_map.mem_start_align, mapping_size);
+      int status = system_munmap ((void*)file->ro_map.mem_start_align, 
+				  file->ro_map.mem_size_align);
       if (status == -1)
 	{
-	  VDL_LOG_ERROR ("unable to unmap \"%s\"\n", file->filename);
+	  VDL_LOG_ERROR ("unable to unmap ro map for \"%s\"\n", file->filename);
+	}
+      status = system_munmap ((void*)file->rw_map.mem_start_align, 
+			      file->rw_map.mem_size_align);
+      if (status == -1)
+	{
+	  VDL_LOG_ERROR ("unable to unmap rw map for \"%s\"\n", file->filename);
 	}
     }
 
