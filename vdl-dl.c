@@ -714,9 +714,15 @@ void vdl_dl_lmid_delete (Lmid_t lmid)
   // update the linkmap before unmapping
   vdl_linkmap_remove_range (vdl_list_begin (context->loaded),
 			    vdl_list_end (context->loaded));
-  vdl_unmap (context->loaded, true);
+  // need to make a copy because the context might disappear from
+  // under our feet while we unmap if we unmap its remaining files.
+  struct VdlList *copy = vdl_list_copy (context->loaded);
+  vdl_unmap (copy, true);
+  vdl_list_delete (copy);
 
-  vdl_context_delete (context);
+  // no need to call vdl_context_delete because the last file
+  // to be unmapped by vdl_unmap will trigger the deletion of
+  // the associated context.
 
   gdb_notify ();
  out:
