@@ -38,6 +38,7 @@ file_delete (struct VdlFile *file, bool mapping)
   vdl_list_delete (file->gc_symbols_resolved_in);
   vdl_alloc_free (file->name);
   vdl_alloc_free (file->filename);
+  vdl_alloc_free (file->phdr);
 
   file->deps = 0;
   file->local_scope = 0;
@@ -45,6 +46,8 @@ file_delete (struct VdlFile *file, bool mapping)
   file->name = 0;
   file->filename = 0;
   file->context = 0;
+  file->phdr = 0;
+  file->phnum = 0;
 
   vdl_alloc_delete (file);
 }

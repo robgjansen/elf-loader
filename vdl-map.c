@@ -227,16 +227,7 @@ get_file_info (uint32_t phnum,
     {
       if (cur->p_type == PT_LOAD)
 	{
-	  if (cur->p_flags & PF_W)
-	    {
-	      if (rw != 0)
-		{
-		  VDL_LOG_ERROR ("file has more than one RW PT_LOAD\n", 1);
-		  goto error;
-		}
-	      rw = cur;
-	    }
-	  else
+	  if (cur->p_flags & PF_X)
 	    {
 	      if (ro != 0)
 		{
@@ -244,6 +235,15 @@ get_file_info (uint32_t phnum,
 		  goto error;
 		}
 	      ro = cur;
+	    }
+	  else
+	    {
+	      if (rw != 0)
+		{
+		  VDL_LOG_ERROR ("file has more than one RW PT_LOAD\n", 1);
+		  goto error;
+		}
+	      rw = cur;
 	    }
 	}
       else if (cur->p_type == PT_DYNAMIC)
@@ -258,17 +258,10 @@ get_file_info (uint32_t phnum,
 		     ro, rw, dynamic);
       goto error;
     }
-  if (ro->p_offset != 0 || ro->p_filesz < sizeof (ElfW(Ehdr)))
-    {
-      VDL_LOG_ERROR ("ro load area does not include elf header\n", 1);
-      goto error;
-    }
-  if (ro->p_offset != 0)
-    {
-      VDL_LOG_ERROR ("The ro map should include the ELF header. off=0x%x\n",
-		     ro->p_offset);
-      goto error;
-    }
+  // we used to check that the ro area included the Phdr and Ehdr areas
+  // but some libraries does not include this so, we now
+  // copy them into a file-specific phdr buffer so we don't need
+  // this here anymore.
   if (ro->p_align != rw->p_align)
     {
       VDL_LOG_ERROR ("something is fishy about the alignment constraints "
@@ -609,13 +602,6 @@ vdl_file_map_single (struct VdlContext *context,
     }
   print_debug_map (filename, "ro", info.ro_map);
   print_debug_map (filename, "rw", info.rw_map);
-  if (header.e_phoff <info.ro_map.file_start_align || 
-      header.e_phoff + header.e_phnum * header.e_phentsize > 
-      info.ro_map.file_start_align + info.ro_map.file_size_align)
-    {
-      VDL_LOG_ERROR ("program header table not included in ro map in %s\n", filename);
-      goto error;
-    }
 
   mapping_size = get_total_mapping_size (info.ro_map, info.rw_map);
 
@@ -660,7 +646,9 @@ vdl_file_map_single (struct VdlContext *context,
   file->st_dev = st_buf.st_dev;
   file->st_ino = st_buf.st_ino;
   
-  vdl_alloc_free (phdr);
+  file->phdr = phdr;
+  file->phnum = header.e_phnum;
+
   system_close (fd);
 
   vdl_context_notify (context, file, VDL_EVENT_MAPPED);
@@ -846,6 +834,9 @@ vdl_map_from_memory (unsigned long load_base,
     }
   struct VdlFile *file = file_new (load_base, &info,
 				   path, filename, context);
+  file->phdr = vdl_alloc_malloc (phnum * sizeof(ElfW(Phdr)));
+  vdl_memcpy (file->phdr, phdr, phnum * sizeof(ElfW(Phdr)));
+  file->phnum = phnum;
   vdl_list_push_back (result.newly_mapped, file);  
 
   struct VdlList *empty = vdl_list_new ();

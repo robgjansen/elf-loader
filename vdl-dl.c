@@ -583,12 +583,10 @@ int vdl_dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info,
     {
       struct VdlFile *item = *cur;
       struct dl_phdr_info info;
-      ElfW(Ehdr) *header = (ElfW(Ehdr) *)item->ro_map.mem_start_align;
-      ElfW(Phdr) *phdr = (ElfW(Phdr) *) (item->ro_map.mem_start_align + header->e_phoff);
       info.dlpi_addr = item->load_base;
       info.dlpi_name = item->name;
-      info.dlpi_phdr = phdr;
-      info.dlpi_phnum = header->e_phnum;
+      info.dlpi_phdr = item->phdr;
+      info.dlpi_phnum = item->phnum;
       info.dlpi_adds = g_vdl.n_added;
       info.dlpi_subs = g_vdl.n_removed;
       if (item->has_tls)

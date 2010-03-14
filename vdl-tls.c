@@ -55,9 +55,7 @@ file_initialize (struct VdlFile *file)
       return;
     }
 
-  ElfW(Ehdr) *header = (ElfW(Ehdr) *)file->ro_map.mem_start_align;
-  ElfW(Phdr) *phdr = (ElfW(Phdr) *) (file->ro_map.mem_start_align + header->e_phoff);
-  ElfW(Phdr) *pt_tls = vdl_utils_search_phdr (phdr, header->e_phnum, PT_TLS);
+  ElfW(Phdr) *pt_tls = vdl_utils_search_phdr (file->phdr, file->phnum, PT_TLS);
   unsigned long dt_flags = file->dt_flags;
   if (pt_tls == 0)
     {
