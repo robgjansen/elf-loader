@@ -21,13 +21,6 @@ enum VdlFileLookupType
 typedef void (*DtInit) (int, char **, char **);
 typedef void (*DtFini) (void);
 
-enum VdlFileMapFlags
-{
-  VDL_FILE_MAP_R = 1<<0,
-  VDL_FILE_MAP_W = 1<<1,
-  VDL_FILE_MAP_X = 1<<2
-};
-
 // the file_ prefix indicates that this variable identifies
 // a file offset from the start of the file.
 // the mem_ prefix indicates that this variable indentifies
@@ -36,7 +29,7 @@ enum VdlFileMapFlags
 // a variable aligned to the underlying aligning constraint.
 struct VdlFileMap
 {
-  enum VdlFileMapFlags access_flags;
+  int mmap_flags;
   unsigned long file_start_align;
   unsigned long file_size_align;
   // mem_start_align is the memory equivalent of file_start_align

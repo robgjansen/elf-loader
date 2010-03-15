@@ -17,9 +17,9 @@ debug_print_maps (const char *filename, struct VdlList *maps)
     {
       struct VdlFileMap *map = *i;
       VDL_LOG_DEBUG ("r=%u w=%u x=%u file=0x%llx/0x%llx mem=0x%llx/0x%llx zero=0x%llx/0x%llx anon=0x%llx/0x%llx\n",
-		     (map->access_flags & VDL_FILE_MAP_R)?1:0,
-		     (map->access_flags & VDL_FILE_MAP_W)?1:0,
-		     (map->access_flags & VDL_FILE_MAP_X)?1:0,
+		     (map->mmap_flags & PROT_READ)?1:0,
+		     (map->mmap_flags & PROT_WRITE)?1:0,
+		     (map->mmap_flags & PROT_EXEC)?1:0,
 		     map->file_start_align, map->file_size_align,
 		     map->mem_start_align, map->mem_size_align,
 		     map->mem_zero_start, map->mem_zero_size,
@@ -84,10 +84,10 @@ pt_load_to_file_map (const ElfW(Phdr) *phdr)
     {
       map->mem_zero_size = phdr->p_memsz - phdr->p_filesz;
     }
-  map->access_flags = 0;
-  map->access_flags |= (phdr->p_flags & PF_X)?VDL_FILE_MAP_X:0;
-  map->access_flags |= (phdr->p_flags & PF_R)?VDL_FILE_MAP_R:0;
-  map->access_flags |= (phdr->p_flags & PF_W)?VDL_FILE_MAP_W:0;
+  map->mmap_flags = 0;
+  map->mmap_flags |= (phdr->p_flags & PF_X)?PROT_EXEC:0;
+  map->mmap_flags |= (phdr->p_flags & PF_R)?PROT_READ:0;
+  map->mmap_flags |= (phdr->p_flags & PF_W)?PROT_WRITE:0;
   return map;
 }
 
@@ -448,7 +448,7 @@ file_new (unsigned long load_base,
 	  file->dt_symtab = (ElfW(Sym) *) (file->load_base + dyn->d_un.d_ptr);
 	  break;
 	case DT_FLAGS:
-	  file->dt_flags = dyn->d_un.d_val;
+	  file->dt_flags |= dyn->d_un.d_val;
 	  break;
 
 	case DT_HASH:
@@ -500,6 +500,10 @@ file_new (unsigned long load_base,
 	case DT_RUNPATH:
 	  VDL_LOG_ASSERT (file->dt_strtab != 0, "no strtab for RUNPATH");
 	  file->dt_runpath = file->dt_strtab + dyn->d_un.d_val;
+	  break;
+	case DT_TEXTREL:
+	  // transfor DT_TEXTREL in equivalent DF_TEXTREL
+	  file->dt_flags |= DF_TEXTREL;
 	  break;
 	}      
       dyn++;
@@ -565,17 +569,6 @@ file_map_do (const struct VdlFileMap *map,
       VDL_LOG_ASSERT (address != -1, "Unable to map zero pages\n");
     }
 }
-
-static int
-mmap_flags (enum VdlFileMapFlags flags)
-{
-  int prot_flags = 0;
-  prot_flags |= (flags & VDL_FILE_MAP_R)?PROT_READ:0;
-  prot_flags |= (flags & VDL_FILE_MAP_W)?PROT_WRITE:0;
-  prot_flags |= (flags & VDL_FILE_MAP_X)?PROT_EXEC:0;
-  return prot_flags;
-}
-
 
 static struct VdlFile *
 vdl_file_map_single (struct VdlContext *context, 
@@ -673,7 +666,7 @@ vdl_file_map_single (struct VdlContext *context,
   for (i = vdl_list_begin (maps); i != vdl_list_end (maps); i = vdl_list_next (i))
     {
       struct VdlFileMap *map = *i;
-      file_map_do (map, fd, mmap_flags (map->access_flags), load_base);
+      file_map_do (map, fd, map->mmap_flags, load_base);
     }
 
   struct stat st_buf;

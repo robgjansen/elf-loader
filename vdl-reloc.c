@@ -8,6 +8,7 @@
 #include "futex.h"
 #include "vdl-mem.h"
 #include "vdl-file.h"
+#include <sys/mman.h>
 #include <stdbool.h>
 
 #ifndef STT_GNU_IFUNC
@@ -365,6 +366,19 @@ do_reloc (struct VdlFile *file, int now)
     }
   file->reloced = 1;
 
+  if (file->dt_flags & DF_TEXTREL)
+    {
+      // we need to mark the pages as rw to allow
+      // the relocations to proceed
+      void **i;
+      for (i = vdl_list_begin (file->maps); i != vdl_list_end (file->maps); i = vdl_list_next (i))
+	{
+	  struct VdlFileMap *map = *i;
+	  system_mprotect ((void*)map->mem_start_align, map->mem_size_align, 
+			   map->mmap_flags | PROT_WRITE);
+	}
+    }
+
   reloc_dtrel (file);
   reloc_dtrela (file);
   if (now)
@@ -375,6 +389,17 @@ do_reloc (struct VdlFile *file, int now)
   else
     {
       machine_lazy_reloc (file);
+    }
+  if (file->dt_flags & DF_TEXTREL)
+    {
+      // undo the write access
+      void **i;
+      for (i = vdl_list_begin (file->maps); i != vdl_list_end (file->maps); i = vdl_list_next (i))
+	{
+	  struct VdlFileMap *map = *i;
+	  system_mprotect ((void*)map->mem_start_align, map->mem_size_align, 
+			   map->mmap_flags);
+	}
     }
 }
 
