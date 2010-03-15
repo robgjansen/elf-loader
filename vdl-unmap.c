@@ -14,17 +14,18 @@ file_delete (struct VdlFile *file, bool mapping)
 
   if (mapping)
     {
-      int status = system_munmap ((void*)file->rx_map.mem_start_align, 
-				  file->rx_map.mem_size_align);
-      if (status == -1)
+      void **i;
+      for (i = vdl_list_begin (file->maps); i != vdl_list_end (file->maps); i = vdl_list_next (i))
 	{
-	  VDL_LOG_ERROR ("unable to unmap ro map for \"%s\"\n", file->filename);
-	}
-      status = system_munmap ((void*)file->rw_map.mem_start_align, 
-			      file->rw_map.mem_size_align);
-      if (status == -1)
-	{
-	  VDL_LOG_ERROR ("unable to unmap rw map for \"%s\"\n", file->filename);
+	  struct VdlFileMap *map = *i;
+	  int status = system_munmap ((void*)map->mem_start_align, 
+				      map->mem_size_align);
+	  if (status == -1)
+	    {
+	      VDL_LOG_ERROR ("unable to unmap map 0x%lx[0x%lx] for \"%s\"\n", 
+			     map->mem_start_align, map->mem_size_align,
+			     file->filename);
+	    }
 	}
     }
 
@@ -39,6 +40,9 @@ file_delete (struct VdlFile *file, bool mapping)
   vdl_alloc_free (file->name);
   vdl_alloc_free (file->filename);
   vdl_alloc_free (file->phdr);
+  vdl_list_iterate (file->maps, vdl_alloc_free);
+  vdl_list_delete (file->maps);
+
 
   file->deps = 0;
   file->local_scope = 0;
@@ -48,6 +52,7 @@ file_delete (struct VdlFile *file, bool mapping)
   file->context = 0;
   file->phdr = 0;
   file->phnum = 0;
+  file->maps = 0;
 
   vdl_alloc_delete (file);
 }

@@ -21,7 +21,7 @@ enum VdlFileLookupType
 typedef void (*DtInit) (int, char **, char **);
 typedef void (*DtFini) (void);
 
-enum 
+enum VdlFileMapFlags
 {
   VDL_FILE_MAP_R = 1<<0,
   VDL_FILE_MAP_W = 1<<1,
@@ -36,7 +36,7 @@ enum
 // a variable aligned to the underlying aligning constraint.
 struct VdlFileMap
 {
-  unsigned long access_flags;
+  enum VdlFileMapFlags access_flags;
   unsigned long file_start_align;
   unsigned long file_size_align;
   // mem_start_align is the memory equivalent of file_start_align
@@ -97,8 +97,7 @@ struct VdlFile
   char *name;
   dev_t st_dev;
   ino_t st_ino;
-  struct VdlFileMap rx_map;
-  struct VdlFileMap rw_map;
+  struct VdlList *maps;
   // indicates if the deps field has been initialized correctly
   uint32_t deps_initialized : 1;
   // indicates if the has_tls field has been initialized correctly

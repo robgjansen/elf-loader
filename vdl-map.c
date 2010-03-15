@@ -8,74 +8,86 @@
 #include "machine.h"
 #include <sys/mman.h>
 
-struct VdlFileInfo
+static void
+debug_print_maps (const char *filename, struct VdlList *maps)
 {
-  // vaddr of DYNAMIC program header
-  unsigned long dynamic;
-
-  struct VdlFileMap rx_map;
-  struct VdlFileMap rw_map;
-};
+  VDL_LOG_DEBUG ("%s", filename);
+  void **i;
+  for (i = vdl_list_begin (maps); i != vdl_list_end (maps); i = vdl_list_next (i))
+    {
+      struct VdlFileMap *map = *i;
+      VDL_LOG_DEBUG ("r=%u w=%u x=%u file=0x%llx/0x%llx mem=0x%llx/0x%llx zero=0x%llx/0x%llx anon=0x%llx/0x%llx\n",
+		     (map->access_flags & VDL_FILE_MAP_R)?1:0,
+		     (map->access_flags & VDL_FILE_MAP_W)?1:0,
+		     (map->access_flags & VDL_FILE_MAP_X)?1:0,
+		     map->file_start_align, map->file_size_align,
+		     map->mem_start_align, map->mem_size_align,
+		     map->mem_zero_start, map->mem_zero_size,
+		     map->mem_anon_start_align, map->mem_anon_size_align);
+    }
+}
 
 static void
-print_debug_map (const char *filename, const char *type,
-                 struct VdlFileMap map)
+get_total_mapping_boundaries (struct VdlList *maps, 
+			      unsigned long *pstart, 
+			      unsigned long *size,
+			      unsigned long *poffset)
 {
-  VDL_LOG_DEBUG ("%s %s file=0x%llx/0x%llx mem=0x%llx/0x%llx zero=0x%llx/0x%llx anon=0x%llx/0x%llx\n",
-                 filename, type,
-                 map.file_start_align, map.file_size_align,
-                 map.mem_start_align, map.mem_size_align,
-                 map.mem_zero_start, map.mem_zero_size,
-                 map.mem_anon_start_align, map.mem_anon_size_align);
+  unsigned long start = ~0;
+  unsigned long end = 0;
+  unsigned long offset = ~0;
+  void **cur;
+  for (cur = vdl_list_begin (maps); cur != vdl_list_end (maps); cur = vdl_list_next (cur))
+    {
+      struct VdlFileMap *map = *cur;
+      if (start >= map->mem_start_align)
+	{
+	  start = map->mem_start_align;
+	  offset = map->file_start_align;
+	}
+      end = vdl_utils_max (end, map->mem_start_align + map->mem_size_align);
+    }
+  *pstart = start;
+  *size = end - start;
+  *poffset = offset;
+}
+static void
+file_map_add_load_base (struct VdlFileMap *map, unsigned long load_base)
+{
+  map->mem_start_align += load_base;
+  map->mem_zero_start += load_base;
+  map->mem_anon_start_align += load_base;
 }
 
-static unsigned long 
-get_total_mapping_size (struct VdlFileMap rx_map, struct VdlFileMap rw_map)
-{
-  unsigned long end = rx_map.mem_start_align + rx_map.mem_size_align;
-  end = vdl_utils_max (end, rw_map.mem_start_align + rw_map.mem_size_align);
-  unsigned long mapping_size = end - rx_map.mem_start_align;
-  return mapping_size;
-}
-static struct VdlFileMap
-file_map_add_load_base (struct VdlFileMap map, unsigned long load_base)
-{
-  struct VdlFileMap result = map;
-  result.mem_start_align += load_base;
-  result.mem_zero_start += load_base;
-  result.mem_anon_start_align += load_base;
-  return result;
-}
-
-static struct VdlFileMap 
+static struct VdlFileMap *
 pt_load_to_file_map (const ElfW(Phdr) *phdr)
 {
-  struct VdlFileMap map;
+  struct VdlFileMap *map = vdl_alloc_new (struct VdlFileMap);
   unsigned long page_size = system_getpagesize ();
   VDL_LOG_ASSERT (phdr->p_type == PT_LOAD, "Invalid program header");
-  map.file_start_align = vdl_utils_align_down (phdr->p_offset, page_size);
-  map.file_size_align = vdl_utils_align_up (phdr->p_offset+phdr->p_filesz, 
-					    page_size) - map.file_start_align;
-  map.mem_start_align = vdl_utils_align_down (phdr->p_vaddr, page_size);
-  map.mem_size_align = vdl_utils_align_up (phdr->p_vaddr+phdr->p_memsz, 
-					   page_size) - map.mem_start_align;
-  map.mem_anon_start_align = vdl_utils_align_up (phdr->p_vaddr + phdr->p_filesz,
+  map->file_start_align = vdl_utils_align_down (phdr->p_offset, page_size);
+  map->file_size_align = vdl_utils_align_up (phdr->p_offset+phdr->p_filesz, 
+					    page_size) - map->file_start_align;
+  map->mem_start_align = vdl_utils_align_down (phdr->p_vaddr, page_size);
+  map->mem_size_align = vdl_utils_align_up (phdr->p_vaddr+phdr->p_memsz, 
+					   page_size) - map->mem_start_align;
+  map->mem_anon_start_align = vdl_utils_align_up (phdr->p_vaddr + phdr->p_filesz,
 						 page_size);
-  map.mem_anon_size_align = vdl_utils_align_up (phdr->p_vaddr + phdr->p_memsz,
-						page_size) - map.mem_anon_start_align;
-  map.mem_zero_start = phdr->p_vaddr + phdr->p_filesz;
-  if (map.mem_anon_size_align > 0)
+  map->mem_anon_size_align = vdl_utils_align_up (phdr->p_vaddr + phdr->p_memsz,
+						page_size) - map->mem_anon_start_align;
+  map->mem_zero_start = phdr->p_vaddr + phdr->p_filesz;
+  if (map->mem_anon_size_align > 0)
     {
-      map.mem_zero_size = map.mem_anon_start_align - map.mem_zero_start;
+      map->mem_zero_size = map->mem_anon_start_align - map->mem_zero_start;
     }
   else
     {
-      map.mem_zero_size = phdr->p_memsz - phdr->p_filesz;
+      map->mem_zero_size = phdr->p_memsz - phdr->p_filesz;
     }
-  map.access_flags = 0;
-  map.access_flags |= (phdr->p_flags & PF_X)?VDL_FILE_MAP_X:0;
-  map.access_flags |= (phdr->p_flags & PF_R)?VDL_FILE_MAP_R:0;
-  map.access_flags |= (phdr->p_flags & PF_W)?VDL_FILE_MAP_W:0;
+  map->access_flags = 0;
+  map->access_flags |= (phdr->p_flags & PF_X)?VDL_FILE_MAP_X:0;
+  map->access_flags |= (phdr->p_flags & PF_R)?VDL_FILE_MAP_R:0;
+  map->access_flags |= (phdr->p_flags & PF_W)?VDL_FILE_MAP_W:0;
   return map;
 }
 
@@ -222,74 +234,77 @@ find_by_dev_ino (struct VdlContext *context,
 static int 
 get_file_info (uint32_t phnum,
 	       ElfW(Phdr) *phdr,
-	       struct VdlFileInfo *info)
+	       unsigned long *pdynamic,
+	       struct VdlList **pmaps)
 {
   VDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
-  ElfW(Phdr) *rx = 0, *rw = 0, *dynamic = 0, *cur;
+  ElfW(Phdr) *dynamic = 0, *cur;
+  struct VdlList *maps = vdl_list_new ();
   int i;
+  unsigned long align = 0;
   for (i = 0, cur = phdr; i < phnum; i++, cur++)
     {
       if (cur->p_type == PT_LOAD)
 	{
-	  if (cur->p_flags & PF_X)
+	  struct VdlFileMap *map = pt_load_to_file_map (cur);
+	  vdl_list_push_back (maps, map);
+	  if (align != 0 && cur->p_align != align)
 	    {
-	      if (rx != 0)
-		{
-		  VDL_LOG_ERROR ("file has more than one RX PT_LOAD\n", 1);
-		  goto error;
-		}
-	      rx = cur;
+	      VDL_LOG_ERROR ("Invalid alignment constraints\n");
+	      goto error;
 	    }
-	  else
-	    {
-	      if (rw != 0)
-		{
-		  VDL_LOG_ERROR ("file has more than one RW PT_LOAD\n", 1);
-		  goto error;
-		}
-	      rw = cur;
-	    }
+	  align = cur->p_align;
 	}
       else if (cur->p_type == PT_DYNAMIC)
 	{
 	  dynamic = cur;
 	}
     }
-  if (rx == 0 || rw == 0 || dynamic == 0)
+  if (vdl_list_size (maps) < 2 || dynamic == 0)
     {
       VDL_LOG_ERROR ("file is missing a critical program header "
-		     "ro=0x%x, rw=0x%x, dynamic=0x%x\n",
-		     rx, rw, dynamic);
+		     "maps=%u, dynamic=0x%x\n",
+		     vdl_list_size (maps), dynamic);
       goto error;
     }
-  // we used to check that the ro area included the Phdr and Ehdr areas
-  // but some libraries does not include this so, we now
-  // copy them into a file-specific phdr buffer so we don't need
-  // this here anymore.
-  if (rx->p_align != rw->p_align)
+  if (dynamic == 0)
     {
-      VDL_LOG_ERROR ("something is fishy about the alignment constraints "
-		     "ro_align=0x%x, rw_align=0x%x\n", rx->p_align, rw->p_align);
+      VDL_LOG_ERROR ("No DYNAMIC PHDR !");
       goto error;
     }
-  if (dynamic->p_offset < rw->p_offset || dynamic->p_filesz > rw->p_filesz)
+  void **j;
+  bool included = false;
+  for (j = vdl_list_begin (maps); j != vdl_list_end (maps); j = vdl_list_next (j))
     {
-      VDL_LOG_ERROR ("dynamic not included in rw load\n", 1);
+      struct VdlFileMap *map = *j;
+      if (dynamic->p_offset >= map->file_start_align && 
+	  dynamic->p_offset + dynamic->p_filesz < map->file_start_align + map->file_size_align)
+	{
+	  included = true;
+	}
+    }
+  if (!included)
+    {
+      VDL_LOG_ERROR ("dynamic not included in any load map\n", 1);
       goto error;
     }
 
-  info->rx_map = pt_load_to_file_map (rx);
-  info->rw_map = pt_load_to_file_map (rw);
-  info->dynamic = dynamic->p_vaddr;
+  *pmaps = maps;
+  *pdynamic = dynamic->p_vaddr;
 
   return 1;
  error:
+  if (maps != 0)
+    {
+      vdl_list_delete (maps);
+    }
   return 0;
 }
 
 static struct VdlFile *
 file_new (unsigned long load_base,
-	  const struct VdlFileInfo *info,
+	  unsigned long dynamic,
+	  struct VdlList *maps,
 	  const char *filename, 
 	  const char *name,
 	  struct VdlContext *context)
@@ -300,7 +315,7 @@ file_new (unsigned long load_base,
 
   file->load_base = load_base;
   file->filename = vdl_utils_strdup (filename);
-  file->dynamic = info->dynamic + load_base;
+  file->dynamic = dynamic + load_base;
   file->next = 0;
   file->prev = 0;
   file->is_main_namespace = (context == vdl_list_front (g_vdl.contexts))?0:1;
@@ -308,8 +323,13 @@ file_new (unsigned long load_base,
   file->context = context;
   file->st_dev = 0;
   file->st_ino = 0;
-  file->rx_map = file_map_add_load_base (info->rx_map, load_base);
-  file->rw_map = file_map_add_load_base (info->rw_map, load_base);
+  file->maps = maps;
+  void **i;
+  for (i = vdl_list_begin (maps); i != vdl_list_end (maps); i = vdl_list_next (i))
+    {
+      struct VdlFileMap *map = *i;
+      file_map_add_load_base (map, load_base);
+    }
   file->deps_initialized = 0;
   file->tls_initialized = 0;
   file->init_called = 0;
@@ -492,7 +512,7 @@ file_new (unsigned long load_base,
 }
 
 static void
-file_map_do (struct VdlFileMap map,
+file_map_do (const struct VdlFileMap *map,
 	     int fd, int prot,
 	     unsigned long load_base)
 {
@@ -500,29 +520,29 @@ file_map_do (struct VdlFileMap map,
   int int_result;
   unsigned long address;
   // Now, map again the area at the right location.
-  address = (unsigned long) system_mmap ((void*)load_base + map.mem_start_align,
-					 map.mem_size_align,
+  address = (unsigned long) system_mmap ((void*)load_base + map->mem_start_align,
+					 map->mem_size_align,
 					 prot,
 					 MAP_PRIVATE | MAP_FIXED,
-					 fd, map.file_start_align);
-  VDL_LOG_ASSERT (address == load_base + map.mem_start_align, "Unable to perform remapping");
-  if (map.mem_zero_size != 0)
+					 fd, map->file_start_align);
+  VDL_LOG_ASSERT (address == load_base + map->mem_start_align, "Unable to perform remapping");
+  if (map->mem_zero_size != 0)
     {
       // make sure that the last partly zero page is PROT_WRITE
       if (!(prot & PROT_WRITE))
 	{
-	  int_result = system_mprotect ((void *)vdl_utils_align_down (load_base + map.mem_zero_start,
+	  int_result = system_mprotect ((void *)vdl_utils_align_down (load_base + map->mem_zero_start,
 								      system_getpagesize ()),
 					system_getpagesize (),
 					prot | PROT_WRITE);
 	  VDL_LOG_ASSERT (int_result == 0, "Unable to change protection to zeroify last page");
 	}
       // zero the end of map
-      vdl_memset ((void*)(load_base + map.mem_zero_start), 0, map.mem_zero_size);
+      vdl_memset ((void*)(load_base + map->mem_zero_start), 0, map->mem_zero_size);
       // now, restore the previous protection if needed
       if (!(prot & PROT_WRITE))
 	{
-	  int_result = system_mprotect ((void*)vdl_utils_align_down (load_base + map.mem_zero_start,
+	  int_result = system_mprotect ((void*)vdl_utils_align_down (load_base + map->mem_zero_start,
 								     system_getpagesize ()),
 					system_getpagesize (),
 					prot);
@@ -530,15 +550,15 @@ file_map_do (struct VdlFileMap map,
 	}
     }
 
-  if (map.mem_anon_size_align > 0)
+  if (map->mem_anon_size_align > 0)
     {
       // now, unmap the extended file mapping for the zero pages.
-      int_result = system_munmap ((void*)(load_base + map.mem_anon_start_align),
-				  map.mem_anon_size_align);
+      int_result = system_munmap ((void*)(load_base + map->mem_anon_start_align),
+				  map->mem_anon_size_align);
       VDL_LOG_ASSERT (int_result == 0, "again, munmap can't possibly fail here");
       // then, map zero pages.
-      address = (unsigned long) system_mmap ((void*)load_base + map.mem_anon_start_align,
-					     map.mem_anon_size_align, 
+      address = (unsigned long) system_mmap ((void*)load_base + map->mem_anon_start_align,
+					     map->mem_anon_size_align, 
 					     prot,
 					     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
 					     -1, 0);
@@ -547,12 +567,12 @@ file_map_do (struct VdlFileMap map,
 }
 
 static int
-file_access_flags (struct VdlFileMap map)
+mmap_flags (enum VdlFileMapFlags flags)
 {
   int prot_flags = 0;
-  prot_flags |= (map.access_flags & VDL_FILE_MAP_R)?PROT_READ:0;
-  prot_flags |= (map.access_flags & VDL_FILE_MAP_W)?PROT_WRITE:0;
-  prot_flags |= (map.access_flags & VDL_FILE_MAP_X)?PROT_EXEC:0;
+  prot_flags |= (flags & VDL_FILE_MAP_R)?PROT_READ:0;
+  prot_flags |= (flags & VDL_FILE_MAP_W)?PROT_WRITE:0;
+  prot_flags |= (flags & VDL_FILE_MAP_X)?PROT_EXEC:0;
   return prot_flags;
 }
 
@@ -568,8 +588,10 @@ vdl_file_map_single (struct VdlContext *context,
   size_t bytes_read;
   unsigned long mapping_start = 0;
   unsigned long mapping_size = 0;
+  unsigned long offset_start = 0;
   int fd = -1;
-  struct VdlFileInfo info;
+  struct VdlList *maps;
+  unsigned long dynamic;
 
   fd = system_open_ro (filename);
   if (fd == -1)
@@ -610,43 +632,49 @@ vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  if (!get_file_info (header.e_phnum, phdr, &info))
+  if (!get_file_info (header.e_phnum, phdr, &dynamic, &maps))
     {
       VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
-  print_debug_map (filename, "rx", info.rx_map);
-  print_debug_map (filename, "rw", info.rw_map);
 
-  mapping_size = get_total_mapping_size (info.rx_map, info.rw_map);
+  debug_print_maps (filename, maps);
+
+  unsigned long requested_mapping_start;
+  get_total_mapping_boundaries (maps, &requested_mapping_start, 
+				&mapping_size, &offset_start);
 
   // If this is an executable, we try to map it exactly at its base address
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
   // We perform a single initial mmap to reserve all the virtual space we need
   // and, then, we map again portions of the space to make sure we get
   // the mappings we need
-  mapping_start = (unsigned long) system_mmap ((void*)info.rx_map.mem_start_align,
+  mapping_start = (unsigned long) system_mmap ((void*)requested_mapping_start,
 					       mapping_size,
 					       PROT_NONE,
 					       MAP_PRIVATE | fixed,
-					       fd, info.rx_map.file_start_align);
+					       fd, offset_start);
   if (mapping_start == -1)
     {
       VDL_LOG_ERROR ("Unable to allocate complete mapping for %s\n", filename);
       goto error;
     }
-  VDL_LOG_ASSERT (!fixed || (fixed && mapping_start == info.rx_map.mem_start_align),
+  VDL_LOG_ASSERT (!fixed || (fixed && mapping_start == requested_mapping_start),
 		  "We need a fixed address and we did not get it but this should have failed mmap");
   // calculate the offset between the start address we asked for and the one we got
-  unsigned long load_base = mapping_start - info.rx_map.mem_start_align;
+  unsigned long load_base = mapping_start - requested_mapping_start;
 
   // unmap the area before mapping it again.
   int int_result = system_munmap ((void*)mapping_start, mapping_size);
   VDL_LOG_ASSERT (int_result == 0, "munmap can't possibly fail here");
 
   // remap the portions we want.
-  file_map_do (info.rx_map, fd, file_access_flags (info.rx_map), load_base);
-  file_map_do (info.rw_map, fd, file_access_flags (info.rw_map), load_base);
+  void **i;
+  for (i = vdl_list_begin (maps); i != vdl_list_end (maps); i = vdl_list_next (i))
+    {
+      struct VdlFileMap *map = *i;
+      file_map_do (map, fd, mmap_flags (map->access_flags), load_base);
+    }
 
   struct stat st_buf;
   if (system_fstat (filename, &st_buf) == -1)
@@ -655,7 +683,7 @@ vdl_file_map_single (struct VdlContext *context,
       goto error;
     }
 
-  struct VdlFile *file = file_new (load_base, &info, 
+  struct VdlFile *file = file_new (load_base, dynamic, maps,
 				   filename, name,
 				   context);
   file->st_dev = st_buf.st_dev;
@@ -834,20 +862,21 @@ vdl_map_from_memory (unsigned long load_base,
 		     struct VdlContext *context)
 {
   struct VdlMapResult result;
-  struct VdlFileInfo info;
+  unsigned long dynamic;
+  struct VdlList *maps;
   int status;
 
   result.requested = 0;
   result.newly_mapped = vdl_list_new ();
   result.error_string = 0;
-  status = get_file_info (phnum, phdr, &info);
+  status = get_file_info (phnum, phdr, &dynamic, &maps);
   if (status == 0)
     {
       result.error_string = vdl_utils_sprintf ("Unable to obtain mapping information for %s/%s",
 					       path, filename);
       goto out;
     }
-  struct VdlFile *file = file_new (load_base, &info,
+  struct VdlFile *file = file_new (load_base, dynamic, maps,
 				   path, filename, context);
   file->phdr = vdl_alloc_malloc (phnum * sizeof(ElfW(Phdr)));
   vdl_memcpy (file->phdr, phdr, phnum * sizeof(ElfW(Phdr)));

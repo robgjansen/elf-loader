@@ -17,7 +17,7 @@ static void avprintf_callback (char c, void *context)
 void vdl_log_set (const char *debug_str)
 {
   VDL_LOG_FUNCTION ("debug=%s", debug_str);
-  g_logging = VDL_LOG_AST | VDL_LOG_PRINT;
+  g_logging = VDL_LOG_AST | VDL_LOG_PRINT | VDL_LOG_ERR;
   if (debug_str == 0)
     {
       return;
