@@ -368,7 +368,7 @@ do_reloc (struct VdlFile *file, int now)
 
   if (file->dt_flags & DF_TEXTREL)
     {
-      // we need to mark the pages as rw to allow
+      // we need to mark the pages as write to allow
       // the relocations to proceed
       void **i;
       for (i = vdl_list_begin (file->maps); i != vdl_list_end (file->maps); i = vdl_list_next (i))
