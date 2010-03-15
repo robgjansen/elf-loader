@@ -13,7 +13,7 @@ struct VdlFileInfo
   // vaddr of DYNAMIC program header
   unsigned long dynamic;
 
-  struct VdlFileMap ro_map;
+  struct VdlFileMap rx_map;
   struct VdlFileMap rw_map;
 };
 
@@ -30,11 +30,11 @@ print_debug_map (const char *filename, const char *type,
 }
 
 static unsigned long 
-get_total_mapping_size (struct VdlFileMap ro_map, struct VdlFileMap rw_map)
+get_total_mapping_size (struct VdlFileMap rx_map, struct VdlFileMap rw_map)
 {
-  unsigned long end = ro_map.mem_start_align + ro_map.mem_size_align;
+  unsigned long end = rx_map.mem_start_align + rx_map.mem_size_align;
   end = vdl_utils_max (end, rw_map.mem_start_align + rw_map.mem_size_align);
-  unsigned long mapping_size = end - ro_map.mem_start_align;
+  unsigned long mapping_size = end - rx_map.mem_start_align;
   return mapping_size;
 }
 static struct VdlFileMap
@@ -72,6 +72,10 @@ pt_load_to_file_map (const ElfW(Phdr) *phdr)
     {
       map.mem_zero_size = phdr->p_memsz - phdr->p_filesz;
     }
+  map.access_flags = 0;
+  map.access_flags |= (phdr->p_flags & PF_X)?VDL_FILE_MAP_X:0;
+  map.access_flags |= (phdr->p_flags & PF_R)?VDL_FILE_MAP_R:0;
+  map.access_flags |= (phdr->p_flags & PF_W)?VDL_FILE_MAP_W:0;
   return map;
 }
 
@@ -221,7 +225,7 @@ get_file_info (uint32_t phnum,
 	       struct VdlFileInfo *info)
 {
   VDL_LOG_FUNCTION ("phnum=%d, phdr=%p", phnum, phdr);
-  ElfW(Phdr) *ro = 0, *rw = 0, *dynamic = 0, *cur;
+  ElfW(Phdr) *rx = 0, *rw = 0, *dynamic = 0, *cur;
   int i;
   for (i = 0, cur = phdr; i < phnum; i++, cur++)
     {
@@ -229,12 +233,12 @@ get_file_info (uint32_t phnum,
 	{
 	  if (cur->p_flags & PF_X)
 	    {
-	      if (ro != 0)
+	      if (rx != 0)
 		{
-		  VDL_LOG_ERROR ("file has more than one RO PT_LOAD\n", 1);
+		  VDL_LOG_ERROR ("file has more than one RX PT_LOAD\n", 1);
 		  goto error;
 		}
-	      ro = cur;
+	      rx = cur;
 	    }
 	  else
 	    {
@@ -251,21 +255,21 @@ get_file_info (uint32_t phnum,
 	  dynamic = cur;
 	}
     }
-  if (ro == 0 || rw == 0 || dynamic == 0)
+  if (rx == 0 || rw == 0 || dynamic == 0)
     {
       VDL_LOG_ERROR ("file is missing a critical program header "
 		     "ro=0x%x, rw=0x%x, dynamic=0x%x\n",
-		     ro, rw, dynamic);
+		     rx, rw, dynamic);
       goto error;
     }
   // we used to check that the ro area included the Phdr and Ehdr areas
   // but some libraries does not include this so, we now
   // copy them into a file-specific phdr buffer so we don't need
   // this here anymore.
-  if (ro->p_align != rw->p_align)
+  if (rx->p_align != rw->p_align)
     {
       VDL_LOG_ERROR ("something is fishy about the alignment constraints "
-		     "ro_align=0x%x, rw_align=0x%x\n", ro->p_align, rw->p_align);
+		     "ro_align=0x%x, rw_align=0x%x\n", rx->p_align, rw->p_align);
       goto error;
     }
   if (dynamic->p_offset < rw->p_offset || dynamic->p_filesz > rw->p_filesz)
@@ -274,7 +278,7 @@ get_file_info (uint32_t phnum,
       goto error;
     }
 
-  info->ro_map = pt_load_to_file_map (ro);
+  info->rx_map = pt_load_to_file_map (rx);
   info->rw_map = pt_load_to_file_map (rw);
   info->dynamic = dynamic->p_vaddr;
 
@@ -304,7 +308,7 @@ file_new (unsigned long load_base,
   file->context = context;
   file->st_dev = 0;
   file->st_ino = 0;
-  file->ro_map = file_map_add_load_base (info->ro_map, load_base);
+  file->rx_map = file_map_add_load_base (info->rx_map, load_base);
   file->rw_map = file_map_add_load_base (info->rw_map, load_base);
   file->deps_initialized = 0;
   file->tls_initialized = 0;
@@ -542,6 +546,17 @@ file_map_do (struct VdlFileMap map,
     }
 }
 
+static int
+file_access_flags (struct VdlFileMap map)
+{
+  int prot_flags = 0;
+  prot_flags |= (map.access_flags & VDL_FILE_MAP_R)?PROT_READ:0;
+  prot_flags |= (map.access_flags & VDL_FILE_MAP_W)?PROT_WRITE:0;
+  prot_flags |= (map.access_flags & VDL_FILE_MAP_X)?PROT_EXEC:0;
+  return prot_flags;
+}
+
+
 static struct VdlFile *
 vdl_file_map_single (struct VdlContext *context, 
 		     const char *filename, 
@@ -600,38 +615,38 @@ vdl_file_map_single (struct VdlContext *context,
       VDL_LOG_ERROR ("unable to read data structure for %s\n", filename);
       goto error;
     }
-  print_debug_map (filename, "ro", info.ro_map);
+  print_debug_map (filename, "rx", info.rx_map);
   print_debug_map (filename, "rw", info.rw_map);
 
-  mapping_size = get_total_mapping_size (info.ro_map, info.rw_map);
+  mapping_size = get_total_mapping_size (info.rx_map, info.rw_map);
 
   // If this is an executable, we try to map it exactly at its base address
   int fixed = (header.e_type == ET_EXEC)?MAP_FIXED:0;
   // We perform a single initial mmap to reserve all the virtual space we need
   // and, then, we map again portions of the space to make sure we get
   // the mappings we need
-  mapping_start = (unsigned long) system_mmap ((void*)info.ro_map.mem_start_align,
+  mapping_start = (unsigned long) system_mmap ((void*)info.rx_map.mem_start_align,
 					       mapping_size,
 					       PROT_NONE,
 					       MAP_PRIVATE | fixed,
-					       fd, info.ro_map.file_start_align);
+					       fd, info.rx_map.file_start_align);
   if (mapping_start == -1)
     {
       VDL_LOG_ERROR ("Unable to allocate complete mapping for %s\n", filename);
       goto error;
     }
-  VDL_LOG_ASSERT (!fixed || (fixed && mapping_start == info.ro_map.mem_start_align),
+  VDL_LOG_ASSERT (!fixed || (fixed && mapping_start == info.rx_map.mem_start_align),
 		  "We need a fixed address and we did not get it but this should have failed mmap");
   // calculate the offset between the start address we asked for and the one we got
-  unsigned long load_base = mapping_start - info.ro_map.mem_start_align;
+  unsigned long load_base = mapping_start - info.rx_map.mem_start_align;
 
   // unmap the area before mapping it again.
   int int_result = system_munmap ((void*)mapping_start, mapping_size);
   VDL_LOG_ASSERT (int_result == 0, "munmap can't possibly fail here");
 
   // remap the portions we want.
-  file_map_do (info.ro_map, fd, PROT_READ | PROT_EXEC, load_base);
-  file_map_do (info.rw_map, fd, PROT_READ | PROT_WRITE, load_base);
+  file_map_do (info.rx_map, fd, file_access_flags (info.rx_map), load_base);
+  file_map_do (info.rw_map, fd, file_access_flags (info.rw_map), load_base);
 
   struct stat st_buf;
   if (system_fstat (filename, &st_buf) == -1)

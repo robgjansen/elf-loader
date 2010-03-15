@@ -63,8 +63,8 @@ addr_to_file (unsigned long caller)
   struct VdlFile *cur;
   for (cur = g_vdl.link_map; cur != 0; cur = cur->next)
     {
-      if (caller >= cur->ro_map.mem_start_align &&
-	  caller <= (cur->ro_map.mem_start_align + cur->ro_map.mem_size_align))
+      if (caller >= cur->rx_map.mem_start_align &&
+	  caller <= (cur->rx_map.mem_start_align + cur->rx_map.mem_size_align))
 	{
 	  return cur;
 	}

@@ -88,12 +88,12 @@ void vdl_linkmap_print (void)
 		      
 		      cur->load_base, 
 		      cur->filename,
-		      cur->ro_map.mem_start_align, 
-		      cur->ro_map.mem_start_align + cur->ro_map.mem_size_align, 
-		      cur->ro_map.mem_zero_start,
-		      cur->ro_map.mem_zero_start + cur->ro_map.mem_zero_size,
-		      cur->ro_map.mem_anon_start_align,
-		      cur->ro_map.mem_anon_start_align + cur->ro_map.mem_anon_size_align,
+		      cur->rx_map.mem_start_align, 
+		      cur->rx_map.mem_start_align + cur->rx_map.mem_size_align, 
+		      cur->rx_map.mem_zero_start,
+		      cur->rx_map.mem_zero_start + cur->rx_map.mem_zero_size,
+		      cur->rx_map.mem_anon_start_align,
+		      cur->rx_map.mem_anon_start_align + cur->rx_map.mem_anon_size_align,
 		      cur->rw_map.mem_start_align, 
 		      cur->rw_map.mem_start_align + cur->rw_map.mem_size_align);
     }

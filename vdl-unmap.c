@@ -14,8 +14,8 @@ file_delete (struct VdlFile *file, bool mapping)
 
   if (mapping)
     {
-      int status = system_munmap ((void*)file->ro_map.mem_start_align, 
-				  file->ro_map.mem_size_align);
+      int status = system_munmap ((void*)file->rx_map.mem_start_align, 
+				  file->rx_map.mem_size_align);
       if (status == -1)
 	{
 	  VDL_LOG_ERROR ("unable to unmap ro map for \"%s\"\n", file->filename);
