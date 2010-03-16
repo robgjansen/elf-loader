@@ -140,6 +140,12 @@ void machine_lazy_reloc (struct VdlFile *file)
       ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
       unsigned long reloc_addr = rela->r_offset + file->load_base;
       unsigned long *preloc_addr = (unsigned long*) reloc_addr;
+      unsigned long reloc_type = ELFW_R_TYPE (rela->r_info);
+      if (reloc_type != R_X86_64_JUMP_SLOT)
+	{
+	  VDL_LOG_ERROR ("invalid reloc type=%s\n", machine_reloc_type_to_str (reloc_type));
+	  continue;
+	}
       if (plt == 0)
 	{
 	  // we are not prelinked
