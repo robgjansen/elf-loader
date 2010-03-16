@@ -260,7 +260,7 @@ get_file_info (uint32_t phnum,
 	  dynamic = cur;
 	}
     }
-  if (vdl_list_size (maps) < 2 || dynamic == 0)
+  if (vdl_list_size (maps) < 1 || dynamic == 0)
     {
       VDL_LOG_ERROR ("file is missing a critical program header "
 		     "maps=%u, dynamic=0x%x\n",
