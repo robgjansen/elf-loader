@@ -96,20 +96,22 @@ static uint8_t *alloc_do_malloc (struct Alloc *alloc, uint32_t size)
   if (size < (alloc->default_mmap_size - chunk_overhead ()))
     {
       uint8_t bucket = size_to_bucket (size);
-      if (alloc->buckets[bucket] == 0)
+      if (alloc->buckets[bucket] != 0)
 	{
-	  struct AllocAvailable *avail = (struct AllocAvailable *) 
-	    alloc_brk (alloc, bucket_to_size (bucket));
-	  avail->next = 0;
-	  alloc->buckets[bucket] = avail;
+	  // fast path.
+	  struct AllocAvailable *avail = alloc->buckets[bucket];
+	  MARK_DEFINED(avail, sizeof(void*));
+	  struct AllocAvailable *next = avail->next;
+	  MARK_UNDEFINED(avail, sizeof(void*));
+	  alloc->buckets[bucket] = next;
+	  REPORT_MALLOC(avail, size);
+	  return (uint8_t*)avail;
 	}
-      // fast path.
-      struct AllocAvailable *avail = alloc->buckets[bucket];
-      MARK_DEFINED(avail, sizeof(void*));
-      struct AllocAvailable *next = avail->next;
-      MARK_UNDEFINED(avail, sizeof(void*));
-      alloc->buckets[bucket] = next;
+      // slow path
+      struct AllocAvailable *avail = (struct AllocAvailable *) 
+	alloc_brk (alloc, bucket_to_size (bucket));
       REPORT_MALLOC(avail, size);
+      avail->next = 0;
       return (uint8_t*)avail;
     }
   else
