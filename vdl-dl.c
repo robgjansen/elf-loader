@@ -707,6 +707,12 @@ void vdl_dl_lmid_delete (Lmid_t lmid)
     {
       goto out;
     }
+  if (vdl_list_empty (context->loaded))
+    {
+      vdl_context_delete (context);
+      goto out;
+    }
+  // XXX: why do we do this here ?
   vdl_tls_file_deinitialize (context->loaded);
 
   // update the linkmap before unmapping
