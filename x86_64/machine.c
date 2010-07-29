@@ -27,6 +27,11 @@ void machine_reloc (const struct VdlFile *file,
 {
   switch (reloc_type)
     {
+    case R_X86_64_NONE:
+      // this is a relocation against a discarded section which the linker
+      // left here. It should have also discarded the relocation entry but
+      // some versions of the gnu linker leave them here.
+      break;
     case R_X86_64_RELATIVE:
       *reloc_addr = file->load_base + reloc_addend;
       break;
