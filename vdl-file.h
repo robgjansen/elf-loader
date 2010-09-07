@@ -193,6 +193,7 @@ struct VdlFile
 
   const char *dt_rpath;
   const char *dt_runpath;
+  const char *dt_soname;
 };
 
 #endif /* VDL_FILE_H */

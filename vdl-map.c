@@ -205,7 +205,9 @@ find_by_name (struct VdlContext *context,
        i = vdl_list_next (i))
     {
       struct VdlFile *cur = *i;
-      if (vdl_utils_strisequal (cur->name, name))
+      if (vdl_utils_strisequal (cur->name, name) ||
+	  (cur->dt_soname != 0 &&
+	   vdl_utils_strisequal (cur->dt_soname, name)))
 	{
 	  return cur;
 	}
@@ -393,6 +395,7 @@ file_new (unsigned long load_base,
 
   file->dt_rpath = 0;
   file->dt_runpath = 0;
+  file->dt_soname = 0;
 
   ElfW(Dyn) *dyn = (ElfW(Dyn)*)file->dynamic;
   // do a first pass to get dt_strtab
@@ -504,6 +507,9 @@ file_new (unsigned long load_base,
 	case DT_TEXTREL:
 	  // transfor DT_TEXTREL in equivalent DF_TEXTREL
 	  file->dt_flags |= DF_TEXTREL;
+	  break;
+	case DT_SONAME:
+	  file->dt_soname = file->dt_strtab + dyn->d_un.d_val;
 	  break;
 	}      
       dyn++;
