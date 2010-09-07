@@ -22,17 +22,15 @@ call_fini (struct VdlFile *file)
   file->fini_called = 1;
 
   // Gather information from the .dynamic section
-  DtFini dt_fini = file->dt_fini;
-  DtFini *dt_fini_array = file->dt_fini_array;
-  unsigned long dt_fini_arraysz = file->dt_fini_arraysz;
 
   // First, invoke the newer DT_FINI_ARRAY functions.
   // The address of the functions to call is stored as
   // an array of pointers pointed to by DT_FINI_ARRAY
-  if (dt_fini_array != 0)
+  if (file->dt_fini_array != 0)
     {
+      DtFini *dt_fini_array = (DtFini *) (file->load_base + file->dt_fini_array);
       int i;
-      for (i = dt_fini_arraysz / sizeof (DtFini) - 1; i > 0; i--)
+      for (i = (file->dt_fini_arraysz / sizeof (DtFini)) - 1; i > 0; i--)
 	{
 	  (dt_fini_array[i]) ();
 	}
@@ -41,8 +39,9 @@ call_fini (struct VdlFile *file)
   // Then, invoke the old-style DT_FINI function.
   // The address of the function to call is stored in
   // the DT_FINI tag, here: dt_fini.
-  if (dt_fini != 0)
+  if (file->dt_fini != 0)
     {
+      DtFini dt_fini = (DtFini) file->load_base + file->dt_fini;
       dt_fini ();
     }
 

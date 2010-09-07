@@ -177,12 +177,12 @@ struct VdlFile
   ElfW(Word) *dt_hash;
   uint32_t *dt_gnu_hash;
 
-  DtFini dt_fini;
-  DtFini *dt_fini_array;
+  unsigned long dt_fini;
+  unsigned long dt_fini_array;
   unsigned long dt_fini_arraysz;
 
-  DtInit dt_init;
-  DtInit *dt_init_array;
+  unsigned long dt_init;
+  unsigned long dt_init_array;
   unsigned long dt_init_arraysz;
 
   ElfW(Half) *dt_versym;

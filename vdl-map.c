@@ -462,20 +462,20 @@ file_new (unsigned long load_base,
 	  break;
 
 	case DT_FINI:
-	  file->dt_fini = (DtFini)(file->load_base + dyn->d_un.d_ptr);
+	  file->dt_fini = dyn->d_un.d_ptr;
 	  break;
 	case DT_FINI_ARRAY:
-	  file->dt_fini_array = (DtFini *)(file->load_base + dyn->d_un.d_ptr);
+	  file->dt_fini_array = dyn->d_un.d_ptr;
 	  break;
 	case DT_FINI_ARRAYSZ:
 	  file->dt_fini_arraysz = dyn->d_un.d_val;
 	  break;
 
 	case DT_INIT:
-	  file->dt_init = (DtInit)(file->load_base + dyn->d_un.d_ptr);
+	  file->dt_init = dyn->d_un.d_ptr;
 	  break;
 	case DT_INIT_ARRAY:
-	  file->dt_init_array = (DtInit *)(file->load_base + dyn->d_un.d_ptr);
+	  file->dt_init_array = dyn->d_un.d_ptr;
 	  break;
 	case DT_INIT_ARRAYSZ:
 	  file->dt_init_arraysz = dyn->d_un.d_val;

@@ -33,22 +33,24 @@ call_init (struct VdlFile *file)
     }
 
   // Gather information from the .dynamic section
-  DtInit dt_init = file->dt_init;
-  DtInit *dt_init_array = file->dt_init_array;
-  unsigned long dt_init_arraysz = file->dt_init_arraysz;
   // First, invoke the old-style DT_INIT function.
   // The address of the function to call is stored in
   // the DT_INIT tag, here: dt_init.
-  if (dt_init != 0)
+  if (file->dt_init != 0)
     {
+      DtInit dt_init = (DtInit) (file->load_base + file->dt_init);
       dt_init (file->context->argc, file->context->argv, file->context->envp);
     }
 
   // Then, invoke the newer DT_INIT_ARRAY functions.
   // The address of the functions to call is stored as
   // an array of pointers pointed to by DT_INIT_ARRAY
-  if (dt_init_array != 0)
+  if (file->dt_init_array != 0 &&
+      file->dt_init_arraysz != 0)
     {
+      DtInit *dt_init_array = (DtInit *) (file->load_base + file->dt_init_array);
+      unsigned long dt_init_arraysz = file->dt_init_arraysz;
+
       int i;
       for (i = 0; i < dt_init_arraysz / sizeof (DtInit); i++)
 	{
