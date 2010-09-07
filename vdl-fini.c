@@ -32,7 +32,7 @@ call_fini (struct VdlFile *file)
   if (dt_fini_array != 0)
     {
       int i;
-      for (i = 0; i < dt_fini_arraysz / sizeof (DtFini); i++)
+      for (i = dt_fini_arraysz / sizeof (DtFini) - 1; i > 0; i--)
 	{
 	  (dt_fini_array[i]) ();
 	}
