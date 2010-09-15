@@ -53,9 +53,11 @@ struct Vdl
   struct VdlFile *ldso;
   struct VdlList *contexts;
   unsigned long tls_gen;
-  unsigned long tls_static_size;
+  unsigned long tls_static_total_size;
+  unsigned long tls_static_current_size;
   unsigned long tls_static_align;
   unsigned long tls_n_dtv;
+  bool tls_tcb_created;
   struct Futex *futex;
   // holds an entry for each thread which calls one a function
   // which potentially sets the dlerror state.

@@ -248,7 +248,7 @@ stage2_initialize (struct Stage2Input input)
 
   // We need to do this before relocation because the TLS-type relocations 
   // need tls information.
-  vdl_tls_file_initialize_static (context->loaded);
+  vdl_tls_file_initialize_main (context->loaded);
 
   // We either setup the GOT for lazy symbol resolution
   // or we perform binding for all symbols now if LD_BIND_NOW is set

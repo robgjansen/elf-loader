@@ -6,7 +6,7 @@
 // called prior initial relocation processing. 
 // collect and store tls information about everything
 // in g_vdl and each file
-void vdl_tls_file_initialize_static (struct VdlList *list);
+void vdl_tls_file_initialize_main (struct VdlList *list);
 // allocate a tcb buffer
 unsigned long vdl_tls_tcb_allocate (void);
 // setup the sysinfo field in tcb
@@ -21,7 +21,7 @@ void vdl_tls_dtv_allocate (unsigned long tcb);
 //    - initialize the dtv generation counter
 void vdl_tls_dtv_initialize (unsigned long tcb);
 // initialize per-file tls information
-void vdl_tls_file_initialize (struct VdlList *files);
+bool vdl_tls_file_initialize (struct VdlList *files);
 void vdl_tls_dtv_deallocate (unsigned long tcb);
 void vdl_tls_tcb_deallocate (unsigned long tcb);
 // no need to call the _fast version with any kind of lock held
@@ -29,7 +29,6 @@ unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 // the _slow version needs a lock held
 unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset);
 
-bool vdl_tls_file_list_has_static (struct VdlList *list);
 void vdl_tls_file_deinitialize (struct VdlList *files);
 
 #endif /* VDL_TLS_H */

@@ -83,9 +83,11 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->contexts = vdl_list_new ();
   vdl->search_dirs = vdl_utils_splitpath (machine_get_system_search_dirs ());
   vdl->tls_gen = 1;
-  vdl->tls_static_size = 0;
+  vdl->tls_static_total_size = 0;
+  vdl->tls_static_current_size = 0;
   vdl->tls_static_align = 0;
   vdl->tls_n_dtv = 0;
+  vdl->tls_tcb_created = false;
   vdl->futex = futex_new ();
   vdl->errors = vdl_list_new ();
   vdl->n_added = 0;

@@ -139,7 +139,7 @@ _dl_get_tls_static_info (size_t *sizep, size_t *alignp)
   // to _dl_allocate_tls_init below.
   // This method must return the _total_ size for the thread tls area, including the thread descriptor
   // stored next to it.
-  *sizep = g_vdl.tls_static_size + CONFIG_TCB_SIZE;
+  *sizep = g_vdl.tls_static_total_size + CONFIG_TCB_SIZE;
   *alignp = g_vdl.tls_static_align;
 }
 

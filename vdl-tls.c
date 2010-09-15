@@ -11,6 +11,8 @@
 #include "vdl-linkmap.h"
 #include "vdl-file.h"
 
+#define TLS_EXTRA_STATIC_ALLOC 1000
+
 static unsigned long
 allocate_tls_index (void)
 {
@@ -82,8 +84,8 @@ file_initialize (struct VdlFile *file)
 		 file->tls_init_zero_size);
 }
 
-void
-vdl_tls_file_initialize (struct VdlList *files)
+static void
+file_list_initialize (struct VdlList *files)
 {
   // The only thing we need to make sure here is that the executable 
   // gets assigned tls module id 1 if needed.
@@ -109,6 +111,64 @@ vdl_tls_file_initialize (struct VdlList *files)
 	  file_initialize (item);
 	}
     }
+}
+
+struct static_tls
+{
+  long size;
+  long align;
+};
+
+struct static_tls
+initialize_static_tls (struct VdlList *list)
+{
+  // We calculate the size of the memory needed for the 
+  // static and local tls model. We also initialize correctly
+  // the tls_offset field to be able to perform relocations
+  // next (the TLS relocations need the tls_offset field).
+  unsigned long tcb_size = 0;
+  unsigned long n_dtv = 0;
+  unsigned long max_align = 1;
+  void **cur;
+  for (cur = vdl_list_begin (list); 
+       cur != vdl_list_end (list); 
+       cur = vdl_list_next (cur))
+    {
+      struct VdlFile *file = *cur;
+      if (file->has_tls)
+	{
+	  if (file->tls_is_static)
+	    {
+	      tcb_size += file->tls_tmpl_size + file->tls_init_zero_size;
+	      tcb_size = vdl_utils_align_up (tcb_size, file->tls_align);
+	      file->tls_offset = - tcb_size;
+	      if (file->tls_align > max_align)
+		{
+		  max_align = file->tls_align;
+		}
+	    }
+	  n_dtv++;
+	}
+    }
+  struct static_tls static_tls;
+  static_tls.size = tcb_size;
+  static_tls.align = max_align;
+  return static_tls;
+}
+
+bool
+vdl_tls_file_initialize (struct VdlList *files)
+{
+  file_list_initialize (files);
+  struct static_tls static_tls = initialize_static_tls (files);
+  long new_size = vdl_utils_align_up (g_vdl.tls_static_current_size + static_tls.size, 
+				      static_tls.align);
+  if (new_size < g_vdl.tls_static_total_size)
+    {
+      g_vdl.tls_static_current_size = new_size;
+      return true;
+    }
+  return false;
 }
 
 static void 
@@ -139,70 +199,28 @@ void vdl_tls_file_deinitialize (struct VdlList *files)
     }  
 }
 
-bool
-vdl_tls_file_list_has_static (struct VdlList *list)
-{
-  void **cur;
-  for (cur = vdl_list_begin (list); 
-       cur != vdl_list_end (list); 
-       cur = vdl_list_next (cur))
-    {
-      struct VdlFile *item = *cur;
-      if (item->has_tls && item->tls_is_static)
-	{
-	  return true;
-	}
-    }
-  return false;
-}
-
-
 void
-vdl_tls_file_initialize_static (struct VdlList *list)
+vdl_tls_file_initialize_main (struct VdlList *list)
 {
   VDL_LOG_FUNCTION ("");
   g_vdl.tls_gen = 1;
   // We gather tls information for each module. 
-  vdl_tls_file_initialize (list);
-  // Then, we calculate the size of the memory needed for the 
-  // static and local tls model. We also initialize correctly
-  // the tls_offset field to be able to perform relocations
-  // next (the TLS relocations need the tls_offset field).
-  {
-    unsigned long tcb_size = 0;
-    unsigned long n_dtv = 0;
-    unsigned long max_align = 1;
-    void **cur;
-    for (cur = vdl_list_begin (list); 
-	 cur != vdl_list_end (list); 
-	 cur = vdl_list_next (cur))
-      {
-	struct VdlFile *file = *cur;
-	if (file->has_tls)
-	  {
-	    if (file->tls_is_static)
-	      {
-		tcb_size += file->tls_tmpl_size + file->tls_init_zero_size;
-		tcb_size = vdl_utils_align_up (tcb_size, file->tls_align);
-		file->tls_offset = - tcb_size;
-		if (file->tls_align > max_align)
-		  {
-		    max_align = file->tls_align;
-		  }
-	      }
-	    n_dtv++;
-	  }
-      }
-    g_vdl.tls_static_size = vdl_utils_align_up (tcb_size, max_align);
-    g_vdl.tls_static_align = max_align;
-  }
+  file_list_initialize (list);
+  // then perform initial setup of the static tls area
+  struct static_tls static_tls = initialize_static_tls (list);
+  g_vdl.tls_static_current_size = vdl_utils_align_up (static_tls.size, static_tls.align);
+  g_vdl.tls_static_total_size = vdl_utils_align_up (g_vdl.tls_static_current_size + TLS_EXTRA_STATIC_ALLOC,
+						    static_tls.align);
+  g_vdl.tls_static_align = static_tls.align;
+  g_vdl.tls_tcb_created = false;
 }
 
 unsigned long
 vdl_tls_tcb_allocate (void)
 {
   // we allocate continuous memory for the set of tls blocks + libpthread TCB
-  unsigned long tcb_size = g_vdl.tls_static_size;
+  unsigned long tcb_size = g_vdl.tls_static_total_size;
+  g_vdl.tls_tcb_created = true;
   unsigned long total_size = tcb_size + CONFIG_TCB_SIZE; // specific to variant II
   unsigned long buffer = (unsigned long) vdl_alloc_malloc (total_size);
   vdl_memset ((void*)buffer, 0, total_size);
@@ -330,7 +348,7 @@ void
 vdl_tls_tcb_deallocate (unsigned long tcb)
 {
   VDL_LOG_FUNCTION ("tcb=%lu", tcb);
-  unsigned long start = tcb - g_vdl.tls_static_size;
+  unsigned long start = tcb - g_vdl.tls_static_total_size;
   vdl_alloc_free ((void*)start);
 }
 static struct dtv_t *

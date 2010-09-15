@@ -176,16 +176,16 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
       goto error;
     }
 
-  vdl_tls_file_initialize (map.newly_mapped);
+  bool ok = vdl_tls_file_initialize (map.newly_mapped);
 
-  if (vdl_tls_file_list_has_static (map.newly_mapped))
+  if (!ok)
     {
       // damn-it, one of the files we loaded
       // has indeed a static tls block. we don't know
       // how to handle them because that would require
       // adding space to the already-allocated static tls
       // which, by definition, can't be deallocated.
-      set_error ("Attempting to dlopen a file with a static tls block");
+      set_error ("Attempting to dlopen a file with a static tls block which is bigger than the space available");
       goto error;
     }
 

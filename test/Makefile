@@ -6,7 +6,7 @@ MACHINE_MAKEFILE=Makefile.$(shell uname -p)
 
 include $(MACHINE_MAKEFILE)
 
-TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17 test18 test19 test21 $(TEST64)
+TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17 test18 test19 test21 test20 $(TEST64)
 TARGETS=hello libq.so libp.so libn.so libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so $(LIB64) \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
@@ -87,6 +87,8 @@ test13: LDFLAGS+=-lf
 test14: LDFLAGS+=-ln
 test16: LINKER=$(CXX)
 test19: LDFLAGS+=-lf
+test20.o: CFLAGS+=-fpic
+test20: LDFLAGS+=-pie
 test21: LINKER=$(CXX)
 run-test12: TEST_PRE_COMMAND=rm libl.so
 
