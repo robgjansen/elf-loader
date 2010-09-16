@@ -5,10 +5,10 @@
 int main (int argc, char *argv[])
 {
   printf ("enter\n");
-  void *h = dlmopen (LM_ID_NEWLM, argv[0], RTLD_LAZY);
+  void *h = dlmopen (LM_ID_NEWLM, argv[0], RTLD_LAZY | RTLD_GLOBAL);
   if (h != 0)
     {
-      printf ("loaded self second time\n");
+      printf ("loaded %s second time\n", argv[0]);
     }
   dlclose (h);
   printf ("leave\n");
