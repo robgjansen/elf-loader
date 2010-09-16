@@ -87,7 +87,7 @@ static void global_initialize (unsigned long interpreter_load_base)
   vdl->tls_static_current_size = 0;
   vdl->tls_static_align = 0;
   vdl->tls_n_dtv = 0;
-  vdl->tls_tcb_created = false;
+  vdl->tls_next_index = 1;
   vdl->futex = futex_new ();
   vdl->errors = vdl_list_new ();
   vdl->n_added = 0;

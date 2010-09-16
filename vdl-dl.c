@@ -22,6 +22,9 @@
 #include "vdl-init.h"
 #include "vdl-fini.h"
 
+// reuse glibc flag.
+#define __RTLD_OPENEXEC 0x20000000
+
 static struct VdlError *find_error (void)
 {
   unsigned long thread_pointer = machine_thread_pointer_get ();
@@ -176,6 +179,11 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
       goto error;
     }
 
+  if (flags & __RTLD_OPENEXEC)
+    {
+      map.requested->is_executable = 1;
+    }
+
   bool ok = vdl_tls_file_initialize (map.newly_mapped);
 
   if (!ok)
@@ -234,6 +242,17 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
 
   vdl_linkmap_append_range (vdl_list_begin (map.newly_mapped),
 			    vdl_list_end (map.newly_mapped));
+
+  // now, we want to update the dtv of _this_ thread.
+  // i.e., we can't touch the dtv of the other threads 
+  // because of locking issues so, if the code we loaded
+  // uses the tls direct model to access the static block
+  // and if any of the other threads try to call in this code
+  // and if it tries to access the static tls block directly,
+  // BOOOOM. nasty. anyway, we protect the caller if it tries to
+  // access these tls static blocks by updating the dtv forcibly here
+  // this indirectly initializes the content of the tls static area.
+  vdl_tls_dtv_update ();
 
   gdb_notify ();
 

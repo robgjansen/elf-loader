@@ -57,7 +57,7 @@ struct Vdl
   unsigned long tls_static_current_size;
   unsigned long tls_static_align;
   unsigned long tls_n_dtv;
-  bool tls_tcb_created;
+  unsigned long tls_next_index;
   struct Futex *futex;
   // holds an entry for each thread which calls one a function
   // which potentially sets the dlerror state.

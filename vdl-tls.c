@@ -13,41 +13,6 @@
 
 #define TLS_EXTRA_STATIC_ALLOC 1000
 
-static unsigned long
-allocate_tls_index (void)
-{
-  // This is the slowest but simplest implementation possible
-  // For each possible module index, we try to find a module
-  // which has been already assigned that module index.
-  // If it has been already assigned, we try another one, otherwise,
-  // we return it.
-  unsigned long i;
-  unsigned long ul_max = 0;
-  ul_max = ~ul_max;
-  struct VdlList *linkmap = vdl_linkmap_copy ();
-  for (i = 1; i < ul_max; i++)
-    {
-      void **cur;
-      for (cur = vdl_list_begin (linkmap); cur != vdl_list_end (linkmap); cur = vdl_list_next (cur))
-	{
-	  struct VdlFile *item = *cur;
-	  if (item->tls_initialized &&
-	      item->has_tls && 
-	      item->tls_index == i)
-	    {
-	      break;
-	    }
-	}
-      if (cur == vdl_list_end (linkmap))
-	{
-	  vdl_list_delete (linkmap);
-	  return i;
-	}
-    }
-  VDL_LOG_ASSERT (0, "All tls module indexes are used up ? impossible !");
-  return 0; // quiet compiler
-}
-
 static void
 file_initialize (struct VdlFile *file)
 {
@@ -65,18 +30,21 @@ file_initialize (struct VdlFile *file)
       file->tls_initialized = 1;
       return;
     }
-  // note that the call below is _before tls_initialized = 1 because
-  // it does matter. allocate_tls_index looks into the global g_vdl.link_map
-  unsigned long tls_index = allocate_tls_index ();
   file->has_tls = 1;
   file->tls_initialized = 1;
   file->tls_tmpl_start = file->load_base + pt_tls->p_vaddr;
   file->tls_tmpl_size = pt_tls->p_filesz;
   file->tls_init_zero_size = pt_tls->p_memsz - pt_tls->p_filesz;
   file->tls_align = pt_tls->p_align;
-  file->tls_index = tls_index;
+  file->tls_index = g_vdl.tls_next_index;
   file->tls_is_static = (dt_flags & DF_STATIC_TLS)?1:0;
   file->tls_tmpl_gen = g_vdl.tls_gen;
+  // XXX: the next_index increment code below is bad for many reasons.
+  // Instead, we should try to reuse tls indexes that are not used anymore
+  // to ensure that the tls index we use is as small as possible to ensure
+  // that the dtv array is as small as possible. we should keep
+  // track of all allocated indexes in a global list.
+  g_vdl.tls_next_index++;
   g_vdl.tls_gen++;
   g_vdl.tls_n_dtv++;
   VDL_LOG_DEBUG ("file=%s tmpl_size=%lu zero_size=%lu\n", 
@@ -126,9 +94,9 @@ initialize_static_tls (struct VdlList *list)
   // static and local tls model. We also initialize correctly
   // the tls_offset field to be able to perform relocations
   // next (the TLS relocations need the tls_offset field).
-  unsigned long tcb_size = 0;
+  unsigned long tcb_size = g_vdl.tls_static_current_size;
   unsigned long n_dtv = 0;
-  unsigned long max_align = 1;
+  unsigned long max_align = g_vdl.tls_static_align;
   void **cur;
   for (cur = vdl_list_begin (list); 
        cur != vdl_list_end (list); 
@@ -161,11 +129,10 @@ vdl_tls_file_initialize (struct VdlList *files)
 {
   file_list_initialize (files);
   struct static_tls static_tls = initialize_static_tls (files);
-  long new_size = vdl_utils_align_up (g_vdl.tls_static_current_size + static_tls.size, 
-				      static_tls.align);
-  if (new_size < g_vdl.tls_static_total_size)
+  if (static_tls.size < g_vdl.tls_static_total_size)
     {
-      g_vdl.tls_static_current_size = new_size;
+      g_vdl.tls_static_current_size = static_tls.size;
+      g_vdl.tls_static_align = static_tls.align;
       return true;
     }
   return false;
@@ -208,11 +175,10 @@ vdl_tls_file_initialize_main (struct VdlList *list)
   file_list_initialize (list);
   // then perform initial setup of the static tls area
   struct static_tls static_tls = initialize_static_tls (list);
-  g_vdl.tls_static_current_size = vdl_utils_align_up (static_tls.size, static_tls.align);
+  g_vdl.tls_static_current_size = static_tls.size;
   g_vdl.tls_static_total_size = vdl_utils_align_up (g_vdl.tls_static_current_size + TLS_EXTRA_STATIC_ALLOC,
 						    static_tls.align);
   g_vdl.tls_static_align = static_tls.align;
-  g_vdl.tls_tcb_created = false;
 }
 
 unsigned long
@@ -220,7 +186,6 @@ vdl_tls_tcb_allocate (void)
 {
   // we allocate continuous memory for the set of tls blocks + libpthread TCB
   unsigned long tcb_size = g_vdl.tls_static_total_size;
-  g_vdl.tls_tcb_created = true;
   unsigned long total_size = tcb_size + CONFIG_TCB_SIZE; // specific to variant II
   unsigned long buffer = (unsigned long) vdl_alloc_malloc (total_size);
   vdl_memset ((void*)buffer, 0, total_size);
@@ -361,15 +326,17 @@ get_current_dtv (void)
   vdl_memcpy (&dtv, (void*)(tp+CONFIG_TCB_DTV_OFFSET), sizeof (dtv));
   return dtv;
 }
-static void
-update_dtv (void)
+void
+vdl_tls_dtv_update (void)
 {
   VDL_LOG_FUNCTION ("");
   unsigned long tp = machine_thread_pointer_get ();
   struct dtv_t *dtv = get_current_dtv ();
   unsigned long dtv_size = dtv[-1].value;
-  VDL_LOG_ASSERT (dtv[0].gen != g_vdl.tls_gen, 
-		  "dtv is not up-to-date");
+  if (dtv[0].gen == g_vdl.tls_gen)
+    {
+      return;
+    }
 
   // first, we update the currently-available entries of the dtv.
   {
@@ -442,8 +409,17 @@ update_dtv (void)
 	  // nothing to do here, just skip this empty entry
 	  continue;
 	}
-      VDL_LOG_ASSERT (!file->tls_is_static, "tls modules with static tls blocks should never"
-		      "be initialized here");
+      if (file->tls_is_static)
+	{
+	  signed long tcb = machine_thread_pointer_get ();
+	  signed long dtvi = tcb + file->tls_offset;
+	  new_dtv[file->tls_index].value = dtvi;
+	  new_dtv[file->tls_index].is_static = 1;
+	  new_dtv[file->tls_index].gen = file->tls_tmpl_gen;
+	  // copy the template in the module tls block
+	  vdl_memcpy ((void*)dtvi, (void*)file->tls_tmpl_start, file->tls_tmpl_size);
+	  vdl_memset ((void*)(dtvi + file->tls_tmpl_size), 0, file->tls_init_zero_size);
+	}
     }
   // now that the dtv is updated, update the generation
   new_dtv[0].gen = g_vdl.tls_gen;
@@ -494,7 +470,7 @@ unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset)
       return dtv[module].value + offset;
     }
   // we know for sure that the dtv is _not_ uptodate now
-  update_dtv ();
+  vdl_tls_dtv_update ();
 
   // now that the dtv is supposed to be uptodate, attempt to make
   // the request again

@@ -29,6 +29,9 @@ unsigned long vdl_tls_get_addr_fast (unsigned long module, unsigned long offset)
 // the _slow version needs a lock held
 unsigned long vdl_tls_get_addr_slow (unsigned long module, unsigned long offset);
 
+// ensure that the caller dtv is uptodate.
+void vdl_tls_dtv_update (void);
+
 void vdl_tls_file_deinitialize (struct VdlList *files);
 
 #endif /* VDL_TLS_H */
