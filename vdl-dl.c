@@ -174,7 +174,7 @@ static void *dlopen_with_context (struct VdlContext *context, const char *filena
   struct VdlMapResult map = vdl_map_from_filename (context, filename);
   if (map.requested == 0)
     {
-      VDL_LOG_ERROR ("Unable to load requested %s: %s", filename, map.error_string);
+      VDL_LOG_DEBUG ("Unable to load requested %s: %s", filename, map.error_string);
       set_error ("Unable to load: \"%s\"", filename);
       goto error;
     }
