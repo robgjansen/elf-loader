@@ -29,7 +29,11 @@
 // why we bother with it.
 // XXX: check on a couple more systems if we can't
 // get rid of it.
-EXPORT int _dl_starting_up = 0 ;
+static int __dl_starting_up = 0 ;
+// and, then, we define the exported symbol as an alias to the local symbol.
+extern __typeof (__dl_starting_up) _dl_starting_up __attribute__ ((alias("__dl_starting_up"), 
+								   visibility("default")));
+
 // Set to the end of the main stack (the stack allocated
 // by the kernel). Must be constant. Is used by libpthread 
 // _and_ the ELF loader to make the main stack executable
@@ -210,7 +214,7 @@ _dl_make_stack_executable (void **stack_endp)
 
 void glibc_startup_finished (void) 
 {
-  _dl_starting_up = 1;
+  __dl_starting_up = 1;
 }
 
 
