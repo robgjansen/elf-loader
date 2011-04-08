@@ -10,6 +10,8 @@
 #include <sys/mman.h>
 #include <asm/prctl.h> // for ARCH_SET_FS
 
+typedef Elf64_Addr (*IRelativeFunction) (void);
+
 bool machine_reloc_is_relative (unsigned long reloc_type)
 {
   return reloc_type == R_X86_64_RELATIVE;
@@ -77,6 +79,7 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
     ITEM(X86_64_COPY);
     ITEM(X86_64_GLOB_DAT);
     ITEM(X86_64_JUMP_SLOT);
+    ITEM(X86_64_IRELATIVE);
     ITEM(X86_64_RELATIVE);
     ITEM(X86_64_GOTPCREL);
     ITEM(X86_64_32);
@@ -146,22 +149,33 @@ void machine_lazy_reloc (struct VdlFile *file)
       unsigned long reloc_addr = rela->r_offset + file->load_base;
       unsigned long *preloc_addr = (unsigned long*) reloc_addr;
       unsigned long reloc_type = ELFW_R_TYPE (rela->r_info);
-      if (reloc_type != R_X86_64_JUMP_SLOT)
+      unsigned long reloc_addend = rela->r_addend;
+      switch (reloc_type)
 	{
-	  VDL_LOG_ERROR ("invalid reloc type=%s\n", machine_reloc_type_to_str (reloc_type));
-	  continue;
-	}
-      if (plt == 0)
-	{
-	  // we are not prelinked
-	  *preloc_addr += file->load_base;
-	}
-      else
-	{
-	  // we are prelinked so, we have to redo the work done by the compile-time
-	  // linker: we calculate the address of the instruction right after the
-	  // jump of PLT[i]
-	  *preloc_addr = file->load_base + plt +  (reloc_addr - (dt_pltgot + 3*8)) * 2;
+	case  R_X86_64_IRELATIVE:
+	  {
+	    IRelativeFunction value =  (IRelativeFunction)(file->load_base + reloc_addend);
+	    *preloc_addr = value ();
+	  }
+	  break;
+	case R_X86_64_JUMP_SLOT:
+	  if (plt == 0)
+	    {
+	      // we are not prelinked
+	      *preloc_addr += file->load_base;
+	    }
+	  else
+	    {
+	      // we are prelinked so, we have to redo the work done by the compile-time
+	      // linker: we calculate the address of the instruction right after the
+	      // jump of PLT[i]
+	      *preloc_addr = file->load_base + plt +  (reloc_addr - (dt_pltgot + 3*8)) * 2;
+	    }
+	  break;
+	default:
+	  VDL_LOG_ASSERT (0, "invalid reloc type=%s/0x%lx\n", 
+			  machine_reloc_type_to_str (reloc_type), reloc_type);
+	  break;
 	}
     }
 }
