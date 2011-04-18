@@ -8,6 +8,7 @@ VALGRIND_CFLAGS=$(shell $(SRCDIR)get-valgrind-cflags.py)
 CFLAGS+=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-MD,.$*.d
 CXXFLAGS+=$(CFLAGS)
 LDFLAGS+=$(OPT)
+INSTALL:=install
 
 PWD=$(shell pwd)
 ARCH=$(shell uname -m)/
@@ -25,6 +26,11 @@ LIBDL_FILE=/lib64/libdl.so.2
 endif
 
 all: ldso libvdl.so elfedit internal-tests display-relocs
+
+install: all
+	$(INSTALL) -d $(PREFIX)/lib $(PREFIX)/bin
+	$(INSTALL) -t $(PREFIX)/lib ldso libvdl.so 
+	$(INSTALL) -t $(PREFIX)/bin  readversiondef elfedit 
 
 test: FORCE internal-tests
 	$(MAKE) -C test
