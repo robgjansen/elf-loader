@@ -5,9 +5,9 @@ DEBUG+=-DMALLOC_DEBUG_ENABLE
 #OPT=-O2
 LDSO_SONAME=ldso
 VALGRIND_CFLAGS=$(shell $(SRCDIR)get-valgrind-cflags.py)
-CFLAGS=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-MD,.$*.d
-CXXFLAGS=$(CFLAGS)
-LDFLAGS=$(OPT)
+CFLAGS+=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-MD,.$*.d
+CXXFLAGS+=$(CFLAGS)
+LDFLAGS+=$(OPT)
 
 PWD=$(shell pwd)
 ARCH=$(shell uname -m)/
@@ -65,7 +65,7 @@ LDSO_OBJECTS=$(addprefix ,$(addsuffix .o,$(basename $(LDSO_SOURCE))))
 
 ldso: $(LDSO_OBJECTS) ldso.version
 # build rules.
-C_CMD=$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(SRCDIR) -I$(SRCDIR)$(ARCH) -fpic -fvisibility=hidden -o $@ -c $<
+C_CMD=$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(SRCDIR) -I$(BLDDIR) -I$(SRCDIR)$(ARCH) -fpic -fvisibility=hidden -o $@ -c $<
 %.o:$(SRCDIR)%.c
 	$(C_CMD)
 $(ARCH)%.o:$(SRCDIR)$(ARCH)%.c
@@ -73,7 +73,7 @@ $(ARCH)%.o:$(SRCDIR)$(ARCH)%.c
 $(ARCH)%.o:$(SRCDIR)$(ARCH)%.S
 	@if test ! -d $(dir $@); then mkdir -p $(dir $@); fi
 	$(AS) $(ASFLAGS) -o $@ $<
-ldso:
+ldso: vdl-config.h
 	$(CC) $(LDFLAGS) -shared -nostartfiles -nostdlib -Wl,--entry=stage0,--version-script=ldso.version,--soname=$(LDSO_SONAME) -o $@ $(LDSO_OBJECTS) -Wl,-Bstatic,-lgcc
 
 # we have two generated files and need to build them.
