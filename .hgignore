@@ -10,6 +10,7 @@ hello$
 ldso$
 elfedit$
 ldso.version$
+libdl.version$
 libvdl.version$
 config.h$
 readversiondef$
