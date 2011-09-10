@@ -49,10 +49,9 @@ call_init (struct VdlFile *file)
       file->dt_init_arraysz != 0)
     {
       DtInit *dt_init_array = (DtInit *) (file->load_base + file->dt_init_array);
-      unsigned long dt_init_arraysz = file->dt_init_arraysz;
-
       int i;
-      for (i = 0; i < dt_init_arraysz / sizeof (DtInit); i++)
+      int n = file->dt_init_arraysz / sizeof (DtInit);
+      for (i = 0; i < n; i++)
 	{
 	  (dt_init_array[i]) (file->context->argc, file->context->argv, file->context->envp);
 	}
