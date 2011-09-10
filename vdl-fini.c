@@ -20,7 +20,6 @@ call_fini (struct VdlFile *file)
     }
   // mark the file as finalized
   file->fini_called = 1;
-
   // Gather information from the .dynamic section
 
   // First, invoke the newer DT_FINI_ARRAY functions.
@@ -29,10 +28,12 @@ call_fini (struct VdlFile *file)
   if (file->dt_fini_array != 0)
     {
       DtFini *dt_fini_array = (DtFini *) (file->load_base + file->dt_fini_array);
+      int n = (file->dt_fini_arraysz / sizeof (DtFini));
       int i;
-      for (i = (file->dt_fini_arraysz / sizeof (DtFini)) - 1; i > 0; i--)
+      // Be careful to iterate the array in reverse order
+      for (i = 0; i < n; i++)
 	{
-	  (dt_fini_array[i]) ();
+	  (dt_fini_array[n-1-i]) ();
 	}
     }
 
@@ -42,6 +43,7 @@ call_fini (struct VdlFile *file)
   if (file->dt_fini != 0)
     {
       DtFini dt_fini = (DtFini) file->load_base + file->dt_fini;
+      VDL_LOG_DEBUG("call_fini debug4\n");
       dt_fini ();
     }
 
