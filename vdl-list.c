@@ -244,11 +244,11 @@ void vdl_list_sort (struct VdlList *list,
 	{
 	  if (!is_strictly_lower (*j, *i, context))
 	    {
-	      insertion = *j;
+	      insertion = j;
 	      break;
 	    }
 	}
-      vdl_list_insert (&sorted, j, *i);
+      vdl_list_insert (&sorted, insertion, *i);
     }
   vdl_list_clear (list);
   vdl_list_insert_range (list, 
