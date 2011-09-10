@@ -13,9 +13,9 @@ called function_g in libg
 dlclose libg.so completed
 libf destructor
 libg destructor
-libh destructor
 special destructor in libh.so
 called function_g in libg
+libh destructor
 dlclose libh.so completed
 leave main
 libtest6 destructor
