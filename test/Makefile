@@ -1,13 +1,16 @@
+SRCDIR= $(abspath $(dir $(firstword $(MAKEFILE_LIST))))/
+BLDDIR= $(PWD)/
+VPATH=$(SRCDIR)
 CFLAGS=-g3 -Wall -Werror
 CXXFLAGS=$(CFLAGS)
 LDFLAGS=-Wl,--warn-unresolved-symbols -L.
 LINKER=$(CC)
 MACHINE_MAKEFILE=Makefile.$(shell uname -p)
 
-include $(MACHINE_MAKEFILE)
+include $(SRCDIR)$(MACHINE_MAKEFILE)
 
 TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17 test18 test19 test21 test20 $(TEST64)
-TARGETS=hello libq.so libp.so libn.so libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so $(LIB64) \
+TARGETS=hello libq.so libp.so libn.so libo.o libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so $(LIB64) \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
 all: $(TARGETS)
@@ -25,12 +28,23 @@ test%-ldso: test%
 	@../elfedit $@ ../ldso
 run-valgrind-test%: test%-ldso FORCE
 	@-LD_LIBRARY_PATH=.:../ ./run-valgrind.py ./$<; \
-		if test $$? -eq 0; then echo "PASS $@"; else echo "FAIL $@ -- LD_LIBRARY_PATH=.:../ ./run-valgrind.py ./$<"; fi
-run-test%: test%-ldso FORCE
+		if test $$? -eq 0; then 						\
+			echo "PASS $@"; 						\
+		else 									\
+			echo "FAIL $@ -- LD_LIBRARY_PATH=.:../ ./run-valgrind.py ./$<"; \
+		fi
+run-test%: test%-ldso $(OUTPUT_DIR) FORCE
+	@-mkdir -p $(OUTPUT_DIR) 2>/dev/null
 	@-$(TEST_PRE_COMMAND)
 	@-LD_LIBRARY_PATH=.:../ ./$< > $(OUTPUT_DIR)/test$* 2>/dev/null || true;
-	@-diff -q $(OUTPUT_DIR)/test$* $(OUTPUT_DIR)/test$*.ref > /dev/null; \
-		if test $$? -eq 0; then echo "PASS $@"; else echo "FAIL $@  -- LD_LIBRARY_PATH=.:../ ./$<"; fi
+	@-diff -q $(OUTPUT_DIR)/test$* $(SRCDIR)$(OUTPUT_DIR)/test$*.ref > /dev/null; \
+		if test $$? -eq 0; then 				\
+			echo "PASS $@"; 				\
+		else 							\
+			echo "FAIL $@  -- LD_LIBRARY_PATH=.:../ ./$<"; 	\
+		fi
+$(OUTPUT_DIR):
+	mkdir -p $@ 2>/dev/null
 diff-test%:
 	@-diff -u $(OUTPUT_DIR)/test$*.ref $(OUTPUT_DIR)/test$*
 update-test%: 
@@ -41,8 +55,6 @@ FORCE:
 
 
 
-hello.o: hello.c
-hello: hello.o
 
 lib%.o: lib%.c
 	$(CC) $(CFLAGS) -fpic -c -o $@ $<
@@ -57,6 +69,8 @@ test%.o: test%.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 test%: test%.o
 	$(LINKER) $(LDFLAGS) -ldl -o $@ $<
+
+test7.o: CFLAGS+=-Wno-unused-but-set-variable
 
 circular-dep:
 	$(CC) $(LDFLAGS) -shared -ldl -ln -o libo.so libo.o

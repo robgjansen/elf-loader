@@ -1,11 +1,11 @@
-SRCDIR= $(dir $(firstword $(MAKEFILE_LIST)))
+SRCDIR= $(abspath $(dir $(firstword $(MAKEFILE_LIST))))/
 BLDDIR= $(PWD)/
 #DEBUG=-DDPRINTF_DEBUG_ENABLE
 DEBUG+=-DMALLOC_DEBUG_ENABLE
 #OPT=-O2
 LDSO_SONAME=ldso
 VALGRIND_CFLAGS=$(shell $(SRCDIR)get-valgrind-cflags.py)
-CFLAGS+=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-MD,.$*.d
+CFLAGS+=-g3 -Wall -Werror $(DEBUG) $(OPT) $(VALGRIND_CFLAGS) -D_GNU_SOURCE -Wp,-MD,$(dir $@).$(notdir $@).d
 CXXFLAGS+=$(CFLAGS)
 LDFLAGS+=$(OPT)
 INSTALL:=install
@@ -33,17 +33,22 @@ install: all
 	$(INSTALL) -t $(PREFIX)/bin  readversiondef elfedit 
 
 test: FORCE internal-tests
-	$(MAKE) -C test
-	$(MAKE) -C test run
+	mkdir -p test;
+	$(MAKE) -C test -f $(SRCDIR)/test/Makefile
+	$(MAKE) -C test -f $(SRCDIR)/test/Makefile run
 	./internal-tests
 
 test-valgrind: FORCE
-	$(MAKE) -C test
-	$(MAKE) -C test run-valgrind
+	mkdir -p test
+	$(MAKE) -C test -f $(SRCDIR)/test/Makefile
+	$(MAKE) -C test -f $(SRCDIR)/test/Makefile run-valgrind
 
 FORCE:
 
 LDSO_ARCH_SRC=\
+
+# for valgrind macros
+alloc.o: CFLAGS+=-Wno-unused-but-set-variable
 
 LDSO_SOURCE=\
 avprintf-cb.c \
@@ -125,6 +130,7 @@ clean:
 	-rm -f ldso.version libdl.version vdl-config.h 2>/dev/null
 	-rm -f .*.d 2>/dev/null
 	-rmdir $(ARCH) 2>/dev/null
+	mkdir -p test
 	$(MAKE) -C test -f $(SRCDIR)test/Makefile clean
 
--include $(SRC:%.o=.deps/%.d)
+-include $(SRC:%.o=.%.o.d)
