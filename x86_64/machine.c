@@ -4,6 +4,7 @@
 #include "vdl-log.h"
 #include "vdl-reloc.h"
 #include "vdl-lookup.h"
+#include "local-elf.h"
 #include "syscall.h"
 #include "vdl-file.h"
 #include <sys/mman.h>
@@ -79,7 +80,6 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
     ITEM(X86_64_COPY);
     ITEM(X86_64_GLOB_DAT);
     ITEM(X86_64_JUMP_SLOT);
-    ITEM(X86_64_IRELATIVE);
     ITEM(X86_64_RELATIVE);
     ITEM(X86_64_GOTPCREL);
     ITEM(X86_64_32);
@@ -96,11 +96,10 @@ const char *machine_reloc_type_to_str (unsigned long reloc_type)
     ITEM(X86_64_DTPOFF32);
     ITEM(X86_64_GOTTPOFF);
     ITEM(X86_64_TPOFF32);
-#ifdef R_X86_64_PC64
+    ITEM(X86_64_IRELATIVE);
     ITEM(X86_64_PC64);
     ITEM(X86_64_GOTOFF64);
     ITEM(X86_64_GOTPC32);
-#endif /* unsupported on ubuntu 64 */
   default:
     return "XXX";
   }
