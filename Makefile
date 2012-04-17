@@ -119,7 +119,7 @@ TEST_OBJECT = $(addsuffix .o,$(basename $(TEST_SOURCE)))
 %.o:$(SRCDIR)%.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $^
 internal-tests: $(TEST_OBJECT)
-	$(CXX) $(LDFLAGS) $^ -o $@
+	$(CXX) $^ $(LDFLAGS) -o $@
 display-relocs: display-relocs.o
 
 clean: 
