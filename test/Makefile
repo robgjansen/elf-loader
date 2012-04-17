@@ -61,14 +61,14 @@ lib%.o: lib%.c
 lib%.o: lib%.cc
 	$(CXX) $(CXXFLAGS) -fpic -c -o $@ $<
 lib%.so:lib%.o
-	$(LINKER) $(LDFLAGS) -shared -o $@ $^
+	$(LINKER) $^ $(LDFLAGS) -shared -o $@ 
 
 test%.o: test%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 test%.o: test%.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 test%: test%.o
-	$(LINKER) $(LDFLAGS) -ldl -o $@ $<
+	$(LINKER) $< $(LDFLAGS) -ldl -o $@
 
 test7.o: CFLAGS+=-Wno-unused-but-set-variable
 
