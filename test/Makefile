@@ -3,7 +3,7 @@ BLDDIR= $(PWD)/
 VPATH=$(SRCDIR)
 CFLAGS=-g3 -Wall -Werror
 CXXFLAGS=$(CFLAGS)
-LDFLAGS=-Wl,--warn-unresolved-symbols -L.
+LDFLAGS=-Wl,--warn-unresolved-symbols -L. -Wl,--no-as-needed
 LINKER=$(CC)
 MACHINE_MAKEFILE=Makefile.$(shell uname -p)
 
