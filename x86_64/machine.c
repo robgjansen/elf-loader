@@ -252,7 +252,10 @@ machine_get_system_search_dirs (void)
 {
   static const char *dirs = 
     "/lib64:" 
-    "/usr/lib64";
+    "/lib/x86_64-linux-gnu/:"
+    "/usr/lib64:"
+    "/usr/lib/x86_64-linux-gnu/:"
+    ;
   return dirs;
 }
 const char *machine_get_lib (void)
