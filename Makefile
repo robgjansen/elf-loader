@@ -21,8 +21,14 @@ ifeq ($(ARCH),i386/)
 LDSO_FILE=/lib/ld-linux.so.2
 LIBDL_FILE=/lib/libdl.so.2
 else ifeq ($(ARCH),x86_64/)
-LDSO_FILE=/lib64/ld-linux-x86-64.so.2
-LIBDL_FILE=/lib64/libdl.so.2
+LDSO_FILES= \
+ /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 \
+ /lib64/ld-linux-x86-64.so.2
+LIBDL_FILES= \
+ /lib/x86_64-linux-gnu/libdl.so.2 \
+ /lib64/libdl.so.2
+LDSO_FILE=$(foreach file,$(LDSO_FILES),$(wildcard $(file)))
+LIBDL_FILE=$(foreach file,$(LIBDL_FILES),$(wildcard $(file)))
 endif
 
 all: ldso libvdl.so elfedit internal-tests display-relocs
