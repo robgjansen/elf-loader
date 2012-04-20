@@ -284,6 +284,7 @@ symbol_version_matches (const struct VdlFile *in,
 			unsigned long from_ver_hash,
 			unsigned long in_index)
 {
+  VDL_LOG_FUNCTION("%s %s %ld %ld\n", from_ver_name?from_ver_name:"", from_ver_filename?from_ver_filename:"", from_ver_hash, in_index);
   ElfW(Half) *in_dt_versym = in->dt_versym;
   if (from_ver_name == 0 || from_ver_filename == 0)
     {
@@ -335,6 +336,7 @@ symbol_version_matches (const struct VdlFile *in,
 
       // we have version information in both the 'from' and the 'in'
       // objects.
+	VDL_LOG_DEBUG("version info on both from and in %ld\n", ver_index);
       if (ver_index == 0)
 	{
 	  // this is a symbol with local scope
@@ -413,6 +415,7 @@ symbol_version_matches (const struct VdlFile *in,
       }
     }
   // the versions don't match.
+  VDL_LOG_DEBUG("match fucked\n");
   return VERSION_MATCH_BAD;
 }
 
@@ -455,6 +458,7 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 								       index);
 	  if (version_match == VERSION_MATCH_PERFECT)
 	    {
+	      VDL_LOG_DEBUG("non-ambiguous match %d\n", version_match);
 	      // We have resolved the symbol
 	      if (item != file && file != 0)
 		{
@@ -470,10 +474,12 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	    }
 	  else if (version_match == VERSION_MATCH_AMBIGUOUS)
 	    {
+	      VDL_LOG_DEBUG("ambiguous match %d\n", version_match);
 	      n_ambiguous_matches++;
 	      last_ambiguous_match = index;
 	    }
 	}
+      VDL_LOG_DEBUG("no match\n");
       VDL_LOG_ASSERT (n_ambiguous_matches <= 1, 
 		      "We found more than 1 ambiguous match to resolve the requested symbol=%s", 
 		      name);

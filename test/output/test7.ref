@@ -6,6 +6,6 @@ dlopen libg.so completed
 leave main
 libtest7 destructor
 libg destructor
+libh destructor
 special destructor in libh.so
 called function_g in libg
-libh destructor
