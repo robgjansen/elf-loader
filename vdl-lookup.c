@@ -448,7 +448,8 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	  continue;
 	}
       int n_ambiguous_matches = 0;
-      unsigned long last_ambiguous_match;
+      unsigned long last_ambiguous_match, first_ambiguous_match;
+      struct VdlFile *first_ambiguous_match_item;
       struct VdlFileLookupIterator i = vdl_lookup_file_begin (item, name, elf_hash, gnu_hash);
       while (vdl_lookup_file_has_next (&i))
 	{
@@ -475,29 +476,51 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	  else if (version_match == VERSION_MATCH_AMBIGUOUS)
 	    {
 	      VDL_LOG_DEBUG("ambiguous match %d\n", version_match);
+	      if (n_ambiguous_matches == 0)
+		{
+		  first_ambiguous_match = index;
+		  first_ambiguous_match_item = item;
+		}
 	      n_ambiguous_matches++;
 	      last_ambiguous_match = index;
 	    }
 	}
       VDL_LOG_DEBUG("no match\n");
-      VDL_LOG_ASSERT (n_ambiguous_matches <= 1, 
-		      "We found more than 1 ambiguous match to resolve the requested symbol=%s", 
-		      name);
+
+      unsigned long final_match;
+      struct VdlFile *final_item;      
       if (n_ambiguous_matches == 1)
 	{
 	  // if there is only one ambiguous match, it's not really ambiguous: it's a match !
-	  if (item != file && file != 0)
-	    {
-	      // The symbol has been resolved in another binary. Make note of this.
-	      vdl_list_push_front (file->gc_symbols_resolved_in, item);
-	      VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, item->name, file->name);
-	    }
-	  struct VdlLookupResult result;
-	  result.file = item;
-	  result.symbol = &i.dt_symtab[last_ambiguous_match];
-	  result.found = true;
-	  return result;
+	  final_match = last_ambiguous_match;
+	  final_item = item;
 	}
+      else if (n_ambiguous_matches > 1)
+	{
+	  // If we have multiple ambiguous matches, it means that we are doing
+	  // a lookup for a symbol that has no version information and we found 
+	  // more than one version of this symbol within the current file.
+	  // In this case, we pick the 'oldest' symbol, that is, the first one
+	  // we found. This is what I believe glibc is doing.
+	  final_match = first_ambiguous_match;
+	  final_item = first_ambiguous_match_item;
+	}
+      else
+	{
+	  // no match so keep looking
+	  continue;
+	}
+      if (final_item != file && file != 0)
+	{
+	  // The symbol has been resolved in another binary. Make note of this.
+	  vdl_list_push_front (file->gc_symbols_resolved_in, final_item);
+	  VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, final_item->name, file->name);
+	}
+      struct VdlLookupResult result;
+      result.file = final_item;
+      result.symbol = &i.dt_symtab[final_match];
+      result.found = true;
+      return result;
     }
   struct VdlLookupResult result;
   result.found = false;
