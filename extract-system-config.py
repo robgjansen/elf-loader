@@ -138,6 +138,8 @@ def search_debug_file():
                     '/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.13.so',
                     # for ubuntu 0910. braindead
                     '/usr/lib/debug/lib/ld-2.10.1.so',
+                    # for ubuntu 1004.
+                    '/usr/lib/debug/lib/ld-2.11.1.so',
                     # ubuntu 1204
                     '/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.15.so'
                     ]

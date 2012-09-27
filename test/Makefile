@@ -5,7 +5,7 @@ CFLAGS=-g3 -Wall -Werror
 CXXFLAGS=$(CFLAGS)
 LDFLAGS=-Wl,--warn-unresolved-symbols -L. -Wl,--no-as-needed
 LINKER=$(CC)
-MACHINE_MAKEFILE=Makefile.$(shell uname -p)
+MACHINE_MAKEFILE=Makefile.$(shell uname -m)
 
 include $(SRCDIR)$(MACHINE_MAKEFILE)
 
