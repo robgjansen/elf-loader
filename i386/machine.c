@@ -335,7 +335,9 @@ machine_get_system_search_dirs (void)
     "/lib:" 
     "/lib32:"
     "/usr/lib:"
-    "/usr/lib32";
+    "/usr/lib32:"
+    "/usr/lib/i386-linux-gnu:"
+    "/lib/i386-linux-gnu";
   return dirs;
 }
 
