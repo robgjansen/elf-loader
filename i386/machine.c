@@ -337,7 +337,9 @@ machine_get_system_search_dirs (void)
     "/usr/lib:"
     "/usr/lib32:"
     "/usr/lib/i386-linux-gnu:"
-    "/lib/i386-linux-gnu";
+    "/lib/i386-linux-gnu"
+    CONFIG_SYSTEM_LDSO_LIBRARY_PATH
+    ;
   return dirs;
 }
 

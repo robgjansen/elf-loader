@@ -151,6 +151,17 @@ def search_debug_file():
             return file
     
     raise CouldNotFindFile ()
+
+def list_lib_path():
+    paths = ""
+    re_lib = re.compile ('(?<=^#)')
+    for filename in os.listdir("/etc/ld.so.conf.d/"):
+        for line in open ("/etc/ld.so.conf.d/" + filename, 'r'):
+            if re_lib.search (line) is not None:
+                continue
+            paths += (":" + line.rstrip ())
+
+    return paths
         
 def usage():
     print ''
@@ -229,6 +240,8 @@ def main(argv):
     if data is None:
         sys.exit (1)
     config.write ('#define CONFIG_TCB_STACK_GUARD ' + str(data.data) + '\n')
+
+    config.write ('#define CONFIG_SYSTEM_LDSO_LIBRARY_PATH \"' + list_lib_path () + '\"\n')
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -7,6 +7,7 @@
 #include "local-elf.h"
 #include "syscall.h"
 #include "vdl-file.h"
+#include "vdl-config.h"
 #include <sys/mman.h>
 #include <sys/mman.h>
 #include <asm/prctl.h> // for ARCH_SET_FS
@@ -255,6 +256,7 @@ machine_get_system_search_dirs (void)
     "/lib/x86_64-linux-gnu:"
     "/usr/lib64:"
     "/usr/lib/x86_64-linux-gnu:"
+    CONFIG_SYSTEM_LDSO_LIBRARY_PATH
     ;
   return dirs;
 }
