@@ -67,7 +67,10 @@ EXPORT int __libc_enable_secure = 0;
 // and how this symbol is imported by libc.so
 EXPORT char **_dl_argv;
 
-EXPORT char _rtld_global_ro[CONFIG_RTLD_GLOBAL_RO_SIZE];
+static char _rtld_local_ro[CONFIG_RTLD_GLOBAL_RO_SIZE];
+// and, then, we define the exported symbol as an alias to the local symbol.
+extern __typeof (_rtld_local_ro) _rtld_global_ro __attribute__ ((alias("_rtld_local_ro"),
+                                                                 visibility("default")));
 // We have to define first a local symbol to ensure that all references
 // to this symbol do not go through the GOT.
 static char _rtld_local[CONFIG_RTLD_GLOBAL_SIZE];
@@ -223,6 +226,9 @@ void glibc_initialize (void)
   void **(*fn) (void) = vdl_dl_error_catch_tsd;
   char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
   vdl_memcpy ((void*)dst, &fn, sizeof (fn));
+  char *off = &_rtld_local_ro[CONFIG_RTLD_DL_PAGESIZE_OFFSET];
+  int pgsz = system_getpagesize ();
+  vdl_memcpy (off, &pgsz, sizeof (pgsz));
 }
 
 
