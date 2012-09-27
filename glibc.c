@@ -235,6 +235,7 @@ dlsym_hack (void *handle, const char *symbol)
 // Typically called by malloc to lookup ptmalloc_init.
 // In this case, symbolp is 0.
 int
+internal_function
 _dl_addr_hack (const void *address, Dl_info *info,
 	       void **mapp, const ElfW(Sym) **symbolp)
 {
