@@ -280,7 +280,7 @@ get_file_info (uint32_t phnum,
     {
       struct VdlFileMap *map = *j;
       if (dynamic->p_offset >= map->file_start_align && 
-	  dynamic->p_offset + dynamic->p_filesz < map->file_start_align + map->file_size_align)
+	  dynamic->p_offset + dynamic->p_filesz <= map->file_start_align + map->file_size_align)
 	{
 	  included = true;
 	}
