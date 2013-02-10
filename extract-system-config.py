@@ -154,15 +154,14 @@ def search_debug_file():
     raise CouldNotFindFile ()
 
 def list_lib_path():
-    paths = ""
+    paths = []
     re_lib = re.compile ('(?<=^#)')
     for filename in os.listdir("/etc/ld.so.conf.d/"):
         for line in open ("/etc/ld.so.conf.d/" + filename, 'r'):
             if re_lib.search (line) is not None:
                 continue
-            paths += (":" + line.rstrip ())
-
-    return paths
+            paths.append(line.rstrip ())
+    return ':'.join(paths)
         
 def usage():
     print ''
