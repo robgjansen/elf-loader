@@ -23,7 +23,9 @@ LIBDL_FILES= \
  /lib/i386-linux-gnu/libdl.so.2 \
  /lib/libdl.so.2
 LIBDL_FILE=$(foreach file,$(LIBDL_FILES),$(wildcard $(file)))
-ASFLAGS=--32 -march=i386
+ASFLAGS+=--32 -march=i386
+CFLAGS+=-m32
+LDFLAGS+=-m32
 else ifeq ($(ARCH),x86_64/)
 LDSO_FILES= \
  /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 \

@@ -7,7 +7,7 @@
 #include "vdl-config.h"
 #include "vdl-file.h"
 #include "vdl-mem.h"
-#include "syscall.h"
+#include <sys/syscall.h>
 #include <sys/mman.h>
 #include <asm/ldt.h>
 

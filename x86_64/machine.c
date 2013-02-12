@@ -5,9 +5,9 @@
 #include "vdl-reloc.h"
 #include "vdl-lookup.h"
 #include "local-elf.h"
-#include "syscall.h"
 #include "vdl-file.h"
 #include "vdl-config.h"
+#include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/mman.h>
 #include <asm/prctl.h> // for ARCH_SET_FS
