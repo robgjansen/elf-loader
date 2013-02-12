@@ -59,6 +59,9 @@ void machine_reloc (const struct VdlFile *file,
     case R_X86_64_64:
       *reloc_addr = file->load_base + symbol_value + reloc_addend;
       break;
+    case R_X86_64_IRELATIVE:
+      /* nop */
+      break;
     default:
       VDL_LOG_ASSERT (0, "unhandled reloc type %s", 
 		      machine_reloc_type_to_str (reloc_type));
@@ -111,14 +114,9 @@ void machine_reloc_dynamic (ElfW(Dyn) *dyn, unsigned long load_base)
   // this is a no-op on x86-64
 }
 extern void machine_resolve_trampoline (struct VdlFile *file, unsigned long offset);
-void machine_lazy_reloc (struct VdlFile *file)
+void machine_reloc_irelative (struct VdlFile *file)
 {
   VDL_LOG_FUNCTION ("file=%s", file->name);
-  // setup lazy binding by setting the GOT entries 2 and 3
-  // as specified by the ELF x86_64 ABI. It's the same
-  // as the i386 ABI here.
-  // Entry 2 is set to a pointer to the associated VdlFile
-  // Entry 3 is set to the asm trampoline machine_resolve_trampoline
   unsigned long dt_pltgot = file->dt_pltgot;
   unsigned long dt_jmprel = file->dt_jmprel;
   unsigned long dt_pltrel = file->dt_pltrel;
@@ -132,6 +130,47 @@ void machine_lazy_reloc (struct VdlFile *file)
       return;
     }
   VDL_LOG_ASSERT (dt_pltrel == DT_RELA, "x86-64 uses rela entries");
+
+  int i;
+  for (i = 0; i < dt_pltrelsz/sizeof(ElfW(Rela)); i++)
+    {
+      ElfW(Rela) *rela = &(((ElfW(Rela)*)dt_jmprel)[i]);
+      unsigned long reloc_addr = rela->r_offset + file->load_base;
+      unsigned long *preloc_addr = (unsigned long*) reloc_addr;
+      unsigned long reloc_type = ELFW_R_TYPE (rela->r_info);
+      unsigned long reloc_addend = rela->r_addend;
+      switch (reloc_type) {
+	case  R_X86_64_IRELATIVE:
+	  {
+           IRelativeFunction value =  (IRelativeFunction)(file->load_base + reloc_addend);
+           *preloc_addr = value ();
+         }
+         break;
+       }
+    }
+}
+void machine_lazy_reloc (struct VdlFile *file)
+{
+  VDL_LOG_FUNCTION ("file=%s", file->name);
+  unsigned long dt_pltgot = file->dt_pltgot;
+  unsigned long dt_jmprel = file->dt_jmprel;
+  unsigned long dt_pltrel = file->dt_pltrel;
+  unsigned long dt_pltrelsz = file->dt_pltrelsz;
+
+  if (dt_pltgot == 0 || 
+      (dt_pltrel != DT_REL && dt_pltrel != DT_RELA) || 
+      dt_pltrelsz == 0 || 
+      dt_jmprel == 0)
+    {
+      return;
+    }
+  VDL_LOG_ASSERT (dt_pltrel == DT_RELA, "x86-64 uses rela entries");
+  // setup lazy binding by setting the GOT entries 2 and 3
+  // as specified by the ELF x86_64 ABI. It's the same
+  // as the i386 ABI here.
+  // Entry 2 is set to a pointer to the associated VdlFile
+  // Entry 3 is set to the asm trampoline machine_resolve_trampoline
+  //
   // If this platform does prelinking, the prelinker has stored
   // a pointer to plt + 0x16 in got[1]. Otherwise, got[1] is zero.
   // No, there is no documentation about this other than the code
@@ -149,14 +188,11 @@ void machine_lazy_reloc (struct VdlFile *file)
       unsigned long reloc_addr = rela->r_offset + file->load_base;
       unsigned long *preloc_addr = (unsigned long*) reloc_addr;
       unsigned long reloc_type = ELFW_R_TYPE (rela->r_info);
-      unsigned long reloc_addend = rela->r_addend;
       switch (reloc_type)
 	{
 	case  R_X86_64_IRELATIVE:
-	  {
-	    IRelativeFunction value =  (IRelativeFunction)(file->load_base + reloc_addend);
-	    *preloc_addr = value ();
-	  }
+	  /* do nothing here. the actual IRELATIVE relocation 
+	     will be performed within machine_reloc_irelative */
 	  break;
 	case R_X86_64_JUMP_SLOT:
 	  if (plt == 0)

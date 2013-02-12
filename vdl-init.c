@@ -4,6 +4,7 @@
 #include "vdl-context.h"
 #include "vdl-file.h"
 #include "vdl-list.h"
+#include "machine.h"
 
 
 // the glibc elf loader passes all 3 arguments
@@ -31,6 +32,9 @@ call_init (struct VdlFile *file)
       // is not good. So, we just return.
       return;
     }
+
+  machine_reloc_irelative (file);
+
 
   // Gather information from the .dynamic section
   // First, invoke the old-style DT_INIT function.

@@ -67,53 +67,9 @@ void machine_reloc (const struct VdlFile *file,
     }
 }
 
-void
-machine_reloc_with_match (unsigned long *reloc_addr,
-			  unsigned long reloc_type,
-			  unsigned long reloc_addend,
-			  const struct VdlLookupResult *match)
+void machine_reloc_irelative (struct VdlFile *file)
 {
-  if (reloc_type == R_386_GLOB_DAT ||
-      reloc_type == R_386_JMP_SLOT)
-    {
-      // i386 ABI formula: S
-      *reloc_addr = match->file->load_base + match->symbol->st_value;
-    }
-  else if (reloc_type == R_386_32)
-    {
-      // i386 ABI formula: S + A
-      *reloc_addr = match->file->load_base + match->symbol->st_value + reloc_addend;
-    }
-  else if (reloc_type == R_386_TLS_TPOFF)
-    {
-      VDL_LOG_ASSERT (match->file->has_tls,
-		      "Module which contains target symbol does "
-		      "not have a TLS block ??");
-      VDL_LOG_ASSERT (ELFW_ST_TYPE (match->symbol->st_info) == STT_TLS,
-		      "Target symbol is not a tls symbol ??");
-      *reloc_addr = match->file->tls_offset + match->symbol->st_value + reloc_addend;
-    }
-  else if (reloc_type == R_386_TLS_DTPMOD32)
-    {
-      VDL_LOG_ASSERT (match->file->has_tls,
-		      "Module which contains target symbol does "
-		      "not have a TLS block ??");
-      VDL_LOG_ASSERT (reloc_addend == 0, "i386 does not use addends for this reloc");
-      *reloc_addr = match->file->tls_index;
-    }
-  else if (reloc_type == R_386_TLS_DTPOFF32)
-    {
-      VDL_LOG_ASSERT (match->file->has_tls,
-		      "Module which contains target symbol does "
-		      "not have a TLS block ??");
-      *reloc_addr = match->symbol->st_value + reloc_addend;
-      //*reloc_addr = match->symbol->st_value;
-    }
-  else
-    {
-      VDL_LOG_ASSERT (0, "unhandled reloc type: %s", 
-		      machine_reloc_type_to_str (reloc_type));
-    }
+
 }
 
 const char *machine_reloc_type_to_str (unsigned long reloc_type)

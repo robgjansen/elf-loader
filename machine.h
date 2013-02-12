@@ -21,18 +21,10 @@ void machine_reloc (const struct VdlFile *file,
 		    unsigned long reloc_addend,
 		    unsigned long symbol_value,
 		    unsigned long symbol_type);
-void machine_reloc_without_match (struct VdlFile *file,
-				  unsigned long *reloc_addr,
-				  unsigned long reloc_type,
-				  unsigned long reloc_addend,
-				  const ElfW(Sym) *sym);
-void machine_reloc_with_match (unsigned long *reloc_addr,
-			       unsigned long reloc_type,
-			       unsigned long reloc_addend,
-			       const struct VdlLookupResult *match);
 const char *machine_reloc_type_to_str (unsigned long reloc_type);
 void machine_reloc_dynamic (ElfW(Dyn) *dyn, unsigned long load_base);
 bool machine_insert_trampoline (unsigned long from, unsigned long to, unsigned long from_size);
+void machine_reloc_irelative (struct VdlFile *file);
 void machine_lazy_reloc (struct VdlFile *file);
 // return old value
 uint32_t machine_atomic_compare_and_exchange (uint32_t *val, uint32_t old, uint32_t new_value);
