@@ -11,13 +11,14 @@ LDFLAGS+=$(OPT)
 INSTALL:=install
 
 PWD=$(shell pwd)
-ARCH?=$(shell uname -m)/
-ifeq ($(ARCH),i586/)
-ARCH=i386/
-else ifeq ($(ARCH),i686/)
-ARCH=i386/
+ARCH?=$(shell uname -m)
+TMP_ARCH=$(ARCH)/
+ifeq ($(TMP_ARCH),i586/)
+TMP_ARCH=i386/
+else ifeq ($(TMP_ARCH),i686/)
+TMP_ARCH=i386/
 endif
-ifeq ($(ARCH),i386/)
+ifeq ($(TMP_ARCH),i386/)
 LDSO_FILE=/lib/ld-linux.so.2
 LIBDL_FILES= \
  /lib/i386-linux-gnu/libdl.so.2 \
@@ -26,7 +27,7 @@ LIBDL_FILE=$(foreach file,$(LIBDL_FILES),$(wildcard $(file)))
 ASFLAGS+=--32 -march=i386
 CFLAGS+=-m32
 LDFLAGS+=-m32
-else ifeq ($(ARCH),x86_64/)
+else ifeq ($(TMP_ARCH),x86_64/)
 LDSO_FILES= \
  /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 \
  /lib64/ld-linux-x86-64.so.2
@@ -69,8 +70,9 @@ vdl.c system.c alloc.c \
 vdl-reloc.c \
 vdl-gc.c vdl-lookup.c \
 futex.c vdl-tls.c \
-$(ARCH)stage0.S \
-$(ARCH)machine.c $(ARCH)resolv.S \
+$(TMP_ARCH)stage0.S \
+$(TMP_ARCH)machine.c \
+$(TMP_ARCH)resolv.S \
 vdl-sort.c vdl-mem.c \
 vdl-list.c vdl-context.c \
 vdl-alloc.c vdl-linkmap.c \
@@ -88,12 +90,12 @@ LDSO_OBJECTS=$(addprefix ,$(addsuffix .o,$(basename $(LDSO_SOURCE))))
 
 ldso: $(LDSO_OBJECTS) ldso.version
 # build rules.
-C_CMD=$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(SRCDIR) -I$(BLDDIR) -I$(SRCDIR)$(ARCH) -fpic -fvisibility=hidden -o $@ -c $<
+C_CMD=$(CC) $(CFLAGS) -DLDSO_SONAME=\"$(LDSO_SONAME)\" -fno-stack-protector  -I$(SRCDIR) -I$(BLDDIR) -I$(SRCDIR)$(TMP_ARCH) -fpic -fvisibility=hidden -o $@ -c $<
 %.o:$(SRCDIR)%.c
 	$(C_CMD)
-$(ARCH)%.o:$(SRCDIR)$(ARCH)%.c
+$(TMP_ARCH)%.o:$(SRCDIR)$(TMP_ARCH)%.c
 	$(C_CMD)
-$(ARCH)%.o:$(SRCDIR)$(ARCH)%.S
+$(TMP_ARCH)%.o:$(SRCDIR)$(TMP_ARCH)%.S
 	@if test ! -d $(dir $@); then mkdir -p $(dir $@); fi
 	$(AS) $(ASFLAGS) -o $@ $<
 ldso: vdl-config.h
@@ -136,12 +138,12 @@ display-relocs: display-relocs.o
 
 clean: 
 	-rm -f internal-tests elfedit readversiondef display-relocs core hello hello-ldso 2> /dev/null
-	-rm -f ldso libvdl.so *.o  $(ARCH)/*.o 2>/dev/null
-	-rm -f *~ $(ARCH)/*~ 2>/dev/null
-	-rm -f \#* $(ARCH)/\#* 2>/dev/null
+	-rm -f ldso libvdl.so *.o  $(TMP_ARCH)/*.o 2>/dev/null
+	-rm -f *~ $(TMP_ARCH)/*~ 2>/dev/null
+	-rm -f \#* $(TMP_ARCH)/\#* 2>/dev/null
 	-rm -f ldso.version libdl.version vdl-config.h 2>/dev/null
 	-rm -f .*.d 2>/dev/null
-	-rmdir $(ARCH) 2>/dev/null
+	-rmdir $(TMP_ARCH) 2>/dev/null
 	mkdir -p test
 	$(MAKE) -C test -f $(SRCDIR)test/Makefile clean
 

@@ -5,7 +5,15 @@ CFLAGS=-g3 -Wall -Werror
 CXXFLAGS=$(CFLAGS)
 LDFLAGS=-Wl,--warn-unresolved-symbols -L. -Wl,--no-as-needed
 LINKER=$(CC)
-MACHINE_MAKEFILE=Makefile.$(shell uname -m)
+ARCH?=$(shell uname -m)
+TMP_ARCH=$(ARCH)
+ifeq ($(TMP_ARCH),i586)
+TMP_ARCH=i686
+else ifeq ($(TMP_ARCH),i386)
+TMP_ARCH=i686
+endif
+MACHINE_MAKEFILE=Makefile.$(TMP_ARCH)
+
 
 include $(SRCDIR)$(MACHINE_MAKEFILE)
 
