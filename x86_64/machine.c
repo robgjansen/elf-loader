@@ -290,6 +290,7 @@ machine_get_system_search_dirs (void)
   static const char *dirs = 
     "/lib64:" 
     "/lib/x86_64-linux-gnu:"
+    "/usr/lib:"
     "/usr/lib64:"
     "/usr/lib/x86_64-linux-gnu:"
     CONFIG_SYSTEM_LDSO_LIBRARY_PATH
