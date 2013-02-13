@@ -113,6 +113,7 @@ test20.o: CFLAGS+=-fpic
 test20: LDFLAGS+=-pie
 test21: LINKER=$(CXX)
 run-test12: TEST_PRE_COMMAND=rm libl.so
+test24: LDFLAGS+=-lpthread
 
 
 clean:
