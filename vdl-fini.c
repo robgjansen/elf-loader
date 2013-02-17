@@ -43,12 +43,36 @@ call_fini (struct VdlFile *file)
   if (file->dt_fini != 0)
     {
       DtFini dt_fini = (DtFini) file->load_base + file->dt_fini;
-      VDL_LOG_DEBUG("call_fini debug4\n");
       dt_fini ();
     }
 
   vdl_context_notify (file->context, file, VDL_EVENT_DESTROYED);
 }
+
+struct VdlList *vdl_fini_lock (struct VdlList *files)
+{
+  // Make sure that we have not already planed to call fini
+  // on these files
+  struct VdlList *locked = vdl_list_new();
+  {
+    void **cur;
+    for (cur = vdl_list_begin (files);
+	 cur != vdl_list_end (files);
+	 cur = vdl_list_next (cur))
+      {
+	struct VdlFile *file = *cur;
+	if (file->fini_call_lock == 1)
+	  {
+	    // already locked. ignore
+	    continue;
+	  }
+	file->fini_call_lock = 1;
+	vdl_list_push_back (locked, file);
+      }
+  }
+  return locked;
+}
+
 
 void vdl_fini_call (struct VdlList *files)
 {

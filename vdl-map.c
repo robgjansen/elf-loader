@@ -335,6 +335,7 @@ file_new (unsigned long load_base,
   file->deps_initialized = 0;
   file->tls_initialized = 0;
   file->init_called = 0;
+  file->fini_call_lock = 0;
   file->fini_called = 0;
   file->reloced = 0;
   file->patched = 0;

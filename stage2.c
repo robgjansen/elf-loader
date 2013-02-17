@@ -328,7 +328,9 @@ stage2_finalize (void)
   // in the correct order.
   struct VdlList *link_map = vdl_linkmap_copy ();
   struct VdlList *call_fini = vdl_sort_call_fini (link_map);
-  vdl_fini_call (call_fini);
+  struct VdlList *locked = vdl_fini_lock(call_fini);
+  vdl_fini_call (locked);
+  vdl_list_delete (locked);
   vdl_list_delete (call_fini);
   vdl_list_delete (link_map);
 }

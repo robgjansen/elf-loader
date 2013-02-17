@@ -357,23 +357,25 @@ int vdl_dlclose (void *handle)
   }
 
   struct VdlList *call_fini = vdl_sort_call_fini (gc.unload);
+  struct VdlList *locked = vdl_fini_lock(call_fini);
+  vdl_list_delete(call_fini);
+  call_fini = locked;
 
   // must not hold the lock to call fini
   futex_unlock (g_vdl.futex);
   vdl_fini_call (call_fini);
   futex_lock (g_vdl.futex);
 
-  vdl_list_delete (call_fini);
-
-  vdl_tls_file_deinitialize (gc.unload);
+  vdl_tls_file_deinitialize (call_fini);
 
   // update the linkmap before unmapping
-  vdl_linkmap_remove_range (vdl_list_begin (gc.unload),
-			    vdl_list_end (gc.unload));
+  vdl_linkmap_remove_range (vdl_list_begin (call_fini),
+			    vdl_list_end (call_fini));
 
   // now, unmap
-  vdl_unmap (gc.unload, true);
+  vdl_unmap (call_fini, true);
 
+  vdl_list_delete (call_fini);
   vdl_list_delete (gc.unload);
   vdl_list_delete (gc.not_unload);
 

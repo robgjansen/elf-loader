@@ -98,6 +98,9 @@ struct VdlFile
   // indicates if the ELF initializers of this file
   // have been called.
   uint32_t init_called : 1;
+  // indicates that the ELF finalizers of this file are
+  // going to be called.
+  uint32_t fini_call_lock : 1;
   // indicates if the ELF finalizers of this file
   // have been called.
   uint32_t fini_called : 1;
