@@ -336,7 +336,6 @@ symbol_version_matches (const struct VdlFile *in,
 
       // we have version information in both the 'from' and the 'in'
       // objects.
-	VDL_LOG_DEBUG("version info on both from and in %ld\n", ver_index);
       if (ver_index == 0)
 	{
 	  // this is a symbol with local scope
@@ -358,7 +357,6 @@ symbol_version_matches (const struct VdlFile *in,
 	    {
 	      // the matching symbol we found is hidden and is located
 	      // in a different binary. Not ok.
-	      VDL_LOG_DEBUG ("hidden symbol\n", 0);
 	      return VERSION_MATCH_BAD;
 	    }
 	}
@@ -415,7 +413,6 @@ symbol_version_matches (const struct VdlFile *in,
       }
     }
   // the versions don't match.
-  VDL_LOG_DEBUG("match fucked\n");
   return VERSION_MATCH_BAD;
 }
 
@@ -459,13 +456,11 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 								       index);
 	  if (version_match == VERSION_MATCH_PERFECT)
 	    {
-	      VDL_LOG_DEBUG("non-ambiguous match %d\n", version_match);
 	      // We have resolved the symbol
 	      if (item != file && file != 0)
 		{
 		  // The symbol has been resolved in another binary. Make note of this.
 		  vdl_list_push_front (file->gc_symbols_resolved_in, item);
-		  VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, item->name, file->name);
 		}
 	      struct VdlLookupResult result;
 	      result.file = item;
@@ -475,7 +470,6 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	    }
 	  else if (version_match == VERSION_MATCH_AMBIGUOUS)
 	    {
-	      VDL_LOG_DEBUG("ambiguous match %d\n", version_match);
 	      if (n_ambiguous_matches == 0)
 		{
 		  first_ambiguous_match = index;
@@ -485,7 +479,6 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	      last_ambiguous_match = index;
 	    }
 	}
-      VDL_LOG_DEBUG("no match\n");
 
       unsigned long final_match;
       struct VdlFile *final_item;      
@@ -514,7 +507,6 @@ vdl_lookup_with_scope_internal (struct VdlFile *file,
 	{
 	  // The symbol has been resolved in another binary. Make note of this.
 	  vdl_list_push_front (file->gc_symbols_resolved_in, final_item);
-	  VDL_LOG_DEBUG ("resolved %s in=%s from=%s\n", name, final_item->name, file->name);
 	}
       struct VdlLookupResult result;
       result.file = final_item;
