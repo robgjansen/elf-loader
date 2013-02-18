@@ -11,6 +11,7 @@
 #include "gdb.h"
 #include "machine.h"
 #include "stage2.h"
+#include "futex.h"
 #include "vdl-gc.h"
 #include "vdl-tls.h"
 #include "vdl-sort.h"
@@ -321,16 +322,35 @@ void stage2_freeres (void)
   vdl_tls_tcb_deallocate (tcb);
 }
 
+inline static void file_list_print(struct VdlList *l)
+{
+  void **cur;
+  for (cur = vdl_list_begin(l); cur != vdl_list_end(l); cur = vdl_list_next(cur))
+    {
+      struct VdlFile *file = *cur;
+      VDL_LOG_DEBUG("file=%p/\"%s\"\n", file, file->filename);
+    }
+}
+
 void
 stage2_finalize (void)
 {
-  // The only thing we need to do here is to invoke the destructors
-  // in the correct order.
+  // Our job here is to invoke the destructors of all still-loaded
+  // objects. This is tricky since:
+  //   - must handle all namespaces
+  //   - must handle still-running code in other threads
+  futex_lock (g_vdl.futex);
   struct VdlList *link_map = vdl_linkmap_copy ();
   struct VdlList *call_fini = vdl_sort_call_fini (link_map);
   struct VdlList *locked = vdl_fini_lock(call_fini);
-  vdl_fini_call (locked);
-  vdl_list_delete (locked);
   vdl_list_delete (call_fini);
   vdl_list_delete (link_map);
+
+  futex_unlock (g_vdl.futex);
+  vdl_fini_call (locked);
+  futex_lock (g_vdl.futex);
+
+  vdl_list_delete (locked);
+  futex_unlock (g_vdl.futex);
+
 }
