@@ -9,9 +9,9 @@ called function_f in libf
 dlclose libf.so completed
 libf destructor
 libg destructor
-libh destructor
 special destructor in libh.so
 called function_g in libg
+libh destructor
 dlclose libg.so completed
 libf constructor
 dlopen libf.so completed
@@ -21,9 +21,9 @@ dlopen libg.so completed
 libf destructor
 dlclose libf.so completed
 libg destructor
-libh destructor
 special destructor in libh.so
 called function_g in libg
+libh destructor
 dlclose libg.so completed
 leave main
 libtest5 destructor
