@@ -17,8 +17,8 @@ MACHINE_MAKEFILE=Makefile.$(TMP_ARCH)
 
 include $(SRCDIR)$(MACHINE_MAKEFILE)
 
-TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17 test18 test19 test21 test20 $(TEST64) test23 test24 test25
-TARGETS=hello libq.so libp.so libn.so libo.o libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so $(LIB64) \
+TESTS=test0 test0_1 test0_2 test1 test2 test3 test4 test5 test6 test7 test8 test8_5 test9 test10 test11 test15 test12 test13 test14 test16 test17 test18 test19 test21 test20 $(TEST64) test23 test24 test25 test26
+TARGETS=hello libr.so libq.so libp.so libn.so libo.o libo.so circular-dep libl.so libk.so libj.so libi.so libh.so libg.so libf.so libe.so libd.so libb.so liba.so libefl.so $(LIB64) \
  $(TESTS) $(addsuffix -ldso,$(TESTS))
 
 all: $(TARGETS)
@@ -115,6 +115,7 @@ test21: LINKER=$(CXX)
 run-test12: TEST_PRE_COMMAND=rm libl.so
 test24: LDFLAGS+=-lpthread
 test25: LDFLAGS+=-lpthread
+test26: LDFLAGS+=-lpthread
 
 
 clean:
