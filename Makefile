@@ -148,3 +148,4 @@ clean:
 	$(MAKE) -C test -f $(SRCDIR)test/Makefile clean
 
 -include $(SRC:%.o=.%.o.d)
+.PHONY: vdl-config.h
