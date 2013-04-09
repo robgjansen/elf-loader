@@ -146,6 +146,9 @@ def search_debug_file():
                     # ubuntu 1204
                     '/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.15.so',
                     '/usr/lib/debug/lib/i386-linux-gnu/ld-2.15.so',
+                    # ubuntu 1304
+                    '/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.17.so',
+                    '/usr/lib/debug/lib/i386-linux-gnu/ld-2.17.so',
                     ]
     for file in files_to_try:
         if os.path.isfile (file):
