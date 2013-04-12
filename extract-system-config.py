@@ -160,10 +160,13 @@ def list_lib_path():
     paths = []
     re_lib = re.compile ('(?<=^#)')
     for filename in os.listdir("/etc/ld.so.conf.d/"):
-        for line in open ("/etc/ld.so.conf.d/" + filename, 'r'):
-            if re_lib.search (line) is not None:
-                continue
-            paths.append(line.rstrip ())
+        try:
+            for line in open ("/etc/ld.so.conf.d/" + filename, 'r'):
+                if re_lib.search (line) is not None:
+                    continue
+                paths.append(line.rstrip ())
+        except:
+            continue
     return ':'.join(paths)
         
 def usage():
