@@ -29,7 +29,8 @@ $(OUTPUT_DIR)/test%.ref: test%
 	LD_LIBRARY_PATH=. ./$^ > $@
 diff: $(addprefix diff-,$(TESTS))
 update: $(addprefix update-,$(TESTS))
-run: $(TARGETS) $(addprefix run-,$(TESTS))
+run: $(TARGETS)
+	@PYTHONPATH=./ python testjunit.py $(addprefix ,$(TESTS))
 run-valgrind: $(TARGETS) $(addprefix run-valgrind-,$(TESTS))
 test%-ldso: test%
 	@cp $^ $@
