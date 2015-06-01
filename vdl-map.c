@@ -691,6 +691,7 @@ vdl_file_map_single (struct VdlContext *context,
   
   file->phdr = phdr;
   file->phnum = header.e_phnum;
+  file->e_type = header.e_type;
 
   system_close (fd);
 
