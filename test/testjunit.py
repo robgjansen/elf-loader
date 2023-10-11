@@ -11,7 +11,7 @@ for arg in sys.argv[1:]:
     if '12' in arg:
         val = subprocess.Popen(['rm' ,'-f', 'libl.so'])
         val.wait ()
-    
+
     cmd = ['./'+arg+'-ldso']
     test_env = os.environ.copy()
     test_env['LD_LIBRARY_PATH'] = '.:../'
@@ -21,12 +21,12 @@ for arg in sys.argv[1:]:
                            env = test_env)
     (stdout, stderr) = val.communicate()
     f = open ('output/' + arg, 'w')
-    f.write (stdout)
+    f.write (stdout.decode())
     f.close ()
     if val.returncode != 0:
-        test_cases.append(junit_xml_output.TestCase(arg, '(crash)\n '+ stderr,
+        test_cases.append(junit_xml_output.TestCase(arg, '(crash)\n '+ stderr.decode(),
                                                     "failure"))
-        print 'CRASH ' + arg + '  -- LD_LIBRARY_PATH=.:../ ./' + arg + '-ldso'
+        print('CRASH ' + arg + '  -- LD_LIBRARY_PATH=.:../ ./' + arg + '-ldso')
     else:
         cmd = ['diff', '-q', 
                'output/' + arg,
@@ -40,11 +40,11 @@ for arg in sys.argv[1:]:
         if val.returncode != 0:
             test_cases.append(junit_xml_output.TestCase(arg, stderr,
                                                         "failure"))
-            print 'FAIL ' + arg + '  -- LD_LIBRARY_PATH=.:../ ./' + arg + '-ldso'
+            print('FAIL ' + arg + '  -- LD_LIBRARY_PATH=.:../ ./' + arg + '-ldso')
         else:
             test_cases.append(junit_xml_output.TestCase(arg, stdout,
                                                         "success"))
-            print 'PASS ' + arg
+            print('PASS ' + arg)
 
 junit_xml = junit_xml_output.JunitXml("elf-loader-tests", test_cases)
 f = open ('elf-loader-tests.xml', 'w')

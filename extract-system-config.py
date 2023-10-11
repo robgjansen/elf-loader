@@ -4,6 +4,7 @@ import sys
 import re
 import getopt
 import os
+import subprocess
 
 
 class Data:
@@ -18,8 +19,9 @@ class DebugData:
             self.level = 0
             self.attributes = {}
     def __init__(self, debug_filename):
-        file = os.popen ('readelf -wi ' + debug_filename, 'r')
-        self.__lines = file.readlines ()
+        file = subprocess.check_output(['readelf', '-wi', debug_filename], \
+                   env=dict(os.environ, LC_ALL="C"))
+        self.__lines = list(filter(None, file.decode().split('\n')))
         self.__current = 0
         self.__re1 = re.compile ('<([^>]+)><([^>]+)>:[^A]*Abbrev Number:.*\d+.*\((\w+)\)')
         self.__re2 = re.compile ('<[^>]+>[^D]*(DW_AT_\w+)([^:]*:)+ <?0?x?([^ \t><\)]+)[ >\t\)]*$')
@@ -72,7 +74,7 @@ class DebugData:
         item = self.read_one ()
         while item is not None:
             if item.type.strip() == type and \
-                    item.attributes.has_key ('DW_AT_name') and \
+                    'DW_AT_name' in item.attributes and \
                     item.attributes['DW_AT_name'].strip() == name:
                 return item
             item = self.read_one ()
@@ -88,10 +90,10 @@ class DebugData:
         sub_item = self.read_one ()
         while sub_item is not None:
             if sub_item.level == parent.level:
-                self.write_back_one ()
+                self.write_back_one (sub_item)
                 return None
             if sub_item.type.strip() == 'DW_TAG_member' and \
-                    sub_item.attributes.has_key ('DW_AT_name') and \
+                    'DW_AT_name' in sub_item.attributes and \
                     sub_item.attributes['DW_AT_name'].strip() == member_name:
                 return Data (sub_item.attributes['DW_AT_data_member_location'].strip())
             sub_item = self.read_one ()
@@ -108,7 +110,7 @@ class DebugData:
         item = self.find_struct (struct_type_name)
         if item is None:
             return None
-        if not item.attributes.has_key ('DW_AT_byte_size'):
+        if 'DW_AT_byte_size' not in item.attributes:
             return None
         return Data (item.attributes['DW_AT_byte_size'].strip())
     def get_typedef_member_offset (self, typename, member):
@@ -116,7 +118,7 @@ class DebugData:
         item = self.find_by_name ('DW_TAG_typedef', typename)
         if item is None:
             return None
-        if not item.attributes.has_key ('DW_AT_type'):
+        if 'DW_AT_type' not in item.attributes:
             return None
         ref = item.attributes['DW_AT_type'].strip()
         self.rewind ()
@@ -125,7 +127,7 @@ class DebugData:
             return None
         return self.find_member (member, item)
 
-class CouldNotFindFile:
+class CouldNotFindFile(BaseException):
     pass
 
 def search_debug_file():
@@ -159,7 +161,22 @@ def search_debug_file():
     for file in files_to_try:
         if os.path.isfile (file):
             return file
-    
+
+    sfiles_to_try = ['/usr/lib64/ld-linux-x86-64.so.2',
+                     '/usr/lib32/ld-linux-x86-64.so.2',
+                     '/usr/lib/ld-linux-x86-64.so.2',
+                    ]
+    for file in sfiles_to_try:
+        if os.path.isfile (file):
+            notes = subprocess.check_output(['readelf', '-n', file], \
+                        env=dict(os.environ, LC_ALL="C")).decode().split("\n")
+            for line in notes:
+                if re.search("Build ID", line):
+                    hash = line.split()[2]
+                    path = "/usr/lib/debug/.build-id/" + hash[:2] + "/" + \
+                            hash[2:] + ".debug"
+                    return path
+
     raise CouldNotFindFile ()
 
 def list_lib_path():
@@ -174,9 +191,9 @@ def list_lib_path():
         except:
             continue
     return ':'.join(paths)
-        
+
 def usage():
-    print ''
+    print('')
 
 def main(argv):
     config_filename = ''
@@ -218,10 +235,10 @@ def main(argv):
         sys.exit (1)
     config.write ('#define CONFIG_RTLD_DL_PAGESIZE_OFFSET ' + str(data.data) + '\n')
 
-    data = debug.get_struct_member_offset ('rtld_global', '_dl_error_catch_tsd')
-    if data is None:
-        sys.exit (1)
-    config.write ('#define CONFIG_DL_ERROR_CATCH_TSD_OFFSET ' + str(data.data) + '\n')
+#    data = debug.get_struct_member_offset ('rtld_global', '_dl_error_catch_tsd')
+#    if data is None:
+#        sys.exit (1)
+#    config.write ('#define CONFIG_DL_ERROR_CATCH_TSD_OFFSET ' + str(data.data) + '\n')
 
     data = debug.get_struct_size ('pthread')
     if data is None:

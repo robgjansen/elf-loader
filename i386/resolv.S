@@ -38,3 +38,7 @@ machine_resolve_trampoline:
 fail:	addl $8,%esp
 	# return to the caller
 	ret
+
+#ifdef __ELF__
+.section .note.GNU-stack,"",%progbits
+#endif

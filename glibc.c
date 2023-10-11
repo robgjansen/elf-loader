@@ -81,12 +81,13 @@ extern __typeof (_rtld_local) _rtld_global __attribute__ ((alias("_rtld_local"),
 //_r_debug;
 //__libc_memalign;
 
-
+#if 0
 static void **vdl_dl_error_catch_tsd (void)
 {
   static void *data;
   return &data;
 }
+#endif
 
 // definition stolen from glibc...
 struct tls_index
@@ -223,9 +224,9 @@ void glibc_startup_finished (void)
 
 void glibc_initialize (void)
 {
-  void **(*fn) (void) = vdl_dl_error_catch_tsd;
-  char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
-  vdl_memcpy ((void*)dst, &fn, sizeof (fn));
+//  void **(*fn) (void) = vdl_dl_error_catch_tsd;
+//  char *dst = &_rtld_local[CONFIG_DL_ERROR_CATCH_TSD_OFFSET];
+//  vdl_memcpy ((void*)dst, &fn, sizeof (fn));
   char *off = &_rtld_local_ro[CONFIG_RTLD_DL_PAGESIZE_OFFSET];
   int pgsz = system_getpagesize ();
   vdl_memcpy (off, &pgsz, sizeof (pgsz));
