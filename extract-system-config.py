@@ -159,7 +159,22 @@ def search_debug_file():
     for file in files_to_try:
         if os.path.isfile (file):
             return file
-    
+
+    sfiles_to_try = ['/usr/lib64/ld-linux-x86-64.so.2',
+                     '/usr/lib32/ld-linux-x86-64.so.2',
+                     '/usr/lib/ld-linux-x86-64.so.2',
+                    ]
+    for file in sfiles_to_try:
+        if os.path.isfile (file):
+            notes = subprocess.check_output(['readelf', '-n', file], \
+                        env=dict(os.environ, LC_ALL="C")).decode().split("\n")
+            for line in notes:
+                if re.search("Build ID", line):
+                    hash = line.split()[2]
+                    path = "/usr/lib/debug/.build-id/" + hash[:2] + "/" + \
+                            hash[2:] + ".debug"
+                    return path
+
     raise CouldNotFindFile ()
 
 def list_lib_path():
