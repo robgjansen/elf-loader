@@ -160,7 +160,7 @@ setup_env_vars (const char **envp)
 struct Stage2Output
 stage2_initialize (struct Stage2Input input)
 {
-  struct Stage2Output output;
+  struct Stage2Output output = {};
 
   setup_env_vars ((const char**)input.program_envp);
 
