@@ -233,10 +233,10 @@ def main(argv):
         sys.exit (1)
     config.write ('#define CONFIG_RTLD_DL_PAGESIZE_OFFSET ' + str(data.data) + '\n')
 
-    data = debug.get_struct_member_offset ('rtld_global', '_dl_error_catch_tsd')
-    if data is None:
-        sys.exit (1)
-    config.write ('#define CONFIG_DL_ERROR_CATCH_TSD_OFFSET ' + str(data.data) + '\n')
+#    data = debug.get_struct_member_offset ('rtld_global', '_dl_error_catch_tsd')
+#    if data is None:
+#        sys.exit (1)
+#    config.write ('#define CONFIG_DL_ERROR_CATCH_TSD_OFFSET ' + str(data.data) + '\n')
 
     data = debug.get_struct_size ('pthread')
     if data is None:
