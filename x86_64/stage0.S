@@ -35,4 +35,7 @@ L1:	lea -L1(%rdi),%rdi
 	# trick from glibc: crash if we return here. Should not
 	# happen ever
 	hlt
-	
+
+#ifdef __ELF__
+.section .note.GNU-stack,"",%progbits
+#endif

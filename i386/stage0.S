@@ -28,4 +28,7 @@ L1:	leal -L1(%ebx),%ebx
 	movl 8(%esp),%esp
 	xorl %eax, %eax
 	jmp *%esi
-	
+
+#ifdef __ELF__
+.section .note.GNU-stack,"",%progbits
+#endif

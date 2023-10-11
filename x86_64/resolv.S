@@ -49,4 +49,7 @@ machine_resolve_trampoline:
 fail:	add $16,%rsp
 	# return to the caller
 	ret
-	
+
+#ifdef __ELF__
+.section .note.GNU-stack,"",%progbits
+#endif
