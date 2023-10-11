@@ -22,9 +22,9 @@ class JunitXml(object):
 			self.total_failures = len(self.failing_test_cases)
 		self.root = ET.Element("testsuite",
 			{
-				"name" : unicode(self.testsuit_name),
-				"failures": unicode(self.total_failures),
-				"tests" : unicode(self.total_tests)
+				"name" : str(self.testsuit_name),
+				"failures": str(self.total_failures),
+				"tests" : str(self.total_tests)
 			}
 		)
 		self.build_junit_xml()
@@ -39,7 +39,7 @@ class JunitXml(object):
 		"""
 		for case in self.test_cases:
 			test_case_element = ET.SubElement(self.root,
-				"testcase", {"name" : unicode(case.name)})
+				"testcase", {"name" : str(case.name)})
 			if case.is_failure():
 				failure_element = ET.Element("failure")
 				failure_element.text = case.contents
